@@ -198,20 +198,38 @@ class ConversionTests(unittest.TestCase):
                     setup.clone('test-repository', path)
             self.assertEqual((path / 'user/workflow.json').read_text(), 'personal workflow')
 
-    def test_clean_installer_archive_is_self_contained(self):
+    def test_download_contains_one_pinned_bootstrap(self):
         with zipfile.ZipFile(ROOT / 'dist/ComfyUI-Easy-Install-AMD.zip') as archive:
-            self.assertEqual(set(archive.namelist()), {'ComfyUI-Easy-Install-AMD.bat', 'Helper-AMD.zip', 'README.txt'})
-            with zipfile.ZipFile(io.BytesIO(archive.read('Helper-AMD.zip'))) as helper:
-                for path in ('amd/setup.py', 'amd/nodes.json', 'amd/detect_gpu.py', 'amd/shortcuts.py',
-                             'ComfyUI-Easy-Install-AMD Launcher.bat',
-                             'Add-Ons/Tools/Helper-CEI/ComfyUI-EZi-Launcher.py'):
-                    self.assertIn(path, helper.namelist())
-                self.assertIsNone(helper.testzip())
-                self.assertFalse(any(name.startswith('ComfyUI/') for name in helper.namelist()))
-                self.assertTrue(any(name.startswith('preset-files/ComfyUI/') for name in helper.namelist()))
+            self.assertEqual(archive.namelist(), ['ComfyUI-Easy-Install-AMD.bat'])
             bat = archive.read('ComfyUI-Easy-Install-AMD.bat').decode()
             self.assertIn('set "AMD_ROOT=%~dp0ComfyUI-Easy-Install-AMD"', bat)
-            self.assertNotIn('xcopy', bat.lower())
+            self.assertIn('github.com/BoomerCyb/ComfyUI-Easy-Install-AMD.git', bat)
+            self.assertNotIn('set "AMD_SOURCE_REF=Windows"', bat)
+            self.assertIn('checkout --detach FETCH_HEAD', bat)
+            self.assertIn('stage_payload.py', bat)
+            self.assertNotIn('Helper-AMD.zip', bat)
+            self.assertIsNone(archive.testzip())
+
+    def test_git_payload_staging_preserves_user_workflows(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('stage_payload', ROOT / 'tools/stage_payload.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / 'portable'
+            workflow = destination / 'ComfyUI/user/default/workflows/personal.json'
+            workflow.parent.mkdir(parents=True)
+            workflow.write_text('personal workflow')
+            module.stage(ROOT, destination)
+            self.assertEqual(workflow.read_text(), 'personal workflow')
+            self.assertTrue((destination / 'amd/setup.py').is_file())
+            self.assertTrue((destination / 'Add-Ons/Tools/Helper-CEI/ComfyUI-EZi-Launcher.py').is_file())
+            self.assertTrue((destination / 'documentation/licenses/EASY-INSTALL-LICENSE').is_file())
+            self.assertTrue((destination / 'preset-files/ComfyUI').is_dir())
+            module.stage(ROOT, destination)
+            self.assertEqual(workflow.read_text(), 'personal workflow')
+            with self.assertRaises(ValueError):
+                module.stage(ROOT, ROOT / 'unsafe-target')
 
     def test_launcher_shortcuts_target_separate_launcher(self):
         with tempfile.TemporaryDirectory() as directory:

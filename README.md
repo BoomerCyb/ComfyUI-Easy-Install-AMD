@@ -10,7 +10,7 @@ patientx's architecture mappings with WMIC and a native Windows registry fallbac
 
 ## Install
 
-Download the release ZIP and extract all three files together. Run
+Download the release ZIP and extract the single installer file. Run
 `ComfyUI-Easy-Install-AMD.bat` as a normal user. From source, first run
 `Build Release.bat` with Python 3 installed; release files appear in `dist/`.
 The installer creates a separate portable `ComfyUI-Easy-Install-AMD` folder here.
@@ -28,9 +28,11 @@ ROCm initialization and patientx's RDNA-specific attention/environment settings.
 The separate EZi Launcher window (Desktop / Browser / Update buttons) opens through
 the desktop **ComfyUI-Easy-Install-AMD Launcher** shortcut or the installed
 `ComfyUI-Easy-Install-AMD Launcher.bat`. Setup creates the shortcut automatically.
-The distribution contains only the installer batch file, `Helper-AMD.zip` and
-`README.txt`. Helper scripts, EZi assets and licenses are packed inside the helper
-archive and expanded only during setup. Development files are excluded.
+The download ZIP contains only `ComfyUI-Easy-Install-AMD.bat`. Setup clones
+this GitHub fork, downloads portable Python, and stages the EZi assets, AMD
+helpers and license notices automatically. Release ZIPs pin the helper source
+to an exact Git commit. No separate helper ZIP is needed. Running the batch
+file directly from source uses the current Windows branch. Internet access is required.
 
 ## Included
 
