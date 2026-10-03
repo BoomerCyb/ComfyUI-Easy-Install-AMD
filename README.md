@@ -165,8 +165,8 @@ patientx's ROCm changes. Frontend switching remains available. The original Easy
 Install helper updater is also disabled because it would overwrite AMD changes;
 converted helper updates must come from this AMD project.
 
-The original `ComfyUI-Easy-Install.bat` entry point forwards to the AMD installer.
-Do not run the preserved original NVIDIA files under `vendor/`.
+The NVIDIA entry point and inherited release automation were removed from
+this branch. Use `ComfyUI-Easy-Install-AMD.bat`; `vendor/` preserves license texts.
 
 ## Easy Install AMD edition presentation
 
@@ -196,7 +196,7 @@ routing underneath the existing EZi interface.
 
 - Revised GPU detector tested on the local RX 9070 XT: selected `gfx1201` while
   integrated Radeon graphics were also present.
-- Twenty automated checks passed for AMD package routing, unsupported architectures,
+- Twenty-seven automated checks passed for AMD package routing, unsupported architectures,
   launch argument parsing, attention selection, constraint handling, source
   syntax, retained nodes, and removal of CUDA installers.
 - No PowerShell calls or `.ps1` files remain in the runtime payload. Bundle activation
