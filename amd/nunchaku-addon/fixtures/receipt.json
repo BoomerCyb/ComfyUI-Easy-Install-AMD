@@ -1,0 +1,74 @@
+{
+  "repository": "nunchaku-ai/nunchaku-qwen-image",
+  "revision": "4d9f4f667ea571ab172e0ee29ac2c27b82a41a6b",
+  "file": "svdq-int4_r32-qwen-image.safetensors",
+  "layer": "transformer_blocks.0.attn.to_add_out",
+  "downloaded_tensor_bytes": 5419008,
+  "tensor_specs": {
+    "qweight": {
+      "dtype": "I8",
+      "shape": [
+        3072,
+        1536
+      ],
+      "data_offsets": [
+        4740865152,
+        4745583744
+      ]
+    },
+    "wscales": {
+      "dtype": "BF16",
+      "shape": [
+        48,
+        3072
+      ],
+      "data_offsets": [
+        3458514048,
+        3458808960
+      ]
+    },
+    "proj_down": {
+      "dtype": "BF16",
+      "shape": [
+        3072,
+        32
+      ],
+      "data_offsets": [
+        3458108544,
+        3458305152
+      ]
+    },
+    "proj_up": {
+      "dtype": "BF16",
+      "shape": [
+        3072,
+        32
+      ],
+      "data_offsets": [
+        3458305152,
+        3458501760
+      ]
+    },
+    "smooth_factor": {
+      "dtype": "BF16",
+      "shape": [
+        3072
+      ],
+      "data_offsets": [
+        3458501760,
+        3458507904
+      ]
+    },
+    "bias": {
+      "dtype": "BF16",
+      "shape": [
+        3072
+      ],
+      "data_offsets": [
+        3458102400,
+        3458108544
+      ]
+    }
+  },
+  "scope": "One layer only; not a runnable model"
+}

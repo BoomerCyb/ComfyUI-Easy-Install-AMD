@@ -1,0 +1,7 @@
+__pycache__/
+.cache/
+*.pyc
+*.log
+/dist/
+/models/
+/python_embeded/

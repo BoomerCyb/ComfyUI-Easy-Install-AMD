@@ -1,0 +1,6 @@
+* text=auto
+*.bat text eol=crlf
+*.py text eol=lf
+*.safetensors binary
+*.png binary
+*.zip binary

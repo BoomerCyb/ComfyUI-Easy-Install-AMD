@@ -1,0 +1,23 @@
+Independent AMD adapters for published Nunchaku INT4 checkpoints.
+No NVIDIA Nunchaku extension is bundled or emulated.
+
+FLUX.1 Schnell checkpoint: nunchaku-tech/nunchaku-flux.1-schnell
+revision b18e8e6333da55835f6ce16c04b13c543c0954b1.
+Base model Black Forest Labs FLUX.1 Schnell; model card Apache 2.0.
+https://huggingface.co/nunchaku-tech/nunchaku-flux.1-schnell
+
+Z-Image Turbo checkpoint: nunchaku-tech/nunchaku-z-image-turbo
+revision ca6bac69c3b0b2bdd31ca5196bf87c5f2a9eaedf.
+Separate signed INT4 and E2M1 FP4/FP8-scale variants are supported.
+https://huggingface.co/nunchaku-tech/nunchaku-z-image-turbo
+Encoder/VAE: Comfy-Org/z_image_turbo
+revision 6fc90a3b1b653e935a0d175e260736de25b84df5.
+Model weights retain their original licenses and are downloaded separately.
+
+Packing and graph-layout references: Nunchaku/SVDQuant and DeepCompressor
+(MIT HAN Lab and contributors), Apache 2.0; nunchaku-lite adapters
+https://github.com/rootonchair/nunchaku-lite (Apache 2.0).
+Reference revision e663e48ccf3ec5264355e1872aeebef0284706c9.
+The AMD adapters use the existing ComfyUI implementation of model graphs,
+attention and positional embeddings; ComfyUI retains its original license.
+The included example image was generated locally to demonstrate editing.

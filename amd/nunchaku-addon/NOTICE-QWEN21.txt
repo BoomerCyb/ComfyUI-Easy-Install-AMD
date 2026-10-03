@@ -1,0 +1,22 @@
+Qwen 2.1 checkpoint format and references
+
+This independently authored AMD loader reads the Nunchaku SVDQ signed INT4
+checkpoint published by MesmerTech, revision
+868fc8b147de20f2c6e6835b694b2c4d9de9b5a6:
+https://huggingface.co/mesmertech/Mesmer-Image-21-Nunchaku
+The checkpoint uses upstream Nunchaku/DeepCompressor packing, signed W4A4
+projections and BF16 rank-128 compensation branches. Model weights are not
+included in this installer. They retain their own Qwen Research License.
+
+Turbo uses the Viggle v0.3 six-step adapter at revision
+009a44a895ef85f7e643c80fdca9543795248867:
+https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo
+Its runtime LoRA and resolution-dependent schedule follow the published
+method, implemented here for the AMD INT4 modules. Adapter weights retain
+their separate model license and are not bundled.
+
+ComfyUI provides the Qwen 2.1 transformer architecture, positional encoding,
+shared modulation, attention and sampling. The 224 block projection layers
+are replaced by this project's AMD packed INT4 backend. This does not run
+the official NVIDIA Nunchaku extension, native INT4 matrix instructions,
+or NVFP4 kernels. AMD numerical equivalence to NVIDIA is unverified.

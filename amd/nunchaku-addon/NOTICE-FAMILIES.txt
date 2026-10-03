@@ -1,0 +1,22 @@
+Additional AMD model-family adapters
+
+Packing and model-graph references:
+https://github.com/nunchux-ai/nunchaku
+Audited revision: 302e0e97024ebd68688fe890e5df83731edf7b54
+https://github.com/rootonchair/nunchaku-lite
+Audited revision: e663e48ccf3ec5264355e1872aeebef0284706c9
+
+Published checkpoints: nunchaku-ai/nunchaku-sdxl,
+nunchaku-ai/nunchaku-sana1.6, mit-han-lab/nunchaku-t5,
+tonera/FLUX.2-klein-9B-Nunchaku, and
+lite-infer/LTX-2.3-Distilled-v1.1-Diffusers-nunchaku-lite-int4-bnb4-text-encoder.
+Exact revision URLs and expected file sizes, including required dependencies,
+are recorded in ../nunchaku-families-downloads.json.
+
+The adapters use ComfyUI/Diffusers model graphs and an independent AMD Triton
+packed-weight backend. They do not load the NVIDIA Nunchaku extension.
+LTX encoder/connectors use independent NF4 weight-only decoding; their NF4
+weights are dependencies, not SVDQ transformer projections.
+Existing upstream license texts remain bundled. Downloaded models and their
+components retain their respective upstream licenses and use restrictions.
+NVIDIA numerical parity is unverified.
