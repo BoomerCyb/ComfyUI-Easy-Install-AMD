@@ -10,9 +10,15 @@ revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=
 bat = (root / 'ComfyUI-Easy-Install-AMD.bat').read_text(encoding='utf-8')
 bat = bat.replace('set "AMD_SOURCE_REF=Windows"', f'set "AMD_SOURCE_REF={revision}"')
 destination = dist / 'ComfyUI-Easy-Install-AMD.zip'
+folder = Path('ComfyUI-Easy-Install-AMD')
 with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as archive:
-    archive.writestr('ComfyUI-Easy-Install-AMD.bat', bat.replace('\n', '\r\n').encode('utf-8'))
+    archive.writestr(str(folder / 'ComfyUI-Easy-Install-AMD.bat'), bat.replace('\n', '\r\n').encode('utf-8'))
+    for name in ('README.md', 'LICENSE', 'UPSTREAM.md', 'CHANGES.md'):
+        archive.write(root / name, folder / name)
+    for name in ('EASY-INSTALL-LICENSE', 'ROCM-LICENSE'):
+        archive.write(root / 'vendor' / name, folder / 'licenses' / name)
 with zipfile.ZipFile(destination) as archive:
     assert archive.testzip() is None
-    assert archive.namelist() == ['ComfyUI-Easy-Install-AMD.bat']
-print(f'{destination}\nOne installer file; {destination.stat().st_size:,} bytes; source revision {revision}')
+    assert len(archive.namelist()) == 7
+    assert all(name.startswith('ComfyUI-Easy-Install-AMD/') for name in archive.namelist())
+print(f'{destination}\nOne installer plus documentation/licenses; {destination.stat().st_size:,} bytes; source revision {revision}')

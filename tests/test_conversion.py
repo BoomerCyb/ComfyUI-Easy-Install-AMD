@@ -200,8 +200,10 @@ class ConversionTests(unittest.TestCase):
 
     def test_download_contains_one_pinned_bootstrap(self):
         with zipfile.ZipFile(ROOT / 'dist/ComfyUI-Easy-Install-AMD.zip') as archive:
-            self.assertEqual(archive.namelist(), ['ComfyUI-Easy-Install-AMD.bat'])
-            bat = archive.read('ComfyUI-Easy-Install-AMD.bat').decode()
+            self.assertEqual(len(archive.namelist()), 7)
+            self.assertTrue(all(name.startswith('ComfyUI-Easy-Install-AMD/') for name in archive.namelist()))
+            self.assertIn('ComfyUI-Easy-Install-AMD/LICENSE', archive.namelist())
+            bat = archive.read('ComfyUI-Easy-Install-AMD/ComfyUI-Easy-Install-AMD.bat').decode()
             self.assertIn('set "AMD_ROOT=%~dp0ComfyUI-Easy-Install-AMD"', bat)
             self.assertIn('github.com/BoomerCyb/ComfyUI-Easy-Install-AMD.git', bat)
             self.assertNotIn('set "AMD_SOURCE_REF=Windows"', bat)

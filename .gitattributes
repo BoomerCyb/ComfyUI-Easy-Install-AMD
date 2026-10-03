@@ -4,3 +4,4 @@
 *.safetensors binary
 *.png binary
 *.zip binary
+*.md text eol=lf
