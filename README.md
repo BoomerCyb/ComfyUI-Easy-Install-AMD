@@ -118,7 +118,7 @@ add-ons have different compatibility requirements. Internet access is required.
     - **SageAttention** - *Installs the matching AMD/ROCm attention package*
     - **FlashAttention** - *Installs compatible ROCm FlashAttention/AITER packages for the selected bundle*
     - **InsightFace** - *Installs InsightFace*
-    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes*
+    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes and runs each node's install batch to build its native backends with ComfyUI's Python. Requires the matching HIP SDK, Visual Studio C++ Build Tools/Windows SDK, and WTiVo's vcpkg CPU dependencies. Installed appears after backend verification succeeds.*
     - **MostAadTech WTiVo Nodes** - *Installs four mesh and memory utilities; Blender is required for the Blender-based nodes*
     - **Pixaroma Workflows** - *Downloads workflows and checks for new ones*
     - **PixelArtistry Workflows** - *Downloads the watertight workflows*
