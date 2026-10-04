@@ -3,8 +3,8 @@
 Modified by BoomerCyb from Tavris1's Windows Easy Install and patientx's
 ROCm integration. This edition adds AMD GPU detection, RDNA bundle selection,
 ROCm bundle switching, dependency constraints, AMD launcher integration,
-workflow downloads and grouped WTiVo add-ons. It includes the separate
-Nunchaku-AMD packed-weight ComfyUI adapters.
+workflow downloads and grouped WTiVo add-ons. Its Nunchaku add-on downloads the separate
+Nunchaku-AMD packed-weight ComfyUI adapters from their public repository.
 
 The converted files are under `helper-source/` and `amd/`; the AMD entry point
 is `ComfyUI-Easy-Install-AMD.bat`. NVIDIA entry points and inherited release

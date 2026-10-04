@@ -154,7 +154,17 @@ class ConversionTests(unittest.TestCase):
             (root / 'ComfyUI/custom_nodes/another-node').mkdir(parents=True)
             (root / 'ComfyUI/main.py').write_text('existing ComfyUI')
             (root / 'ComfyUI/custom_nodes/another-node/user.py').write_text('user content')
-            install_nunchaku.install(root)
+            def download(command, **kwargs):
+                if command[1] == 'clone':
+                    source = Path(command[-1])
+                    for name in ('__init__.py', 'nunchaku_amd.py', 'packed_kernel.py', 'NOTICE.txt', 'LICENSE',
+                                 'Nunchaku-AMD-Qwen-Image-2.1-Viggle-Turbo.json', 'Nunchaku-AMD-Qwen-Layer-Test.json',
+                                 'web/report.js', 'fixtures/qwen-int4-layer.safetensors', '.git/config'):
+                        path = source / name
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_text('downloaded test file')
+            with patch.object(install_nunchaku.subprocess, 'run', side_effect=download), patch.object(install_nunchaku.subprocess, 'check_output', return_value=install_nunchaku.REVISION):
+                install_nunchaku.install(root)
             self.assertEqual((root / 'ComfyUI/custom_nodes/another-node/user.py').read_text(), 'user content')
             addon = root / 'ComfyUI/custom_nodes/ComfyUI-Nunchaku-AMD'
             self.assertTrue((addon / 'web/report.js').is_file())
@@ -162,9 +172,24 @@ class ConversionTests(unittest.TestCase):
             self.assertFalse((addon / '.cache').exists())
             self.assertTrue((root / 'ComfyUI/user/default/workflows/Nunchaku-AMD-Qwen-Layer-Test.json').is_file())
             (addon / 'previous-user-file.txt').write_text('preserve me')
-            install_nunchaku.install(root)
+            with patch.object(install_nunchaku.subprocess, 'run', side_effect=download), patch.object(install_nunchaku.subprocess, 'check_output', return_value=install_nunchaku.REVISION):
+                install_nunchaku.install(root)
             backups = list((root / 'amd/nunchaku-backups').iterdir())
             self.assertEqual((backups[0] / 'previous-user-file.txt').read_text(), 'preserve me')
+            self.assertTrue((addon / '.git/config').is_file())
+
+    def test_nunchaku_download_failure_preserves_installed_addon(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            addon = root / 'ComfyUI/custom_nodes/ComfyUI-Nunchaku-AMD'
+            addon.mkdir(parents=True)
+            (root / 'ComfyUI/main.py').touch()
+            (addon / 'user.txt').write_text('keep working add-on')
+            with patch.object(install_nunchaku.subprocess, 'run', side_effect=install_nunchaku.subprocess.CalledProcessError(1, 'git')):
+                with self.assertRaises(install_nunchaku.subprocess.CalledProcessError):
+                    install_nunchaku.install(root)
+            self.assertEqual((addon / 'user.txt').read_text(), 'keep working add-on')
+            self.assertFalse(list((root / 'amd').glob('nunchaku-download-*')))
 
     def test_nunchaku_entry_uses_local_rocm_addon(self):
         batch = (ROOT / 'helper-source/ComfyUI-Easy-Install/Add-Ons/Nunchaku.bat').read_text()

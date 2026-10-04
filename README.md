@@ -51,7 +51,8 @@ file directly from source uses the current Windows branch. Internet access is re
 - InsightFace installer with CPU ONNX Runtime, portable SoX where downloadable,
   and an optional CPU llama-cpp wheel instead of the NVIDIA CUDA wheel.
 
-The **Nunchaku AMD — RX 9070 XT only** add-on installs the full model
+The **Nunchaku AMD — RX 9070 XT only** add-on downloads the tested version
+from [BoomerCyb/Nunchaku-AMD](https://github.com/BoomerCyb/Nunchaku-AMD), installs the full model
 loader and the `Nunchaku-AMD-Qwen-Image` workflow. It downloads the original
 Nunchaku Qwen-Image INT4 checkpoint, matching Qwen 2.5 text encoder and VAE
 if missing (about 21 GB total). Restart ComfyUI, open that workflow and run it.
@@ -64,7 +65,8 @@ For original Qwen-Image, external LoRAs and attention patches are unsupported. I
 are expanded into BF16/FP16 tiles; this does not use native INT4 matrix instructions.
 NVIDIA output equivalence and production performance have not been established.
 The separate `Nunchaku-AMD-Qwen-Layer-Test` workflow remains available for diagnosis.
-The bundled single-layer fixture and prototype include Apache 2.0 notices.
+The separately downloaded Nunchaku repository includes the diagnostic fixture
+and Apache 2.0 notices. The installer contains no duplicate Nunchaku implementation.
 
 The add-on now also supports **Qwen-Image 2.1 Nunchaku INT4** through the separate
 `Nunchaku-AMD-Qwen-Image-2.1` and `Nunchaku-AMD-Qwen-Image-2.1-Viggle-Turbo`
@@ -201,7 +203,7 @@ routing underneath the existing EZi interface.
 
 - Revised GPU detector tested on the local RX 9070 XT: selected `gfx1201` while
   integrated Radeon graphics were also present.
-- Twenty-eight automated checks passed for AMD package routing, unsupported architectures,
+- Twenty-nine automated checks passed for AMD package routing, unsupported architectures,
   launch argument parsing, attention selection, constraint handling, source
   syntax, retained nodes, and removal of CUDA installers.
 - No PowerShell calls or `.ps1` files remain in the runtime payload. Bundle activation
