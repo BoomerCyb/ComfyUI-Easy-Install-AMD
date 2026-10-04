@@ -52,7 +52,7 @@ ComfyUI/frontend versions, UV/PIP caches, and GGUF conversion** from one place.
 |---|---|
 | [Git](https://git-scm.com/) | ![Git version](https://img.shields.io/github/v/tag/git/git?label=&display_name=tag&color=blue) - Latest (will install/update if needed) |
 | [Python](https://www.python.org/downloads/release/python-31210/) | ![Python version](https://img.shields.io/badge/3.12.10-blue) - Embedded version |
-| [ComfyUI ROCm](https://github.com/Comfy-Org/ComfyUI) | AMD/ROCm fork with automatic GPU detection |
+| [ComfyUI](https://github.com/Comfy-Org/ComfyUI) | Official ComfyUI with AMD/ROCm setup |
 
 </details>
 
@@ -185,12 +185,20 @@ Setup and Update ComfyUI install a small local extension that allows browser-loc
 
 ComfyUI Shape is included automatically in fresh installs. Open Settings, search for **Node shape**, and choose **Box** (square corners, default) or **Card** under **ComfyUI Shape**. The selection is remembered and applies to existing nodes, new nodes, and loaded workflows. No GPU build or extra requirements are needed. Update ComfyUI also restores the bundled extension; restart ComfyUI and reload the browser afterward.
 
-### Optional Triton and attention packages - 2026-10-04
+### Triton and optional attention packages - 2026-10-04
 
-Triton, Sage Attention and Flash Attention are no longer installed automatically with the core GPU bundle. Use **Add-ons → Triton** to install Triton; its button shows **Installed** when the package is present. Sage and Flash add-ons also install Triton when needed. The regular launcher keeps the ComfyUI Triton backend disabled and uses standard PyTorch attention. Existing installations retain their already installed packages.
+Triton installs automatically with the core GPU bundle so bundled Triton-dependent nodes can load. There is no separate Triton add-on button. Sage Attention and Flash Attention remain optional Add-ons. The regular launcher keeps the ComfyUI Triton backend disabled and uses PyTorch attention; custom nodes may still use Triton internally.
 
 ### Official ComfyUI transition
 
-Fresh installations clone official **Comfy-Org/ComfyUI**. Updates, release checks, tag lists and requirements lookups also use the official repository. Existing patientx installations are not switched in place: use a fresh folder and preserve models, workflows, input and output. The normal launcher explicitly selects PyTorch attention; Kitchen, Sage and Flash remain separate launch choices. AMD package management, optional Triton/Sage/Flash add-ons, ComfyUI Shape, and offline texture previews remain included. This release has not yet been validated with a complete fresh GPU installation. ROCm/PyTorch still default to the nightly channel; stable and saved bundles are available in the bundle manager.
+Fresh installations clone official **Comfy-Org/ComfyUI**. Updates, release checks, tag lists and requirements lookups also use the official repository. Existing patientx installations are not switched in place: use a fresh folder and preserve models, workflows, input and output. The normal launcher explicitly selects PyTorch attention; Kitchen, Sage and Flash remain separate launch choices. AMD package management, default Triton and optional Sage/Flash add-ons, ComfyUI Shape, and offline texture previews remain included. This release has not yet been validated with a complete fresh GPU installation. ROCm/PyTorch still default to the nightly channel; stable and saved bundles are available in the bundle manager.
 
-Add-ons display order: Easy-Models-Linker, Triton AMD, FlashAttention, SageAttention, InsightFace, Nunchaku, Trellis 2 / Pixal3D, Pixaroma Workflows, PixelArtistry Watertight Workflows, BoomerCyb WTiVo AMD Nodes, MostAadTech WTiVo Nodes. Easy-Models-Linker does not show an Installed label.
+Add-ons display order: Easy-Models-Linker, FlashAttention AMD, SageAttention AMD, InsightFace, Nunchaku - RX 9070 XT, Trellis 2 / Pixal3D, Pixaroma Workflows, PixelArtistry Watertight Workflows, BoomerCyb WTiVo AMD Nodes, MostAadTech WTiVo Nodes. Easy-Models-Linker does not show an Installed label.
+
+INT8-Fast-ROCM is no longer part of the default node collection. Existing installations are not removed automatically.
+
+Default nodes now match the original Easy Install collection. Removed patientx-setup additions: CFZ-SwitchMenu, CFZ-Caching, HFRemoteVae, H3 SLA Attention ROCm and Spectrum Qwen2.1, alongside INT8-Fast-ROCM. AMD attention package add-ons and their original attribution remain. Existing installed node folders are not deleted automatically.
+
+### System Info
+
+Displays EZI, ComfyUI, Frontend, Python, PyTorch, HIP, ROCm, AMD Drv, GPU Model, Video VRAM, System RAM, Page File and Long Paths. PyTorch includes its full version and the AMD driver is read from Windows. The pinned Triton package still requires AMD kernel compatibility testing with the nightly runtime.
