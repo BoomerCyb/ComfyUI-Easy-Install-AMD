@@ -1,6 +1,10 @@
 @echo off
 cd /d "%~dp0"
 setlocal
+for %%I in ("%~dp0.") do set "CEI_FOLDER=%%~fI"
+for %%I in ("%CEI_FOLDER%") do set "CEI_FOLDER_NAME=%%~nxI"
+for %%I in ("%CEI_FOLDER%") do set "CEI_PARENT=%%~dpI"
+if /i "%CEI_FOLDER_NAME%"=="ComfyUI-Easy-Install-AMD-Windows" goto rename_download_folder
 set "CEI_Title=ComfyUI-Easy-Install-AMD - EZi Desktop Edition"
 title %CEI_Title%
 color 0A
@@ -102,3 +106,18 @@ echo    %BGR%0000000000000000000000000000
 echo    %BGR%0000000 %FGR%EZi  DESKTOP%BGR% 0000000
 echo %CEI_ESC%[0m
 exit /b 0
+
+:rename_download_folder
+if exist "%CEI_PARENT%ComfyUI-Easy-Install-AMD" (
+    echo Cannot rename: "%CEI_PARENT%ComfyUI-Easy-Install-AMD" already exists.
+    echo Move this extracted installer to another parent folder and run it again.
+    pause
+    exit /b 1
+)
+cd /d "%CEI_PARENT%"
+if errorlevel 1 goto failed
+(
+    ren "%CEI_FOLDER%" "ComfyUI-Easy-Install-AMD"
+    if errorlevel 1 goto failed
+    "%CEI_PARENT%ComfyUI-Easy-Install-AMD\ComfyUI-Easy-Install-AMD.bat"
+)
