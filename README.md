@@ -199,23 +199,4 @@ The portable folder and desktop shortcuts remain `ComfyUI-Easy-Install-AMD`.
 This is a modified Easy Install edition, with AMD detection and ROCm package
 routing underneath the existing EZi interface.
 
-## Validation performed
-
-- Revised GPU detector tested on the local RX 9070 XT: selected `gfx1201` while
-  integrated Radeon graphics were also present.
-- Twenty-nine automated checks passed for AMD package routing, unsupported architectures,
-  launch argument parsing, attention selection, constraint handling, source
-  syntax, retained nodes, and removal of CUDA installers.
-- No PowerShell calls or `.ps1` files remain in the runtime payload. Bundle activation
-  was tested with temporary environments; EZi's inline JavaScript parsed successfully.
-- The user confirmed installation, EZi rendering and WTiVo AMD generation.
-  The experimental Nunchaku loader passed a full 60-block forward test and
-  prompted Qwen-Image generation on the local RX 9070 XT. Live bundle switching
-  and broad compatibility across GPUs and add-ons remain untested.
-
-A separate embedded-Python smoke test successfully built and imported a small
-source package after installing setuptools/wheel/packaging and disabling pip build
-isolation. This confirms the build-backend fix, not the complete ROCm installation.
-The test Python lives under `tests/embedded-smoke` and is excluded from the ZIP.
-
 See `UPSTREAM.md` for source revisions and license notices.
