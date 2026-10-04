@@ -14,8 +14,11 @@ echo.
 echo    Install folder: "%~dp0ComfyUI-Easy-Install-AMD"
 echo.
 set "AMD_ROOT=%~dp0ComfyUI-Easy-Install-AMD"
-set "AMD_SOURCE_REF=Windows"
 if exist "%AMD_ROOT%\.amd-installed" goto installed
+if not exist "%~dp0Helper-CEI.zip" (
+    echo Extract the complete installer ZIP before running this file.
+    goto failed
+)
 echo ::::::::::::::: Preparing Git and Easy Install helpers :::::::::::::::
 where git.exe >nul 2>&1
 if errorlevel 1 (
@@ -24,14 +27,7 @@ if errorlevel 1 (
 )
 set "PATH=%LOCALAPPDATA%\Programs\Git\cmd;%ProgramFiles%\Git\cmd;%PATH%"
 if not exist "%AMD_ROOT%\python_embeded" mkdir "%AMD_ROOT%\python_embeded"
-if exist "%AMD_ROOT%\.installer-source\.git" goto source_ready
-echo Downloading ComfyUI-Easy-Install-AMD from GitHub...
-git clone --depth 1 --branch Windows "https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD.git" "%AMD_ROOT%\.installer-source"
-if errorlevel 1 goto failed
-:source_ready
-git -C "%AMD_ROOT%\.installer-source" fetch --depth 1 origin "%AMD_SOURCE_REF%"
-if errorlevel 1 goto failed
-git -C "%AMD_ROOT%\.installer-source" checkout --detach FETCH_HEAD
+tar.exe -xf "%~dp0Helper-CEI.zip" -C "%AMD_ROOT%"
 if errorlevel 1 goto failed
 if exist "%AMD_ROOT%\python_embeded\python.exe" goto python_ready
 echo.
@@ -57,8 +53,6 @@ if errorlevel 1 goto failed
 "%AMD_ROOT%\python_embeded\python.exe" "%AMD_ROOT%\get-pip.py"
 if errorlevel 1 goto failed
 :pip_ready
-"%AMD_ROOT%\python_embeded\python.exe" "%AMD_ROOT%\.installer-source\tools\stage_payload.py" --root "%AMD_ROOT%"
-if errorlevel 1 goto failed
 echo.
 echo ::::::::::::::: Setting up ComfyUI-Easy-Install-AMD :::::::::::::::
 "%AMD_ROOT%\python_embeded\python.exe" "%AMD_ROOT%\amd\setup.py"

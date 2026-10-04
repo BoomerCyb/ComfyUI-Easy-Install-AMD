@@ -10,7 +10,7 @@ Modified Windows AMD edition; independent of the upstream authors.
   https://github.com/BoomerCyb/Nunchaku-AMD (NOTICE*.txt).
 
 Original Easy Install credits: ivo / Tavris1. GPU mappings and ROCm setup
-are adapted from patientx. Modified setup, launcher integration and AMD
-adapters are included in source form. Preserve all bundled license notices.
+are adapted from patientx. Modified setup and launcher integration are included as Python and batch
+source inside Helper-CEI.zip. Nunchaku-AMD is downloaded from its separate fork. Preserve all bundled license notices.
 Combined installer license: GPL-3.0; original Easy Install MIT notice retained.
 Models are downloaded separately and retain their own licenses.

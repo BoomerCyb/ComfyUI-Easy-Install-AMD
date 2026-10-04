@@ -109,7 +109,7 @@ add-ons have different compatibility requirements. Internet access is required.
 > - Make sure your AMD drivers are up to date.
 
 1. [**📥 DOWNLOAD LATEST VERSION**](https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest/download/ComfyUI-Easy-Install-AMD.zip)
-2. Extract the ZIP file to a new folder and run **`ComfyUI-Easy-Install-AMD.bat`**
+2. Extract the entire ZIP file to a new folder, keeping **`Helper-CEI.zip`** beside the installer, and run **`ComfyUI-Easy-Install-AMD.bat`**
 3. Optionally, after the setup, install or run components from the **Add-ons** folder or **EZi Desktop Menu**:
     - **Easy-Models-Linker** - *Uses existing **MODELS** folder via **extra_model_paths.yaml**, no re-download needed*
       - *Some folders like **LLM** and **llm_gguf** cannot be redirected this way*
