@@ -151,3 +151,13 @@ Enjoy the original project? Your support helps keep it going.
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/Tavris1)
 
 </div>
+
+### AMD Edition Changes - 2026-10-03
+
+Modified by **BoomerCyb** from **ivo/Tavris1’s ComfyUI-Easy-Install**, with ROCm integration adapted from **patientx**.
+
+- Added AMD GPU detection, ROCm bundle management, and AMD-compatible add-ons.
+- Retained EZi Desktop and the original installer layout.
+- Nunchaku-AMD downloads from its separate repository.
+
+Original credits and license notices are preserved.
