@@ -10,6 +10,8 @@ patientx's architecture mappings with WMIC and a native Windows registry fallbac
 
 ## Install
 
+[Download the AMD installer ZIP](https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest/download/ComfyUI-Easy-Install-AMD.zip)
+
 Download the release ZIP and extract its ComfyUI-Easy-Install-AMD folder. Run
 `ComfyUI-Easy-Install-AMD.bat` as a normal user. From source, first run
 `Build Release.bat` with Python 3 installed; release files appear in `dist/`.
