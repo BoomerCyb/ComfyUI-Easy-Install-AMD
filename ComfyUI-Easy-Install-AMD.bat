@@ -11,9 +11,9 @@ echo.
 echo    EZi Desktop, Launcher, add-ons and portable Python
 echo    Automatic AMD GPU detection and RDNA bundle selection
 echo.
-echo    Install folder: "%~dp0ComfyUI-Easy-Install-AMD"
+echo    Install folder: "%~dp0"
 echo.
-set "AMD_ROOT=%~dp0ComfyUI-Easy-Install-AMD"
+set "AMD_ROOT=%~dp0."
 if exist "%AMD_ROOT%\.amd-installed" goto installed
 if not exist "%~dp0Helper-CEI.zip" (
     echo Extract the complete installer ZIP before running this file.
@@ -72,9 +72,13 @@ echo    BROWSER  - Launch ComfyUI in your web browser
 echo    EASY MENU - Add-ons, models, tools and PyTorch / ROCm bundles
 echo.
 choice /c LC /n /m "Open EZi Launcher now [L] or close [C]: "
-if errorlevel 2 exit /b 0
-call "%AMD_ROOT%\ComfyUI-Easy-Install-AMD Launcher.bat"
-exit /b 0
+if not errorlevel 2 start "" "%AMD_ROOT%\ComfyUI-Easy-Install-AMD Launcher.bat"
+"%AMD_ROOT%\python_embeded\python.exe" "%AMD_ROOT%\amd\cleanup_installer.py"
+if errorlevel 1 goto failed
+(
+    del /q "%~f0"
+    exit /b 0
+)
 :failed
 echo Installation failed. See the error above; re-run to retry.
 pause
