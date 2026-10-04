@@ -176,3 +176,7 @@ Modified setup and launcher source is included inside `Helper-CEI.zip`.
 The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
+
+### Offline 3D previews - 2026-10-04
+
+Setup and Update ComfyUI install a small local extension that allows browser-local `blob:` texture loading in offline mode. Embedded GLB textures display in core and custom preview nodes while external connections remain blocked. ComfyUI source files remain unchanged, so updates preserve this fix. Restart ComfyUI after updating.
