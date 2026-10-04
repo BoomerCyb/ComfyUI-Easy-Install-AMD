@@ -184,3 +184,7 @@ Setup and Update ComfyUI install a small local extension that allows browser-loc
 ### ComfyUI Shape - 2026-10-04
 
 ComfyUI Shape is included automatically in fresh installs. Open Settings, search for **Node shape**, and choose **Box** (square corners, default) or **Card** under **ComfyUI Shape**. The selection is remembered and applies to existing nodes, new nodes, and loaded workflows. No GPU build or extra requirements are needed. Update ComfyUI also restores the bundled extension; restart ComfyUI and reload the browser afterward.
+
+### Optional Triton and attention packages - 2026-10-04
+
+Triton, Sage Attention and Flash Attention are no longer installed automatically with the core GPU bundle. Use **Add-ons → Triton** to install Triton; its button shows **Installed** when the package is present. Sage and Flash add-ons also install Triton when needed. The regular launcher keeps the ComfyUI Triton backend disabled and uses standard PyTorch attention. Existing installations retain their already installed packages.
