@@ -161,3 +161,14 @@ Modified by **BoomerCyb** from **ivo/Tavris1’s ComfyUI-Easy-Install**, with RO
 - Nunchaku-AMD downloads from its separate repository.
 
 Original credits and license notices are preserved.
+
+Upstream sources:
+
+- [ComfyUI-Easy-Install](https://github.com/Tavris1/ComfyUI-Easy-Install), Windows revision `7bd6b5be3254e3134fd2e21c95f0a312e4d3fd96`.
+- [ComfyUI ROCm](https://github.com/patientx-cfz/comfyui-rocm), revision `484514ac06727b8705b0944f35d498849b5db048`. GPU mappings and ROCm setup are adapted from patientx.
+- [Nunchaku-AMD](https://github.com/BoomerCyb/Nunchaku-AMD), downloaded separately; its `NOTICE*.txt` files document adapter sources and checkpoint revisions.
+
+Modified setup and launcher source is included inside `Helper-CEI.zip`.
+The combined AMD installer is GPL-3.0; original Easy Install components retain
+their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
+retain their own licenses. This AMD edition is independent of the upstream authors.
