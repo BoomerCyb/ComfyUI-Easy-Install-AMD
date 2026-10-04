@@ -7,7 +7,7 @@ for %%I in ("%CEI_FOLDER%") do set "CEI_PARENT=%%~dpI"
 if /i "%CEI_FOLDER_NAME%"=="ComfyUI-Easy-Install-AMD-Windows" goto rename_download_folder
 set "CEI_Title=ComfyUI-Easy-Install-AMD - EZi Desktop Edition"
 title %CEI_Title%
-color 0A
+color 0C
 call :show_logo
 echo    ComfyUI-Easy-Install - modified AMD / ROCm edition
 echo    Original Easy Install by ivo / Tavris1
@@ -91,7 +91,7 @@ exit /b 1
 :show_logo
 for /f "delims=" %%E in ('echo prompt $E^| cmd') do set "CEI_ESC=%%E"
 set "BGR=%CEI_ESC%[93m"
-set "FGR=%CEI_ESC%[92m"
+set "FGR=%CEI_ESC%[91m"
 echo.
 echo    %BGR%0000000000000000000000000000
 echo    %BGR%000000000000%FGR%0000%BGR%000000000000
