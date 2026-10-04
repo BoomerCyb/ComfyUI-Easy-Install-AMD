@@ -156,6 +156,8 @@ Enjoy the original project? Your support helps keep it going.
 
 ### AMD Edition Changes - 2026-10-03
 
+Node add-on installers update existing clean Git checkouts before setup. ZIP-installed WTiVo nodes are backed up outside `custom_nodes` before replacement. Nunchaku downloads the current fork with a backup of the previous copy. Update Nodes also runs each node's install batch or Python installer after updating requirements; local source edits stop updates instead of being overwritten.
+
 Modified by **BoomerCyb** from **ivo/Tavris1’s ComfyUI-Easy-Install**, with ROCm integration adapted from **patientx**.
 
 - Added AMD GPU detection, ROCm bundle management, and AMD-compatible add-ons.
