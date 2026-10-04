@@ -180,3 +180,7 @@ retain their own licenses. This AMD edition is independent of the upstream autho
 ### Offline 3D previews - 2026-10-04
 
 Setup and Update ComfyUI install a small local extension that allows browser-local `blob:` texture loading in offline mode. Embedded GLB textures display in core and custom preview nodes while external connections remain blocked. ComfyUI source files remain unchanged, so updates preserve this fix. Restart ComfyUI after updating.
+
+### ComfyUI Shape - 2026-10-04
+
+ComfyUI Shape is included automatically in fresh installs. Open Settings, search for **Node shape**, and choose **Box** (square corners, default) or **Card** under **ComfyUI Shape**. The selection is remembered and applies to existing nodes, new nodes, and loaded workflows. No GPU build or extra requirements are needed. Update ComfyUI also restores the bundled extension; restart ComfyUI and reload the browser afterward.
