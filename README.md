@@ -202,3 +202,5 @@ Default nodes now match the original Easy Install collection. Removed patientx-s
 ### System Info
 
 Displays EZI, ComfyUI, Frontend, Python, PyTorch, HIP, ROCm, AMD Drv, GPU Model, Video VRAM, System RAM, Page File and Long Paths. PyTorch includes its full version and the AMD driver is read from Windows. The pinned Triton package still requires AMD kernel compatibility testing with the nightly runtime.
+
+The Launcher Includes A Triton On / Off Toggle Shared By Desktop And Browser Starts. Attention Availability Checks Run In The Background. Bitsandbytes Is Optional And Can Be Enabled Or Disabled From Tools; Disabled Files Are Preserved Locally. Restart ComfyUI After Changing Backend Or Package Settings.
