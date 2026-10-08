@@ -122,7 +122,7 @@ The installer uses the folder containing `ComfyUI-Easy-Install-AMD.bat` directly
     - **SageAttention** - *Installs the matching AMD/ROCm attention package*
     - **FlashAttention** - *Installs compatible ROCm FlashAttention/AITER packages for the selected bundle*
     - **InsightFace** - *Installs InsightFace*
-    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes (tested on RX 9070 XT). With the default PyTorch bundle on a Radeon RX 5000 to RX 9000 series GPU or Ryzen AI / 600M-800M integrated graphics, their native modules are installed prebuilt - no compiler needed - and checked on your GPU. Otherwise each node's install batch builds them for your GPU, which requires Visual Studio C++ Build Tools/Windows SDK and WTiVo's vcpkg CPU dependencies. Installed appears after backend verification succeeds.*
+    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes (tested on RX 9070 XT). With the default PyTorch bundle on a Radeon RX 5000 to RX 9000 series GPU or Ryzen AI / 600M-800M integrated graphics, their native modules are installed prebuilt - no compiler needed - and checked on your GPU. Otherwise each node's install batch builds them for your GPU, which requires Visual Studio C++ Build Tools/Windows SDK and WTiVo's vcpkg CPU dependencies. After backend verification succeeds, the button changes to "BoomerCyb WTiVo AMD Nodes - Update", which updates the nodes together with matching native modules.*
     - **MostAadTech WTiVo Nodes** - *Installs four mesh and memory utilities; Blender is required for the Blender-based nodes*
     - **Pixaroma Workflows** - *Downloads workflows and checks for new ones*
     - **PixelArtistry Workflows** - *Downloads the watertight workflows*
@@ -195,7 +195,7 @@ Triton installs automatically with the core GPU bundle so bundled Triton-depende
 
 Fresh installations clone official **Comfy-Org/ComfyUI**. Updates, release checks, tag lists and requirements lookups also use the official repository. Existing patientx installations are not switched in place: use a fresh folder and preserve models, workflows, input and output. The normal launcher explicitly selects PyTorch attention; Kitchen, Sage and Flash remain separate launch choices. AMD package management, default Triton and optional Sage/Flash add-ons, ComfyUI Shape, and offline texture previews remain included. This release has not yet been validated with a complete fresh GPU installation. ROCm/PyTorch default to AMD stable PyTorch 2.14.0 / ROCm 10.1 (nightly on GPUs without a stable build); ComfyUI Default (PyTorch 2.13 / ROCm 10.0), AMD Stable presets, exact nightly versions and saved bundles are available in the Bundle Manager. The separate Latest AMD Nightly button prepares the latest nightly. Opening Bundle Manager keeps ComfyUI running until you close EZi Desktop to activate a prepared bundle.
 
-Add-ons display order: Easy-Models-Linker, InsightFace, Nunchaku - RX 9070 XT, Pixaroma Workflows, PixelArtistry Watertight Workflows, BoomerCyb WTiVo AMD Nodes, MostAadTech WTiVo Nodes. Easy-Models-Linker does not show an Installed label.
+Add-ons display order: Easy-Models-Linker, InsightFace, Nunchaku - RX 9070 XT, Pixaroma Workflows, PixelArtistry Watertight Workflows, BoomerCyb WTiVo AMD Nodes, MostAadTech WTiVo Nodes. Installed add-ons are hidden from the Add-Ons tab, except BoomerCyb WTiVo AMD Nodes (shown as "- Update") and Pixaroma Workflows (shown as "- Check for New"); Easy-Models-Linker always stays.
 
 INT8-Fast-ROCM is no longer part of the default node collection. Existing installations are not removed automatically.
 
@@ -203,6 +203,6 @@ Default nodes now match the original Easy Install collection. Removed patientx-s
 
 ### System Info
 
-Displays EZI, ComfyUI, Frontend, Python, PyTorch, HIP, ROCm, AMD Drv, GPU Model, Video VRAM, System RAM, Page File and Long Paths. PyTorch includes its full version and the AMD driver is read from Windows. The pinned Triton package still requires AMD kernel compatibility testing with the nightly runtime.
+Displays EZI, ComfyUI, Frontend, Python, PyTorch (including its ROCm version, e.g. 2.14.0+rocm10.1.0), HIP, AMD Drv, GPU Model, Video VRAM, System RAM, Page File and Long Paths. PyTorch includes its full version and the AMD driver is read from Windows. The pinned Triton package still requires AMD kernel compatibility testing with the nightly runtime.
 
 The Launcher Includes A Triton On / Off Toggle Shared By Desktop And Browser Starts. Attention Availability Checks Run In The Background. Bitsandbytes Is Optional And Can Be Enabled Or Disabled From Tools; Disabled Files Are Preserved Locally. Restart ComfyUI After Changing Backend Or Package Settings.
