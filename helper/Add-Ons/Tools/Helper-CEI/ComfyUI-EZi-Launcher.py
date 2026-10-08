@@ -1,5 +1,6 @@
 VERSION = '0.1.15-amd'
 
+import glob
 import os
 import sys
 import subprocess
@@ -20,17 +21,11 @@ def root(name):
 ADDONS_DIR = root('Add-ons')
 
 def attention_available(module):
-    python = root('python_embeded/python.exe')
-    if not os.path.isfile(python):
-        return False
-    try:
-        result = subprocess.run(
-            [python, '-c', 'import ' + module], cwd=ROOT_DIR,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            timeout=20, creationflags=subprocess.CREATE_NO_WINDOW)
-        return result.returncode == 0
-    except (OSError, subprocess.TimeoutExpired):
-        return False
+    # Whether the package is installed. Importing it to find out loads PyTorch, which
+    # can take longer than any timeout on a cold start and then reads as "missing".
+    site = root('python_embeded/Lib/site-packages')
+    return (os.path.isfile(os.path.join(site, module, '__init__.py'))
+            and bool(glob.glob(os.path.join(glob.escape(site), module + '-*.dist-info'))))
 
 HAS_SAGE = True
 HAS_FLASH = True
