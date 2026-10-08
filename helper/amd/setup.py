@@ -107,9 +107,11 @@ def main():
             installer = path / 'install.py'
             if installer.exists() and installer.stat().st_size:
                 subprocess.run([str(py), str(installer)], cwd=path, check=True)
-        except subprocess.CalledProcessError as error:
+        except Exception as error:
+            # Record any per-node failure (git, pip, the node's installer, a folder that
+            # is not a Git checkout) and continue with the remaining nodes.
             failures.append({'node': node['name'], 'error': str(error)})
-            print('Node installation needs attention:', node['name'], flush=True)
+            print('Node installation needs attention:', node['name'], '-', error, flush=True)
     (root / 'amd/node-install-report.json').write_text(json.dumps(failures, indent=2), encoding='utf-8')
     stage('6/7', 'Preparing optional audio tools')
     if not shutil.which('sox'):

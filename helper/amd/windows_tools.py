@@ -96,18 +96,52 @@ def toggle():
     print('Dynamic VRAM disabled' if disable else 'Dynamic VRAM enabled')
 
 
+def comfyui_running(root=ROOT):
+    """True if ComfyUI from this installation's Python is running."""
+    import psutil
+    python_dir = (root / 'python_embeded').resolve()
+    for process in psutil.process_iter(['exe', 'cmdline']):
+        try:
+            exe = process.info['exe']
+            if not exe or not Path(exe).resolve().is_relative_to(python_dir):
+                continue
+            command = ' '.join(process.info['cmdline'] or [])
+            if 'main.py' in command or 'runtime.py' in command:
+                return True
+        except (psutil.Error, OSError, ValueError):
+            continue
+    return False
+
+
 def triton():
+    # cmd.exe re-reads a running batch file by offset, so editing the Start
+    # files under a running ComfyUI can corrupt that session's remaining lines.
+    if comfyui_running():
+        print('ComfyUI is running. Close it, then toggle Triton again.')
+        raise SystemExit(3)
     paths = sorted(ROOT.glob('Start ComfyUI*.bat'))
     primary = ROOT / 'Start ComfyUI.bat'
     current = primary.read_text(encoding='utf-8')
     enabled = '--enable-triton-backend' in current and '--disable-triton-backend' not in current
     flag = '--disable-triton-backend' if enabled else '--enable-triton-backend'
+    # Prepare every file first, then replace them together; restore all on failure.
+    updated = {}
     for path in paths:
-        text = path.read_text(encoding='utf-8')
-        text = re.sub(r'\s+--(?:enable|disable)-triton-backend\b', '', text)
-        text = re.sub(r'(?m)^(.*python_embeded\\python\.exe.*(?:amd\\runtime|ComfyUI\\main)\.py[^\n]*)$',
-                      lambda m: m[1].rstrip('\r') + ' ' + flag, text)
-        path.write_text(text, encoding='utf-8')
+        text = path.read_bytes().decode('utf-8')  # bytes: keep the CRLF line endings cmd.exe needs
+        text = re.sub(r'[ \t]+--(?:enable|disable)-triton-backend\b', '', text)
+        text = re.sub(r'(?m)^(.*python_embeded\\python\.exe.*(?:amd\\runtime|ComfyUI\\main)\.py[^\r\n]*)',
+                      lambda m: m[1] + ' ' + flag, text)
+        updated[path] = text
+    originals = {path: path.read_bytes() for path in updated}
+    try:
+        for path, text in updated.items():
+            temporary = path.with_name(path.name + '.tmp')
+            temporary.write_bytes(text.encode('utf-8'))
+            temporary.replace(path)
+    except OSError:
+        for path, data in originals.items():
+            path.write_bytes(data)
+        raise
     print('Triton Backend Disabled' if enabled else 'Triton Backend Enabled')
     print('Restart ComfyUI To Apply. Triton Remains Installed For Custom Nodes.')
 
