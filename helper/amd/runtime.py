@@ -45,11 +45,11 @@ def configure(root, env=None):
         env['MIOPEN_SYSTEM_DB_PATH'] = str(bin_dir)
         env['ROCBLAS_TENSILE_DB_PATH'] = str(bin_dir / 'rocblas')
         env['ROCBLAS_TENSILE_LIBPATH'] = str(bin_dir / 'rocblas/library')
-    # hipBLASLt rejects some bf16 GEMM layouts (HIPBLAS_STATUS_NOT_SUPPORTED); PyTorch then uses
-    # hipBLAS at no cost, but warns once per call site - about 150 lines per 3D workflow.
-    # (PYTHONWARNINGS splits on ':', so each entry matches the message up to its first colon.)
-    quiet = ['ignore:bgemm_internal_cublaslt error:UserWarning', 'ignore:gemm_and_bias error:UserWarning']
-    env['PYTHONWARNINGS'] = ','.join(filter(None, [env.get('PYTHONWARNINGS', '')] + quiet))
+    if arch.startswith('gfx120'):
+        # On RDNA4, hipBLASLt rejects some bf16 GEMM layouts (HIPBLAS_STATUS_NOT_SUPPORTED) and
+        # PyTorch falls back to hipBLAS, warning ~170 times per 3D workflow. Using hipBLAS
+        # directly removes the warnings and was not slower (PixelArtistry 2K workflow, RX 9070 XT).
+        env.setdefault('TORCH_BLAS_PREFER_HIPBLASLT', '0')
     env.update(COMFYUI_ENABLE_MIOPEN='0', FLASH_ATTENTION_TRITON_AMD_ENABLE='TRUE',
                MIOPEN_FIND_ENFORCE='1', MIOPEN_FIND_MODE='2', MIOPEN_DEBUG_DISABLE_FIND_DB='0',
                MIOPEN_SEARCH_CUTOFF='1', MIOPEN_ENABLE_LOGGING='0', MIOPEN_LOG_LEVEL='0',
