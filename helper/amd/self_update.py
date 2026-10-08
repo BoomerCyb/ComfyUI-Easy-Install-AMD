@@ -14,7 +14,14 @@ from pathlib import Path, PurePosixPath
 import shutil
 import sys
 import urllib.request
+import subprocess
+import tempfile
 import zipfile
+
+# The embedded Python does not put the script's folder on sys.path; the new
+# release's updater runs from a temporary folder and must import its own helpers.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import launcher_args  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 REPOSITORY = 'BoomerCyb/ComfyUI-Easy-Install-AMD'
@@ -70,26 +77,58 @@ def helper_entries(release_zip):
     return entries
 
 
+def merge_launcher(existing, new, old_launcher):
+    """The new launcher carrying the user's argument changes, or None if other lines were edited.
+
+    old_launcher is the previous release's manifest record (body hash and arguments); a
+    manifest from before 0.1.14 has none, and the new launcher's body and arguments stand in.
+    """
+    try:
+        mine, theirs = launcher_args.split(existing.decode('utf-8')), launcher_args.split(new.decode('utf-8'))
+    except UnicodeDecodeError:
+        return None
+    if not mine or not theirs:
+        return None
+    body, args = mine
+    new_body, new_args = theirs
+    old_body_hash = old_launcher.get('body', sha256(new_body.encode('utf-8')))
+    if sha256(body.encode('utf-8')) != old_body_hash:
+        return None
+    merged = launcher_args.merge(old_launcher.get('args', new_args), args, new_args)
+    return launcher_args.join(new_body, merged).encode('utf-8')
+
+
 def plan(root, entries, old_manifest):
-    """Classify files: (write: new or unchanged-by-user, keep: user-edited launchers, already current)."""
+    """Classify files: (write: new or unchanged-by-user, keep: user-edited launchers, already current,
+    merged: {launcher: new content with the user's arguments})."""
     old_hashes = old_manifest.get('files', {})
-    write, keep, current = [], [], []
+    old_launchers = old_manifest.get('launchers', {})
+    write, keep, current, merged = [], [], [], {}
     for name, data in entries.items():
         target = root / name
         if not target.is_file():
             write.append(name)
             continue
-        existing = sha256(target.read_bytes())
+        existing_bytes = target.read_bytes()
+        existing = sha256(existing_bytes)
         if existing == sha256(data):
             current.append(name)
         elif ('/' not in name and name.lower().endswith('.bat') and name != SELF_BAT
               and existing != old_hashes.get(name)):
-            # A launcher in the installation folder that differs from what was
-            # shipped (or was never recorded): the user's edits win.
-            keep.append(name)
+            # A launcher in the installation folder that differs from what was shipped
+            # (or was never recorded). Changed arguments only (toggles, folder settings):
+            # carry them over; any other edit: the user's file wins.
+            content = merge_launcher(existing_bytes, data, old_launchers.get(name, {}))
+            if content is None:
+                keep.append(name)
+            elif content == existing_bytes:
+                current.append(name)
+            else:
+                merged[name] = content
+                write.append(name)
         else:
             write.append(name)
-    return write, keep, current
+    return write, keep, current, merged
 
 
 def apply(root, entries, write, keep):
@@ -134,7 +173,24 @@ def apply(root, entries, write, keep):
     return backup if replaced else None
 
 
-def update(root=ROOT, force=False, release_zip=None, tag=None):
+HELPERS = ('amd/self_update.py', 'amd/launcher_args.py')
+
+
+def run_new_updater(root, entries, release_zip):
+    """Let the release's own updater apply it, so its file handling is the one used."""
+    print('Running the updater from the new release...', flush=True)
+    with tempfile.TemporaryDirectory(prefix='ezi-update-') as directory:
+        directory = Path(directory)
+        for name in HELPERS:
+            if name in entries:
+                (directory / Path(name).name).write_bytes(entries[name])
+        archive = directory / 'release.zip'
+        archive.write_bytes(release_zip)
+        return subprocess.run([sys.executable, str(directory / 'self_update.py'), '--from-zip', str(archive),
+                               '--root', str(root), '--no-handoff']).returncode
+
+
+def update(root=ROOT, force=False, release_zip=None, tag=None, handoff=True):
     manifest_path = root / MANIFEST
     old_manifest = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.is_file() else {}
     installed = old_manifest.get('version', 'unknown (installed before 0.1.13-amd)')
@@ -148,11 +204,16 @@ def update(root=ROOT, force=False, release_zip=None, tag=None):
         print('Downloading', url, flush=True)
         release_zip = fetch(url)
     entries = helper_entries(release_zip)
-    write, keep, current = plan(root, entries, old_manifest)
-    backup = apply(root, entries, write, keep)
+    if handoff and entries.get('amd/self_update.py') not in (None, Path(__file__).read_bytes()):
+        return run_new_updater(root, entries, release_zip)
+    write, keep, current, merged = plan(root, entries, old_manifest)
+    backup = apply(root, {**entries, **merged}, write, keep)
     print(f'Updated {len(write)} file(s); {len(current)} already current.')
     if backup:
         print('Previous versions of replaced files:', backup)
+    if merged:
+        print('Launchers updated with your settings (Triton, dynamic VRAM, folders) kept:',
+              ', '.join(merged))
     if keep:
         print('\nThese launchers have your own edits and were kept. The new version of each')
         print('is saved next to it as <name>.new; compare and merge if you want the changes:')
@@ -174,13 +235,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--force', action='store_true', help='reinstall even when already up to date')
     parser.add_argument('--from-zip', type=Path, help='update from a downloaded release ZIP instead')
+    parser.add_argument('--root', type=Path, default=ROOT, help=argparse.SUPPRESS)
+    parser.add_argument('--no-handoff', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if comfyui_running(ROOT):
+    if not args.no_handoff and comfyui_running(args.root):
         print('ComfyUI is running from this installation. Stop it, then run the update again.')
         sys.exit(3)
     try:
-        sys.exit(update(force=args.force,
-                        release_zip=args.from_zip.read_bytes() if args.from_zip else None))
+        sys.exit(update(args.root.resolve(), force=args.force,
+                        release_zip=args.from_zip.read_bytes() if args.from_zip else None,
+                        handoff=not args.no_handoff))
     except (OSError, RuntimeError, ValueError, zipfile.BadZipFile, KeyError) as error:
         print('Easy Install update failed:', error, file=sys.stderr)
         print('Nothing was changed, or every replaced file was restored.', file=sys.stderr)

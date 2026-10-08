@@ -131,7 +131,7 @@ The installer uses the folder containing `ComfyUI-Easy-Install-AMD.bat` directly
     - **Long-Paths-Enabler** - *Enables **Long Paths** in Windows 10/11. Essential for Python/ComfyUI*
     - **ComfyUI Version Controls** - *Official Comfy-Org updates and frontend selection*
     - **Toggle-DynamicVRAM** - *Toggles **--disable-dynamic-vram** option in ComfyUI startup files*
-    - **Update Easy-Install** - *Updates the launchers and tools from the latest release of this AMD fork. ComfyUI, models, custom nodes and Python packages are not changed. Replaced files are backed up in `amd\update-backups`; launcher .bat files you edited are kept, with the new version saved next to them as `.new`*
+    - **Update Easy-Install** - *Updates the launchers and tools from the latest release of this AMD fork. ComfyUI, models, custom nodes and Python packages are not changed. Replaced files are backed up in `amd\update-backups`. Start launcher settings (Triton, dynamic VRAM, custom folders and other arguments) carry over to the new launchers; launcher .bat files you edited in other ways are kept, with the new version saved next to them as `.new`*
     - **EZi Desktop Themes** - *via EZi Desktop > Menu > Advanced*
     - **Custom Input, Output & User folders** - *via EZi Desktop > Menu > Advanced*
     - **ComfyUI & Frontend Version Changer** - *via EZi Desktop > Menu > Advanced*

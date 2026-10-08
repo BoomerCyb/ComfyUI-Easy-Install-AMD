@@ -2,6 +2,10 @@
 from pathlib import Path
 import zipfile
 
+# The Windows branch's .gitattributes, as a Download ZIP of the repository delivers it.
+GITATTRIBUTES = (b'# cmd.exe can mis-handle labels in batch files without CRLF line endings.\n'
+                 b'*.bat text eol=crlf\n*.zip binary\n')
+
 
 def cleanup(root):
     root = Path(root).resolve()
@@ -32,6 +36,16 @@ def cleanup(root):
             docs.rmdir()
         except OSError:
             print('Retaining docs: it contains additional or changed files.')
+    # Downloaded by the installer to set up portable Python and pip.
+    for name in ('python-bootstrap.zip','get-pip.py'):
+        path = root/name
+        if path.is_file() and not path.is_symlink():
+            path.unlink()
+    # Comes with a Download ZIP of the repository; not part of an installation.
+    attributes = root/'.gitattributes'
+    if (attributes.is_file() and not attributes.is_symlink() and not (root/'.git').exists()
+            and attributes.read_bytes().replace(b'\r\n',b'\n') == GITATTRIBUTES):
+        attributes.unlink()
     helper = root/'Helper-CEI.zip'
     if helper.is_file() and not helper.is_symlink():
         with zipfile.ZipFile(helper) as archive:
