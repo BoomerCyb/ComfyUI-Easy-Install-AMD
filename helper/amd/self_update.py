@@ -29,6 +29,9 @@ ASSET = 'ComfyUI-Easy-Install-AMD.zip'
 HELPER_ZIP = 'ComfyUI-Easy-Install-AMD/Helper-CEI.zip'
 MANIFEST = 'amd/helper-manifest.json'
 SELF_BAT = 'Update Easy-Install.bat'
+# Shipped as defaults for a new installation, then changed by EZi as it runs (window,
+# ports, ComfyUI's saved browser settings): written only when missing.
+USER_STATE = {'Add-Ons/Tools/Helper-CEI/ComfyUI-EZi.settings.json'}
 USER_AGENT = 'ComfyUI-Easy-Install-AMD-updater'
 
 
@@ -110,6 +113,9 @@ def plan(root, entries, old_manifest):
         target = root / name
         if not target.is_file():
             write.append(name)
+            continue
+        if name in USER_STATE:
+            current.append(name)  # the user's own settings; the shipped copy is only a default
             continue
         existing_bytes = target.read_bytes()
         existing = sha256(existing_bytes)
