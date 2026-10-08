@@ -12,6 +12,7 @@ from bundles import ONNX_REQUIREMENTS, constraints, default_versions, install_gp
 from runtime import architecture
 from node_requirements import install_requirements
 from offline_preview import install as install_offline_preview
+import install_lock
 
 
 def clone(url, path):
@@ -58,8 +59,17 @@ def main():
     stage('1/7', 'Detecting AMD GPU and selecting the RDNA bundle')
     arch = architecture(root)
     print('Detected GPU architecture:', arch, flush=True)
+    lock = install_lock.load()
+    if lock:
+        print('Installing the versions tested with Easy Install', lock['tested']['easy_install'],
+              '(set EZI_LATEST=1 for the newest of everything).', flush=True)
+        if lock.get('pip'):
+            pip(py, 'install', 'pip==' + lock['pip'], constrained=False)
     stage('2/7', 'Installing ComfyUI and Easy Install workflows')
+    fresh = not (root / 'ComfyUI/.git').exists()
     clone('https://github.com/Comfy-Org/ComfyUI.git', root / 'ComfyUI')
+    if fresh:
+        install_lock.checkout(root / 'ComfyUI', lock.get('comfyui'))
     install_offline_preview(root / 'ComfyUI')
     presets = root / 'preset-files/ComfyUI'
     if presets.exists():
@@ -77,8 +87,11 @@ def main():
     stage('4/7', 'Installing EZi Desktop and required Python packages')
     constraint = root / 'amd/amd-constraints.txt'
     constraints(py, constraint)
-    os.environ['PIP_CONSTRAINT'] = str(constraint)
-    os.environ['UV_CONSTRAINT'] = str(constraint)
+    # During setup, also hold every package to the tested version (when locked).
+    setup_constraint = root / 'amd/install-constraints.txt'
+    install_lock.write_constraints(constraint, setup_constraint, lock)
+    os.environ['PIP_CONSTRAINT'] = str(setup_constraint)
+    os.environ['UV_CONSTRAINT'] = str(setup_constraint)
     pip(py, 'install', 'uv', 'pygit2', 'flet', 'pywebview', 'pywinpty', 'pywin32', 'psutil', 'onnxruntime', *ONNX_REQUIREMENTS,
         'scikit-build-core', 'diffusers>=0.39.0', 'accelerate>=1.0', 'stringzilla==3.12.6', 'transformers==4.57.6',
         'kornia==0.7.4', 'scipy==1.17.1', 'chardet==5.2.0', 'av==18.0.0')
@@ -100,7 +113,10 @@ def main():
     for node in nodes:
         path = root / 'ComfyUI/custom_nodes' / node['name']
         try:
+            fresh = not (path / '.git').exists()
             clone(node['url'], path)
+            if fresh:
+                install_lock.checkout(path, lock.get('nodes', {}).get(node['name']))
             requirements = path / 'requirements.txt'
             if requirements.exists() and requirements.stat().st_size:
                 install_requirements(py, requirements)
@@ -130,6 +146,7 @@ def main():
     data = receipt(py, arch, versions)
     (root / 'amd/active-bundle.json').write_text(json.dumps(data, indent=2), encoding='utf-8')
     constraints(py, constraint)
+    setup_constraint.unlink(missing_ok=True)
     print('ROCm GPU check passed:', data['verified'])
     shortcut_result = subprocess.run([str(py), str(root / 'amd/shortcuts.py')])
     if shortcut_result.returncode:

@@ -39,7 +39,7 @@ def pip(py, *args, constrained=True):
 
 
 def package_specs(arch, versions=None):
-    if arch in ('gfx1250', 'gfx110x', 'gfx115x'):
+    if arch == 'gfx1250':  # reachable through the EZI_GPU_ARCH override
         raise RuntimeError('Upstream currently has no working Windows packages for ' + arch)
     versions = versions or {}
     stable = versions.get('_channel') == 'stable'
@@ -169,7 +169,7 @@ def prepare(root, versions):
 def select_preset(root, preset):
     arch = architecture(root)
     if preset.get('architecture',arch) != arch:
-        raise RuntimeError('This tested custom-node preset is for gfx1201 only')
+        raise RuntimeError('This preset is for ' + preset['architecture'] + ' only')
     wanted = preset['versions']
     active_file = root / 'amd/active-bundle.json'
     candidates = [(active_file, None)] + [(path, path.parent.name) for path in

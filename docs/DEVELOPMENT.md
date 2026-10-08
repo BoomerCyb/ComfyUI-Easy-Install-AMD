@@ -28,6 +28,29 @@ edited from shipped ones. Bump `APP_VERSION` in `ComfyUI-EZi.py` and `VERSION` i
 
 Batch files must use CRLF line endings; the build stops on a `.bat` with LF-only lines.
 
+## Tested versions (install lock)
+
+`helper/amd/install-lock.json` holds the ComfyUI commit, each default node's commit and every package
+version of a verified installation. New installations reproduce exactly that (`helper/amd/install_lock.py`);
+updates still move forward, and `EZI_LATEST=1` installs the newest of everything. Refresh it after a fresh
+installation of the release candidate has passed testing:
+
+    python tools/make_install_lock.py D:/path/to/that/installation
+
+## Prebuilt BoomerCyb nodes
+
+`helper/amd/prebuilt.json` lists ZIPs of the BoomerCyb nodes' native modules, built once for every consumer
+Radeon architecture of a PyTorch bundle. The BoomerCyb add-on installs them (and moves the nodes to the
+commits they were built from) when PyTorch, Python and the GPU match, runs a GPU self-test, and otherwise
+compiles from source (`EZI_BUILD_FROM_SOURCE=1` forces that). "Update ComfyUI and Nodes" leaves prebuilt
+nodes to the add-on. To build them, on a machine with the build tools and an installation of the default
+bundle:
+
+    python tools/build_prebuilt.py D:/path/to/installation --tag nodes-torch<version>-<date>
+
+then upload the ZIP it names to a GitHub release with that tag, not marked latest. Rebuild them when the
+default bundle changes or the nodes' native code changes.
+
 ## Releasing
 
 1. On `source`: `python tools/build_release.py --release` writes `dist/ComfyUI-Easy-Install-AMD.zip`.

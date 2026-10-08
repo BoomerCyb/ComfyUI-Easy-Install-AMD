@@ -9,6 +9,8 @@ import tempfile
 from datetime import datetime
 from bundles import constraints, pip
 from node_requirements import install_requirements
+import install_lock
+import prebuilt_nodes
 
 
 def update_node(root, path, url):
@@ -93,8 +95,12 @@ def main(group):
         import torch
         if not torch.version.hip or not torch.cuda.is_available():
             raise RuntimeError('BoomerCyb nodes need ROCm PyTorch with a visible AMD GPU.')
-        print('Building BoomerCyb nodes for', torch.cuda.get_device_name(), 'with PyTorch', torch.__version__,
+        print('Installing BoomerCyb nodes for', torch.cuda.get_device_name(), 'with PyTorch', torch.__version__,
               '- tested on RX 9070 XT (gfx1201).', flush=True)
+        # Prebuilt native modules need the node sources they were built from.
+        prebuilt, reason = prebuilt_nodes.find(torch)
+    else:
+        prebuilt = None
     marker = root/'amd'/('wtivo-'+group+'-installed.json')
     marker.unlink(missing_ok=True)
     constraint = root/'amd/amd-constraints.txt'
@@ -106,6 +112,8 @@ def main(group):
         if not path.resolve().is_relative_to((root/'ComfyUI/custom_nodes').resolve()):
             raise ValueError('Invalid custom-node path')
         update_node(root,path,'https://github.com/'+collection['owner']+'/'+name+'.git')
+        if prebuilt:
+            install_lock.checkout(path,prebuilt['nodes'].get(name))
         for filename in ('requirements-runtime.txt','requirements.txt'):
             requirements = path/filename
             if requirements.is_file():
@@ -113,9 +121,13 @@ def main(group):
         installed.append(path)
     if group=='boomercyb':
         pip(py,'install','numpy','trimesh','safetensors','tqdm','pymeshlab','Pillow')
-        compile_nodes(py,installed,constraint)
+        used_prebuilt = bool(prebuilt) and prebuilt_nodes.install(root,py,os.environ.copy())
+        if not used_prebuilt:
+            compile_nodes(py,installed,constraint)
     report = dict(group=group,nodes=[path.name for path in installed],complete=True,
                   native_verified=group=='boomercyb')
+    if group=='boomercyb':
+        report['prebuilt'] = used_prebuilt
     marker.write_text(json.dumps(report,indent=2))
     print(collection['label']+' installed. Restart ComfyUI.',flush=True)
     print('Model weights and Blender are installed separately.')
@@ -138,8 +150,17 @@ def rebuild():
     constraint = root/'amd/amd-constraints.txt'
     import torch
     print('Rebuilding compiled AMD nodes for PyTorch', torch.__version__, flush=True)
-    # The node installers keep a build only when it was made for this PyTorch.
-    compile_nodes(py,nodes,constraint)
+    prebuilt, _ = prebuilt_nodes.find(torch)
+    if prebuilt:
+        for path in nodes:
+            install_lock.checkout(path,prebuilt['nodes'].get(path.name))
+    used_prebuilt = bool(prebuilt) and prebuilt_nodes.install(root,py,os.environ.copy())
+    if not used_prebuilt:
+        # The node installers keep a build only when it was made for this PyTorch.
+        compile_nodes(py,nodes,constraint)
+    report = json.loads(marker.read_text())
+    report['prebuilt'] = used_prebuilt
+    marker.write_text(json.dumps(report,indent=2))
     print('Compiled AMD nodes rebuilt for the active bundle.',flush=True)
 
 

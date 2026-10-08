@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.15-amd"
+APP_VERSION = "0.1.16-amd"
 
 import sys
 import os
@@ -2753,11 +2753,12 @@ class Api:
             'pixelartistry watertight workflows.bat': (Path(ROOT_DIR) / 'amd/pixelartistry-workflows.json').is_file() and
                 any((comfy / 'user/default/workflows/PixelArtistry').rglob('*.json')),
             'pixaroma workflows.bat': any((comfy / 'user/default/workflows/Pixaroma').rglob('*.json')),
-            'flashattention.bat': 'flash-attn' in packages and bool({'aiter','amd-aiter'} & packages),
+            # Keys are the add-on file names in lower case (the Add-Ons tab matches on them).
+            'flashattention amd.bat': 'flash-attn' in packages and bool({'aiter','amd-aiter'} & packages),
             'insightface.bat': {'insightface', 'facexlib', 'onnxruntime'}.issubset(packages),
-            'nunchaku.bat': all((addon / name).is_file() for name in
-                                ('__init__.py', 'nunchaku_amd.py', 'packed_kernel.py')),
-            'sageattention-multi (v2.2.0 and v3).bat': 'sageattention' in packages,
+            'nunchaku - rx 9070 xt.bat': all((addon / name).is_file() for name in
+                                             ('__init__.py', 'nunchaku_amd.py', 'packed_kernel.py')),
+            'sageattention amd.bat': 'sageattention' in packages,
         }
         group_file = Path(ROOT_DIR) / 'amd/wtivo-node-groups.json'
         if group_file.is_file():
@@ -3745,7 +3746,20 @@ class Api:
                 )
                 head_hash = head_r.stdout.strip().decode(errors='replace')
                 tag_hash = tag_r.stdout.strip().decode(errors='replace')
-                if head_hash and tag_hash and head_hash != tag_hash:
+
+                def _commit_time(ref):
+                    r = subprocess.run(['git', 'log', '-1', '--format=%ct', ref], cwd=self.COMFY_DIR,
+                                       capture_output=True, timeout=5, creationflags=self._NO_WIN)
+                    try:
+                        return int(r.stdout.strip() or 0)
+                    except ValueError:
+                        return 0
+                # Installs follow master, which is usually ahead of the newest tag, and are
+                # shallow clones (no history for an ancestry check): only a tag newer than
+                # the installed commit is an update.
+                tag_is_newer = head_hash and tag_hash and head_hash != tag_hash and \
+                    _commit_time(f'{latest_tag}^{{}}') > _commit_time('HEAD')
+                if tag_is_newer:
                     stable_tag = None
                     try:
                         import urllib.request as _ur, json as _json

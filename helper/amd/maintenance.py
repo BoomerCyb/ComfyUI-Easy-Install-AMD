@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import shutil
 from pathlib import Path
@@ -15,8 +16,19 @@ from offline_preview import install as install_offline_preview
 def update_nodes(custom_nodes):
     """Update every Git node in custom_nodes; skip nodes with local changes, report failures."""
     skipped, failed = [], []
+    # Nodes installed with prebuilt native modules stay at the commits those were built
+    # from; the BoomerCyb add-on updates them together with matching modules.
+    report = Path(custom_nodes).parents[1] / 'amd/wtivo-boomercyb-installed.json'
+    try:
+        data = json.loads(report.read_text(encoding='utf-8'))
+        prebuilt = set(data['nodes']) if data.get('prebuilt') else set()
+    except (OSError, ValueError, KeyError):
+        prebuilt = set()
     for node in sorted(Path(custom_nodes).iterdir()):
         if not (node / '.git').exists():
+            continue
+        if node.name in prebuilt:
+            print('Prebuilt node, update it with the BoomerCyb WTiVo AMD Nodes add-on:', node.name, flush=True)
             continue
         if subprocess.run(['git','diff','--quiet','HEAD','--'],cwd=node).returncode:
             print('Local source changes found; preserving and skipping', node.name, flush=True)
