@@ -14,4 +14,10 @@ on every push and pull request.
 To build a release asset: `python tools/build_release.py --release`, then attach
 `dist/ComfyUI-Easy-Install-AMD.zip` to the GitHub release.
 
+The build adds `amd/helper-manifest.json` to `Helper-CEI.zip`: the release version and the SHA-256 of
+every shipped file. `Update Easy-Install.bat` (`helper/amd/self_update.py`) uses it to tell files a user
+edited from shipped ones. Bump `APP_VERSION` in `ComfyUI-EZi.py` and `VERSION` in
+`ComfyUI-EZi-Launcher.py` together for each release; the build stops if they differ. The updater
+installs the latest GitHub release, so publish a release as "latest" only when it is ready.
+
 Batch files must use CRLF line endings; the build stops on a `.bat` with LF-only lines.

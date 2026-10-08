@@ -14,6 +14,9 @@ library is used.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -23,6 +26,8 @@ HELPER = ROOT / "helper"
 HELPER_ZIP = ROOT / "Helper-CEI.zip"
 RELEASE_ZIP = ROOT / "dist" / "ComfyUI-Easy-Install-AMD.zip"
 RELEASE_DIR = "ComfyUI-Easy-Install-AMD"
+# Generated into Helper-CEI.zip only (not kept in helper/): version and file hashes.
+MANIFEST = "amd/helper-manifest.json"
 RELEASE_FILES = ("ComfyUI-Easy-Install-AMD.bat", "Helper-CEI.zip", "README.md", "LICENSE")
 # Fixed timestamp so rebuilding unchanged sources gives an identical ZIP.
 TIMESTAMP = (2026, 1, 1, 0, 0, 0)
@@ -35,6 +40,21 @@ def require_crlf(name: str, data: bytes) -> bytes:
     return data
 
 
+def helper_version() -> str:
+    """The release version, which the desktop app and the launcher must agree on."""
+    versions = set()
+    for name, pattern in (("ComfyUI-EZi.py", r'^APP_VERSION = "([^"]+)"'),
+                          ("ComfyUI-EZi-Launcher.py", r"^VERSION = '([^']+)'")):
+        text = (HELPER / "Add-Ons/Tools/Helper-CEI" / name).read_text(encoding="utf-8")
+        match = re.search(pattern, text, re.M)
+        if not match:
+            raise SystemExit(f"No version found in {name}")
+        versions.add(match.group(1))
+    if len(versions) != 1:
+        raise SystemExit(f"ComfyUI-EZi.py and ComfyUI-EZi-Launcher.py disagree on the version: {sorted(versions)}")
+    return versions.pop()
+
+
 def helper_files() -> dict[str, bytes]:
     files = {}
     for path in sorted(HELPER.rglob("*")):
@@ -43,6 +63,10 @@ def helper_files() -> dict[str, bytes]:
             files[name] = require_crlf(name, path.read_bytes())
     if not files:
         raise SystemExit(f"No files found in {HELPER}")
+    # Lets "Update Easy-Install.bat" tell files the user edited from shipped ones.
+    manifest = {"version": helper_version(),
+                "files": {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}}
+    files[MANIFEST] = (json.dumps(manifest, indent=1, sort_keys=True) + "\n").encode("ascii")
     return files
 
 
@@ -65,7 +89,7 @@ def check() -> int:
     missing = sorted(set(expected) - set(actual))
     extra = sorted(set(actual) - set(expected))
     changed = sorted(name for name in set(expected) & set(actual) if expected[name] != actual[name])
-    for label, names in (("in helper/ but not in Helper-CEI.zip", missing),
+    for label, names in (("missing from Helper-CEI.zip", missing),
                          ("in Helper-CEI.zip but not in helper/", extra),
                          ("different in Helper-CEI.zip", changed)):
         for name in names:

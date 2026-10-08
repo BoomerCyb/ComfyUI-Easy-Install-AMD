@@ -44,6 +44,16 @@ def update_node(root, path, url):
         print('Previous ZIP installation preserved:',backup,flush=True)
 
 
+def node_installer(path, *args):
+    """cmd.exe line running a node's install_requirements.bat by its full path.
+
+    A string, not a list: list quoting escapes inner quotes for C programs, which
+    cmd.exe does not understand. The full path keeps it working when Windows is set
+    not to search the current folder (NoDefaultCurrentDirectoryInExePath).
+    """
+    return ' '.join(['cmd.exe /d /c call "'+str(path.absolute()/'install_requirements.bat')+'"',*args])
+
+
 def compile_nodes(py, nodes, constraint):
     """Run the repositories' own installers in the active portable environment."""
     env = os.environ.copy()
@@ -55,13 +65,13 @@ def compile_nodes(py, nodes, constraint):
             raise RuntimeError('Missing node installer: '+str(path/'install_requirements.bat'))
     for path in nodes:
         print('Checking build prerequisites:',path.name,flush=True)
-        subprocess.run(['cmd.exe','/d','/c','call install_requirements.bat --check'],
+        subprocess.run(node_installer(path,'--check'),
                        cwd=path,env=env,check=True)
     print('ComfyUI will stay stopped until the entire node group is installed and verified.',flush=True)
     for index,path in enumerate(nodes,1):
         print('Installing and compiling ['+str(index)+'/'+str(len(nodes))+']:',path.name,flush=True)
         try:
-            subprocess.run(['cmd.exe','/d','/c','call install_requirements.bat'],
+            subprocess.run(node_installer(path),
                            cwd=path,env=env,check=True)
         except subprocess.CalledProcessError as error:
             raise RuntimeError('Installation failed for '+path.name+
@@ -113,7 +123,34 @@ def main(group):
         print('LODsmith and LODTailor require Blender on PATH or a blender_path in the workflow. FastMerge is CPU-only; Memory Cleaner uses the active PyTorch memory backend.')
 
 
+def rebuild():
+    """Recompile the installed native nodes against the active PyTorch (after a bundle switch)."""
+    root = Path(__file__).resolve().parent.parent
+    py = root/'python_embeded/python.exe'
+    marker = root/'amd/wtivo-boomercyb-installed.json'
+    if not marker.is_file():
+        print('No compiled AMD nodes are installed; nothing to rebuild.',flush=True)
+        return
+    nodes = [root/'ComfyUI/custom_nodes'/name for name in json.loads(marker.read_text())['nodes']]
+    missing = [path.name for path in nodes if not path.is_dir()]
+    if missing:
+        raise RuntimeError('Installed nodes are missing: '+', '.join(missing)+'. Reinstall the node group.')
+    constraint = root/'amd/amd-constraints.txt'
+    import torch
+    print('Rebuilding compiled AMD nodes for PyTorch', torch.__version__, flush=True)
+    # The node installers keep a build only when it was made for this PyTorch.
+    compile_nodes(py,nodes,constraint)
+    print('Compiled AMD nodes rebuilt for the active bundle.',flush=True)
+
+
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('group',choices=tuple(json.loads((Path(__file__).parent/'wtivo-node-groups.json').read_text())))
-    main(parser.parse_args().group)
+    parser.add_argument('group',nargs='?',choices=tuple(json.loads((Path(__file__).parent/'wtivo-node-groups.json').read_text())))
+    parser.add_argument('--rebuild',action='store_true',help='recompile installed native nodes for the active PyTorch')
+    args = parser.parse_args()
+    if args.rebuild:
+        rebuild()
+    elif args.group:
+        main(args.group)
+    else:
+        parser.error('choose a node group or --rebuild')
