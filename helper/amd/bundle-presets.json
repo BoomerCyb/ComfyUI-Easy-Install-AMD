@@ -1,0 +1,38 @@
+[
+  {
+    "id": "amd-stable-2.13.0",
+    "label": "ComfUI Default",
+    "versions": {
+      "torch": "2.13.0+rocm10.0.0",
+      "torchvision": "0.28.0+rocm10.0.0",
+      "torchaudio": "2.11.0.2+rocm10.0.0",
+      "rocm": "10.0.0",
+      "_channel": "stable"
+    },
+    "validation": "Matches Comfy-Org Windows ROCm installation instructions; candidate GPU verification required before activation"
+  },
+  {
+    "id": "amd-stable-2.12.0",
+    "label": "AMD Stable - PyTorch 2.12.0 / ROCm 10.0",
+    "versions": {
+      "torch": "2.12.0+rocm10.0.0",
+      "torchvision": "0.27.0+rocm10.0.0",
+      "torchaudio": "2.11.0.2+rocm10.0.0",
+      "rocm": "10.0.0",
+      "_channel": "stable"
+    },
+    "validation": "Published Windows wheel metadata checked; GPU test required before activation"
+  },
+  {
+    "id": "amd-stable-2.11.0",
+    "label": "AMD Stable - PyTorch 2.11.0 / ROCm 10.0",
+    "versions": {
+      "torch": "2.11.0+rocm10.0.0",
+      "torchvision": "0.26.0+rocm10.0.0",
+      "torchaudio": "2.11.0+rocm10.0.0",
+      "rocm": "10.0.0",
+      "_channel": "stable"
+    },
+    "validation": "Published Windows wheel metadata checked; GPU test required before activation"
+  }
+]
