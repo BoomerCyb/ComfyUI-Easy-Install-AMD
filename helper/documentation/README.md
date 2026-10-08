@@ -3,7 +3,7 @@
 ---
 
 <div align="center">
-  <img src="docs/EZi-Logo.svg" width="120" alt="EZi Logo">
+  <img src="https://raw.githubusercontent.com/BoomerCyb/ComfyUI-Easy-Install-AMD/source/docs/EZi-Logo.svg" width="120" alt="EZi Logo">
   <h1>ComfyUI-Easy-Install-AMD</h1>
   <p align="center">
     <strong>One-click Portable ComfyUI with EZi Desktop: a full dashboard for packages, environments and configuration</strong><br />
@@ -30,7 +30,7 @@
 
 </br>
 
-![ComfyUI Screenshot](docs/ComfyUI-ivo.png)
+![ComfyUI Screenshot](https://raw.githubusercontent.com/BoomerCyb/ComfyUI-Easy-Install-AMD/source/docs/ComfyUI-ivo.png)
 
 </div>
 
@@ -110,6 +110,8 @@ add-ons have different compatibility requirements. Internet access is required.
 
 1. [**📥 DOWNLOAD LATEST VERSION**](https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest/download/ComfyUI-Easy-Install-AMD.zip)
 
+The default branch holds only the installer, so a clone or the green Code button's Download ZIP also works. The installer's source code is on the [`source`](https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/tree/source) branch.
+
 The installer uses the folder containing `ComfyUI-Easy-Install-AMD.bat` directly. GitHub's default `ComfyUI-Easy-Install-AMD-Windows` folder is renamed to `ComfyUI-Easy-Install-AMD` before setup; custom folder names are preserved, and an existing destination is never overwritten. After successful installation it removes that setup batch, `Helper-CEI.zip`, and the supplied root README, LICENSE and docs files. License notices and documentation remain under `documentation`; changed or additional user files are preserved. Use `ComfyUI-Easy-Install-AMD Launcher.bat` afterward.
 2. Extract the entire ZIP file to a new folder, keeping **`Helper-CEI.zip`** beside the installer, and run **`ComfyUI-Easy-Install-AMD.bat`**
 3. Optionally, after the setup, install or run components from the **Add-ons** folder or **EZi Desktop Menu**:
@@ -124,12 +126,12 @@ The installer uses the folder containing `ComfyUI-Easy-Install-AMD.bat` directly
     - **MostAadTech WTiVo Nodes** - *Installs four mesh and memory utilities; Blender is required for the Blender-based nodes*
     - **Pixaroma Workflows** - *Downloads workflows and checks for new ones*
     - **PixelArtistry Workflows** - *Downloads the watertight workflows*
-    - **Torch-Pack / ROCm Bundle Manager** - *Choose precompiled stable PyTorch/ROCm presets, the nightly bundle used to test the BoomerCyb mesh nodes, advanced versions, or restore a saved environment*
+    - **Torch-Pack / ROCm Bundle Manager** - *Choose precompiled stable PyTorch/ROCm presets, the nightly bundle used to test the BoomerCyb mesh nodes, advanced versions, or restore a saved environment. After a switch, installed BoomerCyb nodes are rebuilt for the new PyTorch. Option D lists saved bundles with their size and deletes the ones you pick*
     - **Easy-model2GGUF** - *Convert & quantize models to GGUF (Q2_K–Q8_0) with 5D tensor fixes if available*
     - **Long-Paths-Enabler** - *Enables **Long Paths** in Windows 10/11. Essential for Python/ComfyUI*
     - **ComfyUI Version Controls** - *Official Comfy-Org updates and frontend selection*
     - **Toggle-DynamicVRAM** - *Toggles **--disable-dynamic-vram** option in ComfyUI startup files*
-    - **Update Easy-Install** - *Use releases from this AMD fork; the original NVIDIA helper updater is disabled*
+    - **Update Easy-Install** - *Updates the launchers and tools from the latest release of this AMD fork. ComfyUI, models, custom nodes and Python packages are not changed. Replaced files are backed up in `amd\update-backups`; launcher .bat files you edited are kept, with the new version saved next to them as `.new`*
     - **EZi Desktop Themes** - *via EZi Desktop > Menu > Advanced*
     - **Custom Input, Output & User folders** - *via EZi Desktop > Menu > Advanced*
     - **ComfyUI & Frontend Version Changer** - *via EZi Desktop > Menu > Advanced*
@@ -191,7 +193,7 @@ Triton installs automatically with the core GPU bundle so bundled Triton-depende
 
 ### Official ComfyUI transition
 
-Fresh installations clone official **Comfy-Org/ComfyUI**. Updates, release checks, tag lists and requirements lookups also use the official repository. Existing patientx installations are not switched in place: use a fresh folder and preserve models, workflows, input and output. The normal launcher explicitly selects PyTorch attention; Kitchen, Sage and Flash remain separate launch choices. AMD package management, default Triton and optional Sage/Flash add-ons, ComfyUI Shape, and offline texture previews remain included. This release has not yet been validated with a complete fresh GPU installation. ROCm/PyTorch still default to the nightly channel; ComfUI Default (PyTorch 2.13 / ROCm 10.0), AMD Stable presets, exact nightly versions and saved bundles are available in the Bundle Manager. The separate Latest AMD Nightly button prepares the latest nightly. Opening Bundle Manager keeps ComfyUI running until you close EZi Desktop to activate a prepared bundle.
+Fresh installations clone official **Comfy-Org/ComfyUI**. Updates, release checks, tag lists and requirements lookups also use the official repository. Existing patientx installations are not switched in place: use a fresh folder and preserve models, workflows, input and output. The normal launcher explicitly selects PyTorch attention; Kitchen, Sage and Flash remain separate launch choices. AMD package management, default Triton and optional Sage/Flash add-ons, ComfyUI Shape, and offline texture previews remain included. This release has not yet been validated with a complete fresh GPU installation. ROCm/PyTorch default to AMD stable PyTorch 2.14.0 / ROCm 10.1 (nightly on GPUs without a stable build); ComfyUI Default (PyTorch 2.13 / ROCm 10.0), AMD Stable presets, exact nightly versions and saved bundles are available in the Bundle Manager. The separate Latest AMD Nightly button prepares the latest nightly. Opening Bundle Manager keeps ComfyUI running until you close EZi Desktop to activate a prepared bundle.
 
 Add-ons display order: Easy-Models-Linker, InsightFace, Nunchaku - RX 9070 XT, Pixaroma Workflows, PixelArtistry Watertight Workflows, BoomerCyb WTiVo AMD Nodes, MostAadTech WTiVo Nodes. Easy-Models-Linker does not show an Installed label.
 
