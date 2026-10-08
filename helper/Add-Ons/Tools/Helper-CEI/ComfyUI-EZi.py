@@ -4008,13 +4008,6 @@ class Api:
                 pass
             return 'N/A'
 
-        def _get_rocm():
-            from importlib.metadata import distributions
-            site = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages')
-            versions = {dist.metadata.get('Name', '').lower().replace('_', '-'): dist.version
-                        for dist in distributions(path=[site])}
-            return versions.get('rocm-sdk-core') or versions.get('rocm') or 'N/A'
-
         def _get_amd_driver(gpu):
             import winreg
             display_key = r'SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}'
@@ -4069,7 +4062,6 @@ class Api:
         with ThreadPoolExecutor(max_workers=8) as ex:
             f_python     = ex.submit(_get_python)
             f_torch      = ex.submit(_get_torch)
-            f_rocm       = ex.submit(_get_rocm)
             f_comfyui    = ex.submit(_get_comfyui)
             f_frontend   = ex.submit(_get_frontend)
             f_ram        = ex.submit(_get_ram)
@@ -4079,7 +4071,6 @@ class Api:
 
             info['python']                    = f_python.result()
             info['torch'], info['hip']        = f_torch.result()
-            info['rocm']                      = f_rocm.result()
             info['comfyui']                   = f_comfyui.result()
             info['frontend']                  = f_frontend.result()
             info['ram']                       = f_ram.result()
