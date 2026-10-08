@@ -95,6 +95,8 @@ def merge_launcher(existing, new, old_launcher):
     if sha256(body.encode('utf-8')) != old_body_hash:
         return None
     merged = launcher_args.merge(old_launcher.get('args', new_args), args, new_args)
+    if body == new_body and launcher_args.options(merged) == launcher_args.options(args):
+        return existing  # same settings, only in another order (the toggles append their flag)
     return launcher_args.join(new_body, merged).encode('utf-8')
 
 

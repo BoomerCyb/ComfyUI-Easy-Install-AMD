@@ -134,7 +134,7 @@ def main():
     shortcut_result = subprocess.run([str(py), str(root / 'amd/shortcuts.py')])
     if shortcut_result.returncode:
         print('Shortcut creation needs attention. Use ComfyUI-Easy-Install-AMD Launcher.bat in the installed folder.')
-    if failures:
+    if any('node' in failure for failure in failures):
         print('Some nodes need attention. See amd/node-install-report.json.')
 
 
