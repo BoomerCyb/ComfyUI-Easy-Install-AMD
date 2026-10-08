@@ -1,4 +1,4 @@
-VERSION = '0.1.14-amd'
+VERSION = '0.1.15-amd'
 
 import os
 import sys
