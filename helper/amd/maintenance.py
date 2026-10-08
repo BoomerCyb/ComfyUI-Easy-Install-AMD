@@ -11,6 +11,36 @@ from node_requirements import install_requirements
 from offline_preview import install as install_offline_preview
 
 
+def update_nodes(custom_nodes):
+    """Update every Git node in custom_nodes; skip nodes with local changes, report failures."""
+    skipped, failed = [], []
+    for node in sorted(Path(custom_nodes).iterdir()):
+        if not (node / '.git').exists():
+            continue
+        if subprocess.run(['git','diff','--quiet','HEAD','--'],cwd=node).returncode:
+            print('Local source changes found; preserving and skipping', node.name, flush=True)
+            skipped.append(node.name)
+            continue
+        try:
+            subprocess.run(['git', 'pull', '--ff-only'], cwd=node, check=True)
+            for filename in ('requirements-runtime.txt','requirements.txt'):
+                if (node / filename).is_file():
+                    install_requirements(Path(sys.executable), node / filename)
+            if (node/'install_requirements.bat').is_file():
+                env = os.environ.copy()
+                env['COMFY_PYTHON'] = sys.executable
+                subprocess.run(['cmd.exe','/d','/c','call install_requirements.bat'],cwd=node,env=env,check=True)
+            elif (node/'install.py').is_file():
+                subprocess.run([sys.executable,str(node/'install.py')],cwd=node,check=True)
+        except (subprocess.CalledProcessError, OSError) as error:
+            print('Update failed for', node.name + ':', error, flush=True)
+            failed.append(node.name)
+    if skipped:
+        print('Not updated (local changes kept):', ', '.join(skipped))
+    if failed:
+        raise RuntimeError('Node updates failed for: ' + ', '.join(failed))
+
+
 def main(action):
     root = Path(__file__).resolve().parent.parent
     os.environ['PIP_CONSTRAINT'] = str(root / 'amd/amd-constraints.txt')
@@ -42,20 +72,7 @@ def main(action):
             shutil.copytree(shape, comfy / 'custom_nodes/ComfyUI-Shape', dirs_exist_ok=True)
         pip(Path(sys.executable), 'install', '-r', str(comfy / 'requirements.txt'))
         if action == 'update-nodes':
-            for node in (comfy / 'custom_nodes').iterdir():
-                if (node / '.git').exists():
-                    if subprocess.run(['git','diff','--quiet','HEAD','--'],cwd=node).returncode:
-                        raise RuntimeError('Local source changes found; preserving '+node.name)
-                    subprocess.run(['git', 'pull', '--ff-only'], cwd=node, check=True)
-                    for filename in ('requirements-runtime.txt','requirements.txt'):
-                        if (node / filename).is_file():
-                            install_requirements(Path(sys.executable), node / filename)
-                    if (node/'install_requirements.bat').is_file():
-                        env = os.environ.copy()
-                        env['COMFY_PYTHON'] = sys.executable
-                        subprocess.run(['cmd.exe','/d','/c','call install_requirements.bat'],cwd=node,env=env,check=True)
-                    elif (node/'install.py').is_file():
-                        subprocess.run([sys.executable,str(node/'install.py')],cwd=node,check=True)
+            update_nodes(comfy / 'custom_nodes')
     elif action == 'diagnostics':
         print('GPU architecture:', architecture(root))
         subprocess.run([sys.executable, '-c', "import torch; print('PyTorch:',torch.__version__); print('ROCm/HIP:',torch.version.hip); print('GPU available:',torch.cuda.is_available())"], check=True)

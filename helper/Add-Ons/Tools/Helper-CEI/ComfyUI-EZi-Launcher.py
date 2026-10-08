@@ -415,15 +415,22 @@ def triton_enabled():
 
 def toggle_triton():
     try:
-        subprocess.run(
+        result = subprocess.run(
             [root('python_embeded/python.exe'), root('amd/windows_tools.py'), 'triton'],
-            cwd=ROOT_DIR, check=True, capture_output=True, text=True,
+            cwd=ROOT_DIR, capture_output=True, text=True,
             timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
-        BTN_META[ID_TRITON] = ('Triton: On' if triton_enabled() else 'Triton: Off', 'desk')
-        user32.RedrawWindow(g_hwnd, None, None,
-                            RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN)
     except (OSError, subprocess.SubprocessError) as error:
         user32.MessageBoxW(g_hwnd, str(error), 'Triton Toggle Failed', 0x10)
+        return
+    message = (result.stdout + result.stderr).strip()
+    if result.returncode:
+        # Show the tool's own message (e.g. "ComfyUI is running"), not just the exit status.
+        user32.MessageBoxW(g_hwnd, message[-1500:] or f'Exit code {result.returncode}', 'Triton Toggle Failed', 0x10)
+        return
+    BTN_META[ID_TRITON] = ('Triton: On' if triton_enabled() else 'Triton: Off', 'desk')
+    user32.RedrawWindow(g_hwnd, None, None,
+                        RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN)
+    user32.MessageBoxW(g_hwnd, message, 'Triton Backend', 0x40)
 
 
 BTN_META = {

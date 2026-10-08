@@ -882,6 +882,51 @@ COMFYUI_URL_RE = re.compile(
     re.IGNORECASE
 )
 
+_KILL_ON_CLOSE_JOB = None
+
+
+def _assign_to_kill_on_close_job(proc):
+    """Put a child process in a Job Object that Windows ends together with EZi.
+
+    The job handle lives as long as this process; when EZi exits for any reason
+    (including a crash or Task Manager), Windows closes it and terminates ComfyUI
+    and the processes it started, so no orphan keeps the port. Best effort.
+    """
+    global _KILL_ON_CLOSE_JOB
+    if os.name != 'nt':
+        return
+    try:
+        from ctypes import wintypes
+        k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        k32.CreateJobObjectW.restype = wintypes.HANDLE
+        k32.CreateJobObjectW.argtypes = (ctypes.c_void_p, wintypes.LPCWSTR)
+        k32.SetInformationJobObject.argtypes = (wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD)
+        k32.AssignProcessToJobObject.argtypes = (wintypes.HANDLE, wintypes.HANDLE)
+        if _KILL_ON_CLOSE_JOB is None:
+            class _BASIC(ctypes.Structure):
+                _fields_ = [('PerProcessUserTimeLimit', ctypes.c_int64), ('PerJobUserTimeLimit', ctypes.c_int64),
+                            ('LimitFlags', wintypes.DWORD), ('MinimumWorkingSetSize', ctypes.c_size_t),
+                            ('MaximumWorkingSetSize', ctypes.c_size_t), ('ActiveProcessLimit', wintypes.DWORD),
+                            ('Affinity', ctypes.c_size_t), ('PriorityClass', wintypes.DWORD),
+                            ('SchedulingClass', wintypes.DWORD)]
+            class _EXTENDED(ctypes.Structure):
+                _fields_ = [('BasicLimitInformation', _BASIC), ('IoInfo', ctypes.c_uint64 * 6),
+                            ('ProcessMemoryLimit', ctypes.c_size_t), ('JobMemoryLimit', ctypes.c_size_t),
+                            ('PeakProcessMemoryUsed', ctypes.c_size_t), ('PeakJobMemoryUsed', ctypes.c_size_t)]
+            job = k32.CreateJobObjectW(None, None)
+            if not job:
+                return
+            info = _EXTENDED()
+            info.BasicLimitInformation.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            if not k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):  # extended limits
+                k32.CloseHandle(job)
+                return
+            _KILL_ON_CLOSE_JOB = job
+        k32.AssignProcessToJobObject(_KILL_ON_CLOSE_JOB, int(proc._handle))
+    except Exception:
+        pass
+
+
 def _setup_path():
     try:
         subprocess.run(['cmd', '/c', 'chcp', '65001'],
@@ -3079,10 +3124,14 @@ class Api:
         self._save_dialog_lock = threading.Lock()
         self._url_found, self._started, self._js_ready = False, False, threading.Event()
         self._updating = False
+        # Claimed by _start_operation: only one install/update/switch at a time.
+        self._op_lock = threading.Lock()
         self._confirm_close = False
         self._ui_shown = False
         self._restarting = False
         self._run_id = 0
+        # Exit code when ComfyUI stopped on its own (crash); None while it runs or was stopped by EZi.
+        self._comfy_exit_code = None
         self._out_buf, self._out_lock = [], threading.Lock()
         self._columns = 120
         self._depr_hold, self._depr_drop, self._depr_bol = '', False, True
@@ -3171,7 +3220,7 @@ class Api:
         elif action == 'update':
             if result:
                 bat = os.path.join(ROOT_DIR, 'Update ComfyUI.bat')
-                threading.Thread(target=self._do_update, args=(bat,), daemon=True).start()
+                self._start_operation(self._do_update, bat)
 
     def _flush_state_to_disk(self):
         try:
@@ -3633,6 +3682,12 @@ class Api:
                 elif not was_up:
                     was_up = True
             else:
+                if self._proc is None or self._comfy_exit_code is not None:
+                    # Stopped by EZi (add-on, tool) or exited on its own: _run reports
+                    # a crash; neither case is a restart to wait for.
+                    was_up = False
+                    down_count = 0
+                    continue
                 if was_up and not self._restarting:
                     down_count += 1
                     if down_count >= _SOCK_DOWN_THRESHOLD:
@@ -3787,7 +3842,7 @@ class Api:
         if not os.path.exists(bat):
             self._safe_eval(f"show_update_missing({json.dumps(ROOT_DIR)})")
             return
-        threading.Thread(target=self._do_run_bat, args=(bat,), daemon=True).start()
+        self._start_operation(self._do_run_bat, bat)
 
     def _do_update(self, bat):
         self._do_run_bat(bat, status_label='Updating...', hide_update_notice=True)
@@ -4506,7 +4561,7 @@ class Api:
             cwd=ROOT_DIR, use_pty=True) == 0
 
     def set_frontend_version(self, version):
-        threading.Thread(target=self._do_set_frontend_version, args=(version,), daemon=True).start()
+        self._start_operation(self._do_set_frontend_version, version)
 
     def _do_set_frontend_version(self, version):
         self._safe_eval("switchToConsole('Installing...')")
@@ -4523,8 +4578,32 @@ class Api:
         except Exception as e:
             self._println(f"\033[91mError: {e}\033[0m")
 
+    def _start_operation(self, target, *args):
+        """Run one install/update operation at a time on a worker thread.
+
+        The busy flag is claimed here, before the thread starts, so a second
+        click cannot start another operation in between. The flag is released
+        when the operation returns, whatever path it took.
+        """
+        with self._op_lock:
+            if self._updating:
+                self._println('\033[93mAnother install or update is still running. Wait for it to finish.\033[0m')
+                return False
+            self._updating = True
+
+        def _run():
+            try:
+                target(*args)
+            except Exception as e:
+                self._println(f"\033[91mError: {e}\033[0m")
+            finally:
+                self._updating = False
+        threading.Thread(target=_run, daemon=True).start()
+        return True
+
     def run_bat(self, rel_path):
         if self._updating:
+            self._println('\033[93mAnother install or update is still running. Wait for it to finish.\033[0m')
             return
         rel_clean = rel_path.lstrip('./\\').replace('\\\\', '\\')
         bat = os.path.normpath(os.path.join(ROOT_DIR, rel_clean))
@@ -4532,8 +4611,7 @@ class Api:
             self._safe_eval(f"show_update_missing({json.dumps(os.path.dirname(bat))})")
             return
         if os.path.basename(bat) == 'Easy-Models-Linker.bat':
-            self._updating = True
-            threading.Thread(target=self._do_models_linker, daemon=True).start()
+            self._start_operation(self._do_models_linker)
             return
         if os.path.basename(bat) == 'Easy-model2GGUF.bat':
             self._kill_running_proc()
@@ -4546,7 +4624,7 @@ class Api:
             subprocess.Popen(command, cwd=ROOT_DIR, creationflags=subprocess.CREATE_NEW_CONSOLE)
             self._println('Bundle manager opened. ComfyUI remains running while you choose or prepare a bundle. Close EZi Desktop only when prompted to activate it.')
             return
-        threading.Thread(target=self._do_run_bat, args=(bat,), daemon=True).start()
+        self._start_operation(self._do_run_bat, bat)
 
     def _do_models_linker(self):
         try:
@@ -6636,6 +6714,9 @@ class Api:
                 cwd=ROOT_DIR, env=run_env,
                 creationflags=0x08000000|0x00000200
             )
+            proc = self._proc
+            self._comfy_exit_code = None
+            _assign_to_kill_on_close_job(proc)
             dec = codecs.getincrementaldecoder('utf-8')(errors='replace')
             fd = self._proc.stdout.fileno()
             url_tail = ''
@@ -6683,6 +6764,19 @@ class Api:
             if tail:
                 self._print(tail)
             self._ensure_nl()
+            # The output pipe stays open across a Manager restart (the new process
+            # inherits it), so reaching its end while this run still owns the
+            # process means ComfyUI stopped on its own, not that it is restarting.
+            if self._run_id == my_run_id and self._proc is proc:
+                try:
+                    code = proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    code = None
+                self._comfy_exit_code = -1 if code is None else code
+                self._restarting = False
+                self._url_found = False
+                self._println(f"\n\033[91m⚠  ComfyUI stopped (exit code {code}). See the output above, then restart ComfyUI from EZi.\033[0m")
+                self._safe_eval("switchToConsole('Stopped')")
         except Exception as e: self._println(f"Error: {str(e)}")
 
     def _depr_filter(self, text):

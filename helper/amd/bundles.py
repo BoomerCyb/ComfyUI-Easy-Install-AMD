@@ -28,8 +28,10 @@ def pip(py, *args, constrained=True):
     if not constrained:
         env.pop('PIP_CONSTRAINT', None)
         env.pop('UV_CONSTRAINT', None)
-    options = ['--no-warn-script-location']
+    options = []
     if args and args[0] == 'install':
+        # Install-only option: "pip uninstall" rejects it (no such option).
+        options.append('--no-warn-script-location')
         # Embedded Python's ._pth ignores the temporary build environment's PYTHONPATH.
         options.append('--no-build-isolation')
         options.append('--only-binary=onnx,protobuf')
@@ -91,10 +93,32 @@ def install_gpu(py, arch, versions=None):
     print('Core GPU bundle and Triton installed. SageAttention and FlashAttention are optional Add-ons.')
 
 
+def disabled_pins(amd_dir):
+    """Pins for packages moved aside by a toggle (amd/disabled-packages).
+
+    Without them, a node requirement could pull a different build (for example
+    CUDA bitsandbytes from PyPI) while the ROCm build is disabled.
+    """
+    pins = []
+    for meta in sorted(Path(amd_dir).glob('disabled-packages/*/*.dist-info/METADATA')):
+        fields = {}
+        for line in meta.read_text(encoding='utf-8', errors='replace').splitlines():
+            if not line.strip():
+                break
+            if ': ' in line:
+                key, value = line.split(': ', 1)
+                fields.setdefault(key, value.strip())
+        if fields.get('Name') and fields.get('Version'):
+            pins.append(fields['Name'] + '==' + fields['Version'])
+    return pins
+
+
 def constraints(py, path):
     code = "import importlib.metadata as m; print(chr(10).join(d.metadata['Name']+'=='+d.version for d in m.distributions() if d.metadata['Name'].lower().startswith(('torch','rocm','amd-torch','triton','sageattention','bitsandbytes','flash','amd-aiter'))))"
     gpu_pins = subprocess.check_output([str(py), '-c', code], text=True).rstrip()
-    path.write_text(gpu_pins + '\n' + '\n'.join(ONNX_REQUIREMENTS) + '\nalbumentations==2.0.8\nalbucore==0.0.24\n', encoding='utf-8')
+    extra = '\n'.join(disabled_pins(Path(path).parent))
+    path.write_text(gpu_pins + '\n' + (extra + '\n' if extra else '') + '\n'.join(ONNX_REQUIREMENTS)
+                    + '\nalbumentations==2.0.8\nalbucore==0.0.24\n', encoding='utf-8')
 
 
 def verify(py, root):
