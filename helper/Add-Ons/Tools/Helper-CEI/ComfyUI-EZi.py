@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.15-amd"
+APP_VERSION = "0.1.16-amd"
 
 import sys
 import os
