@@ -3,7 +3,7 @@
 ---
 
 <div align="center">
-  <img src="docs/EZi-Logo.svg" width="120" alt="EZi Logo">
+  <img src="https://raw.githubusercontent.com/BoomerCyb/ComfyUI-Easy-Install-AMD/source/docs/EZi-Logo.svg" width="120" alt="EZi Logo">
   <h1>ComfyUI-Easy-Install-AMD</h1>
   <p align="center">
     <strong>One-click Portable ComfyUI with EZi Desktop: a full dashboard for packages, environments and configuration</strong><br />
@@ -30,7 +30,7 @@
 
 </br>
 
-![ComfyUI Screenshot](docs/ComfyUI-ivo.png)
+![ComfyUI Screenshot](https://raw.githubusercontent.com/BoomerCyb/ComfyUI-Easy-Install-AMD/source/docs/ComfyUI-ivo.png)
 
 </div>
 

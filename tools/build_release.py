@@ -55,7 +55,15 @@ def helper_version() -> str:
     return versions.pop()
 
 
+def check_documentation() -> None:
+    """The installer removes the root README and LICENSE only when they match these copies."""
+    for name in ("README.md", "LICENSE"):
+        if (ROOT / name).read_bytes() != (HELPER / "documentation" / name).read_bytes():
+            raise SystemExit(f"{name} differs from helper/documentation/{name}; copy it there.")
+
+
 def helper_files() -> dict[str, bytes]:
+    check_documentation()
     files = {}
     for path in sorted(HELPER.rglob("*")):
         if path.is_file() and "__pycache__" not in path.parts:

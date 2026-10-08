@@ -29,10 +29,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("windows_checkout", type=Path, help="a checkout of the Windows branch")
     target = parser.parse_args().windows_checkout.resolve()
-    branch = subprocess.run(["git", "-C", str(target), "branch", "--show-current"],
-                            capture_output=True, text=True).stdout.strip()
-    if branch != "Windows":
-        raise SystemExit(f"{target} is not a checkout of the Windows branch (found {branch or 'none'}).")
+    if target == ROOT or not (target / ".git").exists():
+        raise SystemExit(f"{target} is not a separate checkout of the Windows branch.")
     if subprocess.run([sys.executable, str(ROOT / "tools/build_release.py"), "--check"]).returncode:
         raise SystemExit("Helper-CEI.zip is out of date; rebuild it on the source branch first.")
     for name in USER_FILES:
