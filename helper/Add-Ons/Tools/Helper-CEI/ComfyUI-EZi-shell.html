@@ -3437,7 +3437,17 @@ function showModal(icon, title, msg, buttons) {
   document.getElementById('modal-overlay').classList.add('active');
 }
 
-function show_close_confirm() {
+function show_close_confirm(busy) {
+  if (busy) {
+    showModal('⚠', 'Install or update running',
+      'An install or update is still running. Closing now stops it and can leave ComfyUI half&#8209;installed.<br><br>Wait for it to finish, or close anyway.',
+      [
+        { label: 'Keep running', cls: 'primary', action: () => pywebview.api.modal_response(false, 'close') },
+        { label: 'Close anyway', cls: 'danger', action: () => pywebview.api.modal_response(true, 'close') },
+      ]
+    );
+    return;
+  }
   showModal('❌', 'Close ComfyUI?',
     'ComfyUI will be stopped and the window will close.',
     [

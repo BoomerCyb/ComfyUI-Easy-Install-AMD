@@ -2297,8 +2297,14 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
 
         try:
             async with ClientSession(timeout=ClientTimeout(total=120)) as session:
-                fwd_hd = {k:v for k,v in request.headers.items() if k.lower() not in ('content-encoding','transfer-encoding')}
-                fwd_hd.update({'Host': comfy_host, 'Origin': f"http://{comfy_host}"})
+                fwd_hd = {k:v for k,v in request.headers.items() if k.lower() not in ('content-encoding','transfer-encoding','host','origin')}
+                fwd_hd['Host'] = comfy_host
+                # Requests from pages served by this proxy become same-origin requests to
+                # ComfyUI. Any other Origin is passed through unchanged, so ComfyUI's
+                # cross-site check still rejects requests sent by other websites.
+                origin = request.headers.get('Origin')
+                if origin is not None:
+                    fwd_hd['Origin'] = f"http://{comfy_host}" if origin == f"http://{request.host}" else origin
                 async with session.request(request.method, f"http://{comfy_host}{path_qs}", headers=fwd_hd, data=await request.read(), allow_redirects=False) as resp:
                     body = await resp.read()
                     resp_hd = {k: v for k, v in resp.headers.items() if k.lower() not in ('content-encoding', 'transfer-encoding', 'content-length')}
@@ -4882,7 +4888,7 @@ class Api:
         bat_names = [
             'Start ComfyUI.bat',
             'Start ComfyUI SageAttention.bat',
-            'Start ComfyUI FlashAttention AMD.bat',
+            'Start ComfyUI FlashAttention.bat',
             'Start ComfyUI KitchenAttention.bat',
         ]
         args_str = (args_str or '').strip()
@@ -5052,7 +5058,7 @@ class Api:
         bat_names = [
             'Start ComfyUI.bat',
             'Start ComfyUI SageAttention.bat',
-            'Start ComfyUI FlashAttention AMD.bat',
+            'Start ComfyUI FlashAttention.bat',
             'Start ComfyUI KitchenAttention.bat',
         ]
         new_vals = {
@@ -7186,8 +7192,11 @@ if __name__ == '__main__':
     window.events.restored  += _on_restored
 
     def _on_closing():
-        if api._updating or api._confirm_close:
+        if api._confirm_close:
             return True
+        # Ask in every case; while an install or update runs, warn that closing
+        # interrupts it and can leave the environment half-installed.
+        busy = 'true' if api._updating else 'false'
         def _ask():
             try:
                 u32 = ctypes.windll.user32
@@ -7200,7 +7209,7 @@ if __name__ == '__main__':
                         u32.BringWindowToTop(hwnd)
                     except Exception:
                         pass
-                api._window.evaluate_js("show_close_confirm();")
+                api._window.evaluate_js(f"show_close_confirm({busy});")
                 time.sleep(0.08)
                 if hwnd:
                     try:
