@@ -1,4 +1,4 @@
-VERSION = '0.1.17-amd'
+VERSION = '0.1.18-amd'
 
 import glob
 import os
@@ -746,7 +746,7 @@ def install_addon(bat_path):
 
 ACTIONS = {
     ID_TRITON: toggle_triton,
-    ID_VERSION:    lambda: os.startfile('https://github.com/Tavris1/ComfyUI-Easy-Install'),
+    ID_VERSION:    lambda: os.startfile('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD'),
     ID_EZI_DESK:   lambda: launch_ezi(),
     ID_EZI_BROW:   lambda: launch_bat('Start ComfyUI.bat'),
 
