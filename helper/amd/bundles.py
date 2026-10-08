@@ -191,6 +191,40 @@ def select_preset(root, preset):
     prepare(root,wanted)
 
 
+def folder_size(path):
+    return sum(f.stat().st_size for f in path.rglob('*') if f.is_file() and not f.is_symlink())
+
+
+def delete_saved(root, saved):
+    """List saved bundles with their sizes and delete the ones the user picks."""
+    if not saved:
+        print('No saved bundles.')
+        return
+    bundles_dir = (root / 'bundles').resolve()
+    for i, bundle in enumerate(saved, 1):
+        data = json.loads((bundle / 'bundle.json').read_text(encoding='utf-8'))
+        torch = (data.get('verified') or {}).get('torch', '?')
+        print(f'{i}. {bundle.name}  PyTorch {torch}  {folder_size(bundle) / 2**30:.1f} GB')
+    choice = input('Bundles to delete, e.g. 1 3 (Enter cancels): ').replace(',', ' ').split()
+    if not choice:
+        return
+    if not all(c.isdigit() and 1 <= int(c) <= len(saved) for c in choice):
+        raise ValueError('Invalid selection')
+    targets = [saved[int(c) - 1] for c in dict.fromkeys(choice)]
+    if input(f'Permanently delete {len(targets)} saved bundle(s)? Type YES: ').strip() != 'YES':
+        print('Nothing deleted.')
+        return
+
+    def writable(function, path, _):
+        os.chmod(path, 0o666)
+        function(path)
+    for target in targets:
+        if target.resolve().parent != bundles_dir:
+            raise ValueError('Bundle path escapes this installation')
+        shutil.rmtree(target, onexc=writable)
+        print('Deleted', target.name)
+
+
 def menu(root):
     saved = sorted(p for p in (root / 'bundles').glob('*') if (p / 'bundle.json').exists())
     active_file = root / 'amd/active-bundle.json'
@@ -208,10 +242,14 @@ def menu(root):
     for i, bundle in enumerate(saved, first_saved):
         data = json.loads((bundle / 'bundle.json').read_text(encoding='utf-8'))
         print(f'{i}. Restore {bundle.name}: {data.get("verified")}')
+    if saved:
+        print('D. Delete saved bundles to free disk space')
     choice = input('Choose a bundle (Enter cancels): ').strip()
     if not choice:
         return
-    if choice.upper() == 'V':
+    if choice.upper() == 'D':
+        delete_saved(root, saved)
+    elif choice.upper() == 'V':
         print('Enter exact versions available for your GPU in the AMD index. Blank uses latest.')
         versions = {}
         for name in ('torch', 'torchvision', 'torchaudio', 'rocm'):

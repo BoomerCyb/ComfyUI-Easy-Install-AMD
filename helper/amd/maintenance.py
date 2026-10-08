@@ -8,6 +8,7 @@ import sys
 from bundles import AITER, FLASH, SAGE, SAGE_RDNA4, TRITON, pip, constraints
 from runtime import architecture
 from node_requirements import install_requirements
+from install_wtivo_group import node_installer
 from offline_preview import install as install_offline_preview
 
 
@@ -29,7 +30,7 @@ def update_nodes(custom_nodes):
             if (node/'install_requirements.bat').is_file():
                 env = os.environ.copy()
                 env['COMFY_PYTHON'] = sys.executable
-                subprocess.run(['cmd.exe','/d','/c','call install_requirements.bat'],cwd=node,env=env,check=True)
+                subprocess.run(node_installer(node),cwd=node,env=env,check=True)
             elif (node/'install.py').is_file():
                 subprocess.run([sys.executable,str(node/'install.py')],cwd=node,check=True)
         except (subprocess.CalledProcessError, OSError) as error:
