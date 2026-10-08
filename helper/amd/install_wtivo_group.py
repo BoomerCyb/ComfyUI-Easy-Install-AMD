@@ -78,10 +78,13 @@ def main(group):
     py = root/'python_embeded/python.exe'
     collection = json.loads((root/'amd/wtivo-node-groups.json').read_text())[group]
     if group=='boomercyb':
+        # The nodes compile for the GPUs and PyTorch found here; their own
+        # installers check the build prerequisites (compiler, ROCm SDK, headers).
         import torch
-        name = torch.cuda.get_device_name() if torch.cuda.is_available() else ''
-        if not torch.version.hip or 'RX 9070 XT' not in name.upper() or not torch.__version__.startswith('2.15.0a0+rocm10.2'):
-            raise RuntimeError('BoomerCyb nodes require RX 9070 XT and the PyTorch 2.15 / ROCm 10.2 custom-node bundle. Select that preset in ROCm Bundle Manager first.')
+        if not torch.version.hip or not torch.cuda.is_available():
+            raise RuntimeError('BoomerCyb nodes need ROCm PyTorch with a visible AMD GPU.')
+        print('Building BoomerCyb nodes for', torch.cuda.get_device_name(), 'with PyTorch', torch.__version__,
+              '- tested on RX 9070 XT (gfx1201).', flush=True)
     marker = root/'amd'/('wtivo-'+group+'-installed.json')
     marker.unlink(missing_ok=True)
     constraint = root/'amd/amd-constraints.txt'

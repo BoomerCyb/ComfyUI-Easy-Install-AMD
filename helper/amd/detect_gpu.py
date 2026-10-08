@@ -25,7 +25,7 @@ PCI_DEV_TO_GFX = {
     '7551': ('gfx1201', 'Navi 48 (Radeon AI PRO R9700)', True),
     '7580': ('gfx1201', 'Navi 48 (RX 9070 XT)', True),
     '7581': ('gfx1201', 'Navi 48 (RX 9070)', True),
-    '7591': ('gfx1201', 'Navi 44 (RX 9060 XT)', True),
+    '7591': ('gfx1200', 'Navi 44 (RX 9060 XT)', True),
     '75a1': ('gfx1201', 'Navi 48 (RX 9070 GRE)', True),
     '75b0': ('gfx1201', 'Navi 48 (RX 9070 XT)', True),
 
@@ -183,6 +183,10 @@ GPU_TO_GFX = [
     (['instinct mi200', 'instinct mi210', 'instinct mi250'], 'gfx90a', 'Aldebaran / MI200', True),
 ]
 
+# Integrated GPUs (APUs). Used only to prefer a discrete GPU when both are present;
+# an APU alone is still selected.
+INTEGRATED_GFX = {'gfx1033', 'gfx1035', 'gfx1036', 'gfx1103', 'gfx1150', 'gfx1151', 'gfx1152', 'gfx1153'}
+
 def _parse_gpu_csv(output):
     """Parse 'Name,PNPDeviceID' CSV output from either wmic or Windows registry
     into a list of {'name':, 'pnp_id':} dicts for AMD/Radeon entries."""
@@ -238,8 +242,15 @@ def match_gpu_to_gfx(gpu):
     return None, None, False
 
 def detect_gpu():
+    override = os.environ.get('EZI_GPU_ARCH', '').strip().lower()
+    if override:
+        if not re.fullmatch(r'gfx[0-9a-z]+', override):
+            log(f"Ignoring invalid EZI_GPU_ARCH={override!r}; expected e.g. gfx1201")
+        else:
+            log(f"Using EZI_GPU_ARCH={override} instead of detection")
+            return override
     log("Attempting to detect AMD GPU...")
-    
+
     # Try different detection methods in order of preference
     amd_gpus = []
     
@@ -262,21 +273,25 @@ def detect_gpu():
     for gpu in amd_gpus:
         log(f"  - {gpu['name']}  [{gpu.get('pnp_id', 'no PNPDeviceID')}]")
     
-    # Try to match to known architectures
+    # Match every GPU, then prefer a discrete one: Windows may list an
+    # identifiable iGPU (780M, 890M, ...) before the Radeon card.
+    matches = []
     for gpu in amd_gpus:
         gfx, arch_name, supported = match_gpu_to_gfx(gpu)
-        
-        if gfx and supported:
-            log(f"\nMatched GPU: {gpu['name']}")
-            log(f"Architecture: {arch_name} ({gfx})")
+        if gfx:
+            matches.append((gpu, gfx, arch_name, supported))
+    discrete = [m for m in matches if m[1] not in INTEGRATED_GFX]
+    for gpu, gfx, arch_name, supported in (discrete or matches)[:1]:
+        log(f"\nMatched GPU: {gpu['name']}")
+        log(f"Architecture: {arch_name} ({gfx})")
+        if len(matches) > 1:
+            log("Other AMD GPUs: " + ", ".join(m[0]['name'] for m in matches if m[0] is not gpu))
+        if supported:
             log("Status: SUPPORTED")
             return gfx
-        elif gfx and not supported:
-            log(f"\nMatched GPU: {gpu['name']}")
-            log(f"Architecture: {arch_name} ({gfx})")
-            log("Status: NOT YET SUPPORTED - Coming in future updates")
-            return None
-    
+        log("Status: NOT YET SUPPORTED - Coming in future updates")
+        return None
+
     # If we found AMD GPUs but couldn't match them
     log("\nGPU(s) found but architecture could not be identified.")
     log("Only GCN, Vega, RDNA1, RDNA2, RDNA3, and RDNA4 architectures are supported.")

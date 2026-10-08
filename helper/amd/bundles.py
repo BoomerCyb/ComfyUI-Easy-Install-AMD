@@ -58,6 +58,20 @@ def package_specs(arch, versions=None):
     return specs, STABLE if stable else LEGACY.format(arch=arch) if legacy else NIGHTLY
 
 
+def default_versions(arch):
+    """Pinned versions for new installations: the preset marked "default".
+
+    Architectures without a build in that preset keep the previous behaviour
+    (latest nightly, or the legacy index for gfx942/gfx950).
+    """
+    presets = json.loads((Path(__file__).parent / 'bundle-presets.json').read_text(encoding='utf-8'))
+    preset = next((p for p in presets if p.get('default')), None)
+    if preset is None or arch in preset.get('unavailable_architectures', []):
+        return {}
+    print('Installing the default bundle:', preset['label'], flush=True)
+    return dict(preset['versions'])
+
+
 def install_gpu(py, arch, versions=None):
     specs, index = package_specs(arch, versions)
     pip(py, 'install', '--upgrade', '--only-binary=:all:', '--index-url',
@@ -161,7 +175,7 @@ def menu(root):
         print('Active:', data.get('verified'), 'Architecture:', data.get('architecture'))
     arch = architecture(root)
     presets = [preset for preset in json.loads((Path(__file__).parent/'bundle-presets.json').read_text())
-               if preset.get('architecture',arch)==arch]
+               if preset.get('architecture',arch)==arch and arch not in preset.get('unavailable_architectures',[])]
     print('\nComfyUI-Easy-Install-AMD / ROCm Bundle Manager\n')
     for i,preset in enumerate(presets,1):
         print(f'{i}. {preset["label"]}')

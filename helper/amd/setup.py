@@ -8,7 +8,7 @@ import urllib.request
 import zipfile
 import uuid
 
-from bundles import ONNX_REQUIREMENTS, constraints, install_gpu, pip, receipt
+from bundles import ONNX_REQUIREMENTS, constraints, default_versions, install_gpu, pip, receipt
 from runtime import architecture
 from node_requirements import install_requirements
 from offline_preview import install as install_offline_preview
@@ -70,7 +70,10 @@ def main():
                 if not destination.exists():
                     shutil.copy2(source, destination)
     stage('3/7', 'Installing the matching PyTorch / ROCm bundle')
-    install_gpu(py, arch)
+    # A pinned, published bundle keeps new installations reproducible; the
+    # newest nightly changes every day.
+    versions = default_versions(arch)
+    install_gpu(py, arch, versions)
     stage('4/7', 'Installing EZi Desktop and required Python packages')
     constraint = root / 'amd/amd-constraints.txt'
     constraints(py, constraint)
@@ -122,7 +125,7 @@ def main():
             print('Optional SoX installation failed:', error)
     stage('7/7', 'Checking the GPU bundle and creating EZi shortcuts')
     # Node installers can ignore constraints; validate the backend again at the end.
-    data = receipt(py, arch, {})
+    data = receipt(py, arch, versions)
     (root / 'amd/active-bundle.json').write_text(json.dumps(data, indent=2), encoding='utf-8')
     constraints(py, constraint)
     print('ROCm GPU check passed:', data['verified'])
