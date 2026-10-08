@@ -1,0 +1,5 @@
+# helper/ is the exact source of Helper-CEI.zip: keep bytes unchanged (batch files there use CRLF).
+helper/** -text
+*.zip binary
+# cmd.exe can mis-handle labels in batch files without CRLF line endings.
+/*.bat text eol=crlf
