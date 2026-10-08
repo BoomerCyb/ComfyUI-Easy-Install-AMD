@@ -79,10 +79,8 @@ choice /c LC /n /m "Open EZi Launcher now [L] or close [C]: "
 if not errorlevel 2 start "" "%AMD_ROOT%\ComfyUI-Easy-Install-AMD Launcher.bat"
 "%AMD_ROOT%\python_embeded\python.exe" "%AMD_ROOT%\amd\cleanup_installer.py"
 if errorlevel 1 goto failed
-(
-    del /q "%~f0"
-    exit /b 0
-)
+rem (goto) ends this batch first, so deleting it does not print "The batch file cannot be found".
+(goto) 2>nul & del /q "%~f0"
 :failed
 echo Installation failed. See the error above; re-run to retry.
 pause
