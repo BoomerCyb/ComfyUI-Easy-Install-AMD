@@ -122,7 +122,7 @@ The installer uses the folder containing `ComfyUI-Easy-Install-AMD.bat` directly
     - **SageAttention** - *Installs the matching AMD/ROCm attention package*
     - **FlashAttention** - *Installs compatible ROCm FlashAttention/AITER packages for the selected bundle*
     - **InsightFace** - *Installs InsightFace*
-    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes and runs each node's install batch to build its native backends for your GPU with ComfyUI's Python (tested on RX 9070 XT). Requires the matching HIP SDK, Visual Studio C++ Build Tools/Windows SDK, and WTiVo's vcpkg CPU dependencies. Installed appears after backend verification succeeds.*
+    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes (tested on RX 9070 XT). With the default PyTorch bundle on a Radeon RX 5000 to RX 9000 series GPU or Ryzen AI / 600M-800M integrated graphics, their native modules are installed prebuilt - no compiler needed - and checked on your GPU. Otherwise each node's install batch builds them for your GPU, which requires Visual Studio C++ Build Tools/Windows SDK and WTiVo's vcpkg CPU dependencies. Installed appears after backend verification succeeds.*
     - **MostAadTech WTiVo Nodes** - *Installs four mesh and memory utilities; Blender is required for the Blender-based nodes*
     - **Pixaroma Workflows** - *Downloads workflows and checks for new ones*
     - **PixelArtistry Workflows** - *Downloads the watertight workflows*
