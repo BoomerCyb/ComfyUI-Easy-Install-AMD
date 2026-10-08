@@ -94,7 +94,7 @@ ComfyUI/frontend versions, UV/PIP caches, and GGUF conversion** from one place.
 
 ## 🖥️ Windows Installation
 
-The installer detects your AMD GPU and downloads the matching ROCm packages.
+The installer detects your AMD GPU and installs the default bundle, AMD stable **PyTorch 2.14.0 / ROCm 10.1**, built for that GPU (the newest nightly on GPUs without a stable build: Vega gfx900/gfx906, MI300/MI350). Other bundles are available in the ROCm Bundle Manager.
 Nunchaku-AMD model loaders support **RX 9070 XT only**. Other GPUs and optional
 add-ons have different compatibility requirements. Internet access is required.
 
@@ -120,11 +120,11 @@ The installer uses the folder containing `ComfyUI-Easy-Install-AMD.bat` directly
     - **SageAttention** - *Installs the matching AMD/ROCm attention package*
     - **FlashAttention** - *Installs compatible ROCm FlashAttention/AITER packages for the selected bundle*
     - **InsightFace** - *Installs InsightFace*
-    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes and runs each node's install batch to build its native backends with ComfyUI's Python. Requires the matching HIP SDK, Visual Studio C++ Build Tools/Windows SDK, and WTiVo's vcpkg CPU dependencies. Installed appears after backend verification succeeds.*
+    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes and runs each node's install batch to build its native backends for your GPU with ComfyUI's Python (tested on RX 9070 XT). Requires the matching HIP SDK, Visual Studio C++ Build Tools/Windows SDK, and WTiVo's vcpkg CPU dependencies. Installed appears after backend verification succeeds.*
     - **MostAadTech WTiVo Nodes** - *Installs four mesh and memory utilities; Blender is required for the Blender-based nodes*
     - **Pixaroma Workflows** - *Downloads workflows and checks for new ones*
     - **PixelArtistry Workflows** - *Downloads the watertight workflows*
-    - **Torch-Pack / ROCm Bundle Manager** - *Choose precompiled stable PyTorch/ROCm presets, the RX 9070 XT custom-node bundle, advanced versions, or restore a saved environment*
+    - **Torch-Pack / ROCm Bundle Manager** - *Choose precompiled stable PyTorch/ROCm presets, the nightly bundle used to test the BoomerCyb mesh nodes, advanced versions, or restore a saved environment*
     - **Easy-model2GGUF** - *Convert & quantize models to GGUF (Q2_K–Q8_0) with 5D tensor fixes if available*
     - **Long-Paths-Enabler** - *Enables **Long Paths** in Windows 10/11. Essential for Python/ComfyUI*
     - **ComfyUI Version Controls** - *Official Comfy-Org updates and frontend selection*

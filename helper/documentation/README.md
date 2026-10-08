@@ -52,7 +52,7 @@ ComfyUI/frontend versions, UV/PIP caches, and GGUF conversion** from one place.
 |---|---|
 | [Git](https://git-scm.com/) | ![Git version](https://img.shields.io/github/v/tag/git/git?label=&display_name=tag&color=blue) - Latest (will install/update if needed) |
 | [Python](https://www.python.org/downloads/release/python-31210/) | ![Python version](https://img.shields.io/badge/3.12.10-blue) - Embedded version |
-| [ComfyUI ROCm](https://github.com/patientx-cfz/comfyui-rocm) | AMD/ROCm fork with automatic GPU detection |
+| [ComfyUI](https://github.com/Comfy-Org/ComfyUI) | Official ComfyUI with AMD/ROCm setup |
 
 </details>
 
@@ -79,8 +79,8 @@ ComfyUI/frontend versions, UV/PIP caches, and GGUF conversion** from one place.
 | 🧩 Nodes | 🛠️ Tools |
 |---|---|
 | [Nunchaku-AMD — RX 9070 XT only](https://github.com/BoomerCyb/Nunchaku-AMD) | Easy-Models-Linker |
-| [SageAttention ROCm](https://github.com/patientx-cfz/comfyui-rocm) | Easy-System-Checker |
-| [FlashAttention / AITER ROCm](https://github.com/patientx-cfz/comfyui-rocm) | ROCm Bundle Manager |
+| [SageAttention ROCm](https://github.com/Comfy-Org/ComfyUI) | Easy-System-Checker |
+| [FlashAttention / AITER ROCm](https://github.com/Comfy-Org/ComfyUI) | ROCm Bundle Manager |
 | [InsightFace](https://github.com/deepinsight/insightface) | Easy-model2GGUF |
 | [BoomerCyb WTiVo AMD Nodes](https://github.com/BoomerCyb) | Long-Paths-Enabler |
 | [MostAadTech WTiVo Nodes](https://github.com/Mstafa-awad) | Pixaroma / PixelArtistry workflows |
@@ -94,7 +94,7 @@ ComfyUI/frontend versions, UV/PIP caches, and GGUF conversion** from one place.
 
 ## 🖥️ Windows Installation
 
-The installer detects your AMD GPU and downloads the matching ROCm packages.
+The installer detects your AMD GPU and installs the default bundle, AMD stable **PyTorch 2.14.0 / ROCm 10.1**, built for that GPU (the newest nightly on GPUs without a stable build: Vega gfx900/gfx906, MI300/MI350). Other bundles are available in the ROCm Bundle Manager.
 Nunchaku-AMD model loaders support **RX 9070 XT only**. Other GPUs and optional
 add-ons have different compatibility requirements. Internet access is required.
 
@@ -120,14 +120,14 @@ The installer uses the folder containing `ComfyUI-Easy-Install-AMD.bat` directly
     - **SageAttention** - *Installs the matching AMD/ROCm attention package*
     - **FlashAttention** - *Installs compatible ROCm FlashAttention/AITER packages for the selected bundle*
     - **InsightFace** - *Installs InsightFace*
-    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes and runs each node's install batch to build its native backends with ComfyUI's Python. Requires the matching HIP SDK, Visual Studio C++ Build Tools/Windows SDK, and WTiVo's vcpkg CPU dependencies. Installed appears after backend verification succeeds.*
+    - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes and runs each node's install batch to build its native backends for your GPU with ComfyUI's Python (tested on RX 9070 XT). Requires the matching HIP SDK, Visual Studio C++ Build Tools/Windows SDK, and WTiVo's vcpkg CPU dependencies. Installed appears after backend verification succeeds.*
     - **MostAadTech WTiVo Nodes** - *Installs four mesh and memory utilities; Blender is required for the Blender-based nodes*
     - **Pixaroma Workflows** - *Downloads workflows and checks for new ones*
     - **PixelArtistry Workflows** - *Downloads the watertight workflows*
-    - **Torch-Pack / ROCm Bundle Manager** - *Choose precompiled stable PyTorch/ROCm presets, the RX 9070 XT custom-node bundle, advanced versions, or restore a saved environment*
+    - **Torch-Pack / ROCm Bundle Manager** - *Choose precompiled stable PyTorch/ROCm presets, the nightly bundle used to test the BoomerCyb mesh nodes, advanced versions, or restore a saved environment*
     - **Easy-model2GGUF** - *Convert & quantize models to GGUF (Q2_K–Q8_0) with 5D tensor fixes if available*
     - **Long-Paths-Enabler** - *Enables **Long Paths** in Windows 10/11. Essential for Python/ComfyUI*
-    - **ComfyUI Version Controls** - *ROCm fork updates and frontend selection; upstream release-tag switching is disabled*
+    - **ComfyUI Version Controls** - *Official Comfy-Org updates and frontend selection*
     - **Toggle-DynamicVRAM** - *Toggles **--disable-dynamic-vram** option in ComfyUI startup files*
     - **Update Easy-Install** - *Use releases from this AMD fork; the original NVIDIA helper updater is disabled*
     - **EZi Desktop Themes** - *via EZi Desktop > Menu > Advanced*
@@ -169,10 +169,38 @@ Original credits and license notices are preserved.
 Upstream sources:
 
 - [ComfyUI-Easy-Install](https://github.com/Tavris1/ComfyUI-Easy-Install), Windows revision `7bd6b5be3254e3134fd2e21c95f0a312e4d3fd96`.
-- [ComfyUI ROCm](https://github.com/patientx-cfz/comfyui-rocm), revision `484514ac06727b8705b0944f35d498849b5db048`. GPU mappings and ROCm setup are adapted from patientx.
+- [ComfyUI](https://github.com/Comfy-Org/ComfyUI), downloaded from its official master branch. GPU mappings and ROCm setup are adapted from patientx; original credits remain in LICENSE.
 - [Nunchaku-AMD](https://github.com/BoomerCyb/Nunchaku-AMD), downloaded separately; its `NOTICE*.txt` files document adapter sources and checkpoint revisions.
 
 Modified setup and launcher source is included inside `Helper-CEI.zip`.
 The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
+
+### Offline 3D previews - 2026-10-04
+
+Setup and Update ComfyUI install a small local extension that allows browser-local `blob:` texture loading in offline mode. Embedded GLB textures display in core and custom preview nodes while external connections remain blocked. ComfyUI source files remain unchanged, so updates preserve this fix. Restart ComfyUI after updating.
+
+### ComfyUI Shape - 2026-10-04
+
+ComfyUI Shape is included automatically in fresh installs. Open Settings, search for **Node shape**, and choose **Box** (square corners, default) or **Card** under **ComfyUI Shape**. The selection is remembered and applies to existing nodes, new nodes, and loaded workflows. No GPU build or extra requirements are needed. Update ComfyUI also restores the bundled extension; restart ComfyUI and reload the browser afterward.
+
+### Triton and optional attention packages - 2026-10-04
+
+Triton installs automatically with the core GPU bundle so bundled Triton-dependent nodes can load. There is no separate Triton add-on button. Sage Attention and Flash Attention remain optional Add-ons. The regular launcher keeps the ComfyUI Triton backend disabled and uses PyTorch attention; custom nodes may still use Triton internally.
+
+### Official ComfyUI transition
+
+Fresh installations clone official **Comfy-Org/ComfyUI**. Updates, release checks, tag lists and requirements lookups also use the official repository. Existing patientx installations are not switched in place: use a fresh folder and preserve models, workflows, input and output. The normal launcher explicitly selects PyTorch attention; Kitchen, Sage and Flash remain separate launch choices. AMD package management, default Triton and optional Sage/Flash add-ons, ComfyUI Shape, and offline texture previews remain included. This release has not yet been validated with a complete fresh GPU installation. ROCm/PyTorch still default to the nightly channel; ComfUI Default (PyTorch 2.13 / ROCm 10.0), AMD Stable presets, exact nightly versions and saved bundles are available in the Bundle Manager. The separate Latest AMD Nightly button prepares the latest nightly. Opening Bundle Manager keeps ComfyUI running until you close EZi Desktop to activate a prepared bundle.
+
+Add-ons display order: Easy-Models-Linker, InsightFace, Nunchaku - RX 9070 XT, Pixaroma Workflows, PixelArtistry Watertight Workflows, BoomerCyb WTiVo AMD Nodes, MostAadTech WTiVo Nodes. Easy-Models-Linker does not show an Installed label.
+
+INT8-Fast-ROCM is no longer part of the default node collection. Existing installations are not removed automatically.
+
+Default nodes now match the original Easy Install collection. Removed patientx-setup additions: CFZ-SwitchMenu, CFZ-Caching, HFRemoteVae, H3 SLA Attention ROCm and Spectrum Qwen2.1, alongside INT8-Fast-ROCM. AMD attention package add-ons and their original attribution remain. Existing installed node folders are not deleted automatically.
+
+### System Info
+
+Displays EZI, ComfyUI, Frontend, Python, PyTorch, HIP, ROCm, AMD Drv, GPU Model, Video VRAM, System RAM, Page File and Long Paths. PyTorch includes its full version and the AMD driver is read from Windows. The pinned Triton package still requires AMD kernel compatibility testing with the nightly runtime.
+
+The Launcher Includes A Triton On / Off Toggle Shared By Desktop And Browser Starts. Attention Availability Checks Run In The Background. Bitsandbytes Is Optional And Can Be Enabled Or Disabled From Tools; Disabled Files Are Preserved Locally. Restart ComfyUI After Changing Backend Or Package Settings.
