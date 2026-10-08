@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.16-amd"
+APP_VERSION = "0.1.17-amd"
 
 import sys
 import os
@@ -860,6 +860,13 @@ ICO_PATH = os.path.join(CURRENT_SCRIPT_DIR, "ComfyUI-EZi-Desktop.ico")
 SETTINGS_PATH = os.path.join(CURRENT_SCRIPT_DIR, "ComfyUI-EZi.settings.json")
 
 EZI_UA_TAG = "ComfyUI-EZi-Desktop"
+# Releases of this AMD edition (Update Easy-Install installs the latest one).
+EZI_RELEASES_REPO = "BoomerCyb/ComfyUI-Easy-Install-AMD"
+
+
+def _ezi_version_key(version):
+    """'v0.1.16-amd' -> (0, 1, 16); the edition suffix is not part of the number."""
+    return tuple(int(p) if p.isdigit() else -1 for p in version.strip().lstrip('v').split('-', 1)[0].split('.'))
 
 def _get_browser_version():
     from windows_tools import browser_version
@@ -3803,7 +3810,7 @@ class Api:
 
     def _get_latest_ezi_tag(self):
         import urllib.request as _ur
-        url = "https://github.com/Tavris1/ComfyUI-Easy-Install/releases/latest"
+        url = f"https://github.com/{EZI_RELEASES_REPO}/releases/latest"
         req = _ur.Request(url, headers={"User-Agent": EZI_UA_TAG}, method="HEAD")
         with _ur.urlopen(req, timeout=8) as r:
             final_url = r.geturl()
@@ -3815,14 +3822,13 @@ class Api:
     def _get_latest_ezi_tag_via_api(self):
         import urllib.request as _ur
         import json as _json
-        url = "https://api.github.com/repos/Tavris1/ComfyUI-Easy-Install/releases/latest"
+        url = f"https://api.github.com/repos/{EZI_RELEASES_REPO}/releases/latest"
         req = _ur.Request(url, headers={"User-Agent": EZI_UA_TAG})
         with _ur.urlopen(req, timeout=8) as r:
             data = _json.loads(r.read())
         return data.get("tag_name", "").strip().lstrip("v")
 
     def _check_ezi_update(self):
-        return  # AMD helper releases are maintained separately.
         try:
             self._println('\033[95mChecking for Easy-Install update...\033[0m')
             try:
@@ -3833,9 +3839,7 @@ class Api:
             if not tag:
                 self._println('\033[93mEasy-Install update check: could not determine latest tag\033[0m')
                 return
-            local_parts  = [int(x) for x in APP_VERSION.split(".") if x.isdigit()]
-            remote_parts = [int(x) for x in tag.split(".")      if x.isdigit()]
-            if remote_parts > local_parts:
+            if _ezi_version_key(tag) > _ezi_version_key(APP_VERSION):
                 display = "v" + tag
                 self._println(f'\033[95mEasy-Install update available: v{APP_VERSION} -> {display}\033[0m')
                 self._safe_eval(f"show_ezi_update({json.dumps(display)})")
@@ -4004,13 +4008,6 @@ class Api:
                 pass
             return 'N/A'
 
-        def _get_rocm():
-            from importlib.metadata import distributions
-            site = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages')
-            versions = {dist.metadata.get('Name', '').lower().replace('_', '-'): dist.version
-                        for dist in distributions(path=[site])}
-            return versions.get('rocm-sdk-core') or versions.get('rocm') or 'N/A'
-
         def _get_amd_driver(gpu):
             import winreg
             display_key = r'SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}'
@@ -4065,7 +4062,6 @@ class Api:
         with ThreadPoolExecutor(max_workers=8) as ex:
             f_python     = ex.submit(_get_python)
             f_torch      = ex.submit(_get_torch)
-            f_rocm       = ex.submit(_get_rocm)
             f_comfyui    = ex.submit(_get_comfyui)
             f_frontend   = ex.submit(_get_frontend)
             f_ram        = ex.submit(_get_ram)
@@ -4075,7 +4071,6 @@ class Api:
 
             info['python']                    = f_python.result()
             info['torch'], info['hip']        = f_torch.result()
-            info['rocm']                      = f_rocm.result()
             info['comfyui']                   = f_comfyui.result()
             info['frontend']                  = f_frontend.result()
             info['ram']                       = f_ram.result()

@@ -1024,7 +1024,7 @@ function show_settings() {
     ${_batBtn('Nunchaku - RX 9070 XT', '.\\\\Add-Ons\\\\Nunchaku - RX 9070 XT.bat', 'Installs Qwen, FLUX.1, FLUX.2, Z-Image, SDXL, SANA, T5 and LTX2 workflows; choose model downloads')}
     ${_batBtn('Pixaroma Workflows', '.\\\\Add-Ons\\\\Pixaroma Workflows.bat', 'Check Pixaroma for new workflows and add missing files to workflows / Pixaroma; existing files are preserved')}
     ${_batBtn('PixelArtistry Watertight Workflows', '.\\\\Add-Ons\\\\PixelArtistry Watertight Workflows.bat', 'Download PixelArtistry watertight workflows; existing files are preserved')}
-    ${_batBtn('BoomerCyb WTiVo AMD Nodes', '.\\\\Add-Ons\\\\BoomerCyb WTiVo AMD Nodes.bat', 'Install and build the five BoomerCyb AMD nodes for ComfyUI; first installation can take several minutes')}
+    ${_batBtn('BoomerCyb WTiVo AMD Nodes', '.\\\\Add-Ons\\\\BoomerCyb WTiVo AMD Nodes.bat', 'Install the five BoomerCyb AMD nodes for ComfyUI: prebuilt native modules when available for your GPU (seconds), otherwise built for it (several minutes)')}
     ${_batBtn('MostAadTech WTiVo Nodes', '.\\\\Add-Ons\\\\MostAadTech WTiVo Nodes.bat', 'Install four MostAadTech utilities: Blender mesh repair and trimming, CPU welding, and memory cleanup; Blender installed separately')}
   </div>`;
 
@@ -1800,9 +1800,17 @@ ${tabBar}${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdv
         const label = button.querySelector('.bat-label');
         if (!label) return;
         if (!label.dataset.originalLabel) label.dataset.originalLabel = label.textContent;
+        if (!button.dataset.originalTitle) button.dataset.originalTitle = button.title;
         const file = button.dataset.bat.split(/[\\/]+/).pop().toLowerCase();
-        const suffix = file === '1. easy-models-linker.bat' ? '' : (file === 'pixaroma workflows.bat' ? ' (Check)' : ' (Installed)');
-        label.textContent = label.dataset.originalLabel + (status[file] ? suffix : '');
+        // Installed add-ons are hidden, except those whose button is also the way to update.
+        const updater = {
+          'boomercyb wtivo amd nodes.bat': [' - Update', 'Update the five BoomerCyb AMD nodes to the tested version with matching native modules'],
+          'pixaroma workflows.bat': [' - Check for New', 'Check Pixaroma for new workflows and add missing files; existing files are preserved'],
+        }[file];
+        const installed = !!status[file];
+        button.style.display = installed && !updater ? 'none' : '';
+        label.textContent = label.dataset.originalLabel + (installed && updater ? updater[0] : '');
+        button.title = installed && updater ? updater[1] : button.dataset.originalTitle;
       });
     }).catch(function() {});
   }
@@ -2163,7 +2171,6 @@ ${tabBar}${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdv
       _sysRow('Python',     s.python    || 'N/A'),
       _sysRow('PyTorch',    s.torch     || 'N/A'),
       _sysRow('HIP',        s.hip       || 'N/A'),
-      _sysRow('ROCm',       s.rocm      || 'N/A'),
       _sysRowColor('AMD Drv', s.driver || 'N/A', driverColor),
       _sysRow('GPU Model',  s.gpu       || 'N/A'),
       _sysRow('Video VRAM', s.vram      || 'N/A'),
@@ -2188,7 +2195,6 @@ ${tabBar}${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdv
         `Python    : ${s.python   || 'N/A'}`,
         `PyTorch   : ${s.torch    || 'N/A'}`,
         `HIP       : ${s.hip      || 'N/A'}`,
-        `ROCm      : ${s.rocm     || 'N/A'}`,
         `AMD Drv   : ${s.driver   || 'N/A'}`,
         `GPU Model : ${s.gpu      || 'N/A'}`,
         `Video VRAM: ${s.vram     || 'N/A'}`,
