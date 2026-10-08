@@ -110,6 +110,8 @@ add-ons have different compatibility requirements. Internet access is required.
 
 1. [**📥 DOWNLOAD LATEST VERSION**](https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest/download/ComfyUI-Easy-Install-AMD.zip)
 
+The default branch holds only the installer, so a clone or the green Code button's Download ZIP also works. The installer's source code is on the [`source`](https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/tree/source) branch.
+
 The installer uses the folder containing `ComfyUI-Easy-Install-AMD.bat` directly. GitHub's default `ComfyUI-Easy-Install-AMD-Windows` folder is renamed to `ComfyUI-Easy-Install-AMD` before setup; custom folder names are preserved, and an existing destination is never overwritten. After successful installation it removes that setup batch, `Helper-CEI.zip`, and the supplied root README, LICENSE and docs files. License notices and documentation remain under `documentation`; changed or additional user files are preserved. Use `ComfyUI-Easy-Install-AMD Launcher.bat` afterward.
 2. Extract the entire ZIP file to a new folder, keeping **`Helper-CEI.zip`** beside the installer, and run **`ComfyUI-Easy-Install-AMD.bat`**
 3. Optionally, after the setup, install or run components from the **Add-ons** folder or **EZi Desktop Menu**:
