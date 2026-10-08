@@ -62,6 +62,25 @@ def check_documentation() -> None:
             raise SystemExit(f"{name} differs from helper/documentation/{name}; copy it there.")
 
 
+def launcher_records(files: dict[str, bytes]) -> dict[str, dict]:
+    """For each Start launcher: the hash of its text without the ComfyUI arguments, and the arguments.
+
+    The updater uses them to carry a user's argument changes (toggles, folder settings) over.
+    """
+    sys.path.insert(0, str(HELPER / "amd"))
+    sys.dont_write_bytecode = True
+    import launcher_args
+    records = {}
+    for name, data in files.items():
+        if "/" not in name and name.startswith("Start ComfyUI") and name.endswith(".bat"):
+            parts = launcher_args.split(data.decode("utf-8"))
+            if not parts:
+                raise SystemExit(f"{name}: no single ComfyUI command line found")
+            body, args = parts
+            records[name] = {"body": hashlib.sha256(body.encode("utf-8")).hexdigest(), "args": args}
+    return records
+
+
 def helper_files() -> dict[str, bytes]:
     check_documentation()
     files = {}
@@ -73,7 +92,8 @@ def helper_files() -> dict[str, bytes]:
         raise SystemExit(f"No files found in {HELPER}")
     # Lets "Update Easy-Install.bat" tell files the user edited from shipped ones.
     manifest = {"version": helper_version(),
-                "files": {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}}
+                "files": {name: hashlib.sha256(data).hexdigest() for name, data in files.items()},
+                "launchers": launcher_records(files)}
     files[MANIFEST] = (json.dumps(manifest, indent=1, sort_keys=True) + "\n").encode("ascii")
     return files
 
