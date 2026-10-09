@@ -27,16 +27,16 @@
     "gfx1201"
    ],
    "nodes": {
-    "ComfyUI-WTiVo-WatertightVoxel-AMD": "bfe14930beabf05f36a0a92068739c5a8ca0e7a8",
-    "ComfyUI-Trellis2-Mesh-Encoder-AMD": "53e9643ed5e7ae5d8f5fde3dd62d72648ad2fb58",
-    "ComfyUI-Mesh-Quad-Reconstruct-AMD": "8f7cc4e2cceb7221665328461aaf7560b73ee27f",
-    "ComfyUI-LODTailor-Bake-Forger-AMD": "075a824349d9954d8e39f2a41254e046fa262b3f",
-    "ComfyUI-CuMesh-Decimate-AMD": "9b54c6432e359fe62c591dbb1f676ce0b9dba465"
+    "ComfyUI-WTiVo-WatertightVoxel-AMD": "b2fd1d9406cb432d599b8b083d586e2d0ace5476",
+    "ComfyUI-Trellis2-Mesh-Encoder-AMD": "e050ab169564d4c77278da24d8937c52538a24e1",
+    "ComfyUI-Mesh-Quad-Reconstruct-AMD": "7888148d6c021646ba6111ffb2b2c53e39b8cd26",
+    "ComfyUI-LODTailor-Bake-Forger-AMD": "bc3e1c20f993417484860a6f67dfc571ee33ff01",
+    "ComfyUI-CuMesh-Decimate-AMD": "ff73852d6d8c74009c3eb156c29ea29b66171b8e"
    },
    "asset": "boomercyb-nodes-torch2.14.0-rocm10.1.0-py312.zip",
-   "size": 22411106,
-   "sha256": "6773f7ab0c80b3c95a2d50f5f964dd053d033b1e51f6cbba2303038ee7b2b027",
-   "url": "https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/download/nodes-torch2.14.0-rocm10.1.0-20261008/boomercyb-nodes-torch2.14.0-rocm10.1.0-py312.zip"
+   "size": 22412214,
+   "sha256": "0e2b272813a5c526bfae9a87401fc5af5e4d52fce7052c8e00cde421bc600a3e",
+   "url": "https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/download/nodes-torch2.14.0-rocm10.1.0-20261008b/boomercyb-nodes-torch2.14.0-rocm10.1.0-py312.zip"
   }
  ]
 }
