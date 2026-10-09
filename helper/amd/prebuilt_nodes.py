@@ -137,10 +137,13 @@ def run_self_test(root):
     assert 0 < len(faces) <= 1100, f'CuMesh decimation returned {len(faces)} faces'
     print('CuMesh GPU test passed:', len(sphere.faces), '->', len(faces), 'faces', flush=True)
     # Trellis2 encoder: o_voxel's GPU encoding must match its CPU encoding.
+    # Contiguous columns: strided views would make torch run its own copy kernel,
+    # and this test must exercise the prebuilt module, not torch's device coverage.
     import o_voxel._C as ovoxel
     coords = torch.randint(0, 64, (4096, 3), dtype=torch.int32)
-    cpu = ovoxel.hilbert_encode_cpu(*coords.unbind(1))
-    gpu = ovoxel.hilbert_encode_cuda(*coords.cuda().unbind(1)).cpu()
+    columns = [coords[:, i].contiguous() for i in range(3)]
+    cpu = ovoxel.hilbert_encode_cpu(*columns)
+    gpu = ovoxel.hilbert_encode_cuda(*(c.cuda() for c in columns)).cpu()
     assert torch.equal(cpu, gpu), 'o_voxel GPU and CPU encodings differ'
     print('o_voxel GPU test passed', flush=True)
     # WTiVo: its own HIP graph-cut validation and CLI.
