@@ -21,16 +21,19 @@ def main(root):
                item['path'].startswith('workflows/') and item['path'].lower().endswith('.json')]
     if not entries:
         raise RuntimeError('No published workflow JSON files found')
+    destination = root/'ComfyUI/user/default/workflows/PixelArtistry'
+    # Only workflows not on disk yet are downloaded; existing files are kept as they are.
+    missing = [item for item in entries if not destination.joinpath(*item['path'].split('/')[1:]).exists()]
     payload = io.BytesIO()
     with zipfile.ZipFile(payload,'w',zipfile.ZIP_DEFLATED) as archive:
-        for item in entries:
+        for item in missing:
             url = 'https://raw.githubusercontent.com/'+REPOSITORY+'/'+commit+'/'+quote(item['path'],safe='/')
             archive.writestr(item['path'][len('workflows/'):],fetch(url))
-    destination = root/'ComfyUI/user/default/workflows/PixelArtistry'
     stats = {'added':0,'existing':0}
-    count = install_archive(payload.getvalue(),destination,root/'amd/pixelartistry-backups',stats)
-    if count!=len(entries):
+    if missing and install_archive(payload.getvalue(),destination,root/'amd/pixelartistry-backups',stats)!=len(missing):
         raise RuntimeError('Some published files were not valid ComfyUI workflows')
+    stats['existing'] += len(entries)-len(missing)
+    count = len(entries)
     (root/'amd').mkdir(parents=True,exist_ok=True)
     report = dict(repository=REPOSITORY,commit=commit,complete=True,workflows=count,**stats)
     (root/'amd/pixelartistry-workflows.json').write_text(json.dumps(report,indent=2),encoding='utf-8')

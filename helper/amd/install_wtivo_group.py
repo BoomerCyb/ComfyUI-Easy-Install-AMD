@@ -46,6 +46,44 @@ def update_node(root, path, url):
         print('Previous ZIP installation preserved:',backup,flush=True)
 
 
+def head(path):
+    return subprocess.run(['git','-C',str(path),'rev-parse','HEAD'],capture_output=True,text=True).stdout.strip()
+
+
+def current(root, group):
+    """(True, '') when the group is installed at the commits an update would install, else (False, why)."""
+    collection = json.loads((root/'amd/wtivo-node-groups.json').read_text())[group]
+    try:
+        report = json.loads((root/'amd'/('wtivo-'+group+'-installed.json')).read_text())
+    except (OSError, ValueError):
+        return False, 'not installed'
+    if report.get('complete') is not True or 'commits' not in report:
+        return False, 'installed by an older version'
+    targets = {}
+    if group=='boomercyb':
+        import torch
+        if report.get('torch')!=torch.__version__:
+            return False, 'PyTorch changed'
+        prebuilt, _ = prebuilt_nodes.find(torch)
+        if (prebuilt or {}).get('url')!=report.get('prebuilt_url'):
+            return False, 'new prebuilt modules'
+        targets = prebuilt['nodes'] if prebuilt else {}
+    for name in collection['nodes']:
+        path = root/'ComfyUI/custom_nodes'/name
+        if not (path/'__init__.py').is_file():
+            return False, name+' is missing'
+        target = targets.get(name)
+        if not target:
+            url = 'https://github.com/'+collection['owner']+'/'+name+'.git'
+            remote = subprocess.run(['git','ls-remote',url,'HEAD'],capture_output=True,text=True)
+            target = remote.stdout.split()[0] if remote.returncode==0 and remote.stdout else None
+        if not target:
+            return False, 'could not check '+name
+        if head(path)!=target or report['commits'].get(name)!=target:
+            return False, name+' has an update'
+    return True, ''
+
+
 def node_installer(path, *args):
     """cmd.exe line running a node's install_requirements.bat by its full path.
 
@@ -125,9 +163,10 @@ def main(group):
         if not used_prebuilt:
             compile_nodes(py,installed,constraint)
     report = dict(group=group,nodes=[path.name for path in installed],complete=True,
-                  native_verified=group=='boomercyb')
+                  native_verified=group=='boomercyb',commits={path.name:head(path) for path in installed})
     if group=='boomercyb':
-        report['prebuilt'] = used_prebuilt
+        report.update(prebuilt=used_prebuilt,torch=torch.__version__,
+                      prebuilt_url=prebuilt['url'] if used_prebuilt else None)
     marker.write_text(json.dumps(report,indent=2))
     print(collection['label']+' installed. Restart ComfyUI.',flush=True)
     print('Model weights and Blender are installed separately.')
@@ -159,7 +198,8 @@ def rebuild():
         # The node installers keep a build only when it was made for this PyTorch.
         compile_nodes(py,nodes,constraint)
     report = json.loads(marker.read_text())
-    report['prebuilt'] = used_prebuilt
+    report.update(prebuilt=used_prebuilt,torch=torch.__version__,commits={path.name:head(path) for path in nodes},
+                  prebuilt_url=prebuilt['url'] if used_prebuilt else None)
     marker.write_text(json.dumps(report,indent=2))
     print('Compiled AMD nodes rebuilt for the active bundle.',flush=True)
 
