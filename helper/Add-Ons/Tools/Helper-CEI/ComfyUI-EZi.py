@@ -2630,7 +2630,6 @@ class Api:
         status = {
             'pixelartistry watertight workflows.bat': (Path(ROOT_DIR) / 'amd/pixelartistry-workflows.json').is_file() and
                 any((comfy / 'user/default/workflows/PixelArtistry').rglob('*.json')),
-            'pixaroma workflows.bat': any((comfy / 'user/default/workflows/Pixaroma').rglob('*.json')),
             # Keys are the add-on file names in lower case (the Add-Ons tab matches on them).
             'flashattention amd.bat': 'flash-attn' in packages and bool({'aiter','amd-aiter'} & packages),
             'insightface.bat': {'insightface', 'facexlib', 'onnxruntime'}.issubset(packages),

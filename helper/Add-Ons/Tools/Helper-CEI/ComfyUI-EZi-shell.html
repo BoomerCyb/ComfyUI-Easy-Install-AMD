@@ -1294,7 +1294,6 @@ function show_settings() {
     ${_batBtn('Easy-Models-Linker', '.\\\\Add-Ons\\\\Easy-Models-Linker.bat', 'Link existing MODELS folder via extra_model_paths.yaml')}
     ${_batBtn('InsightFace', '.\\\\Add-Ons\\\\InsightFace.bat', 'Installs InsightFace')}
     ${_batBtn('Nunchaku - RX 9070 XT', '.\\\\Add-Ons\\\\Nunchaku - RX 9070 XT.bat', 'Installs Qwen, FLUX.1, FLUX.2, Z-Image, SDXL, SANA, T5 and LTX2 workflows; choose model downloads')}
-    ${_batBtn('Pixaroma Workflows', '.\\\\Add-Ons\\\\Pixaroma Workflows.bat', 'Check Pixaroma for new workflows and add missing files to workflows / Pixaroma; existing files are preserved')}
     ${_batBtn('PixelArtistry Watertight Workflows', '.\\\\Add-Ons\\\\PixelArtistry Watertight Workflows.bat', 'Download PixelArtistry watertight workflows; existing files are preserved')}
     ${_batBtn('BoomerCyb WTiVo AMD Nodes', '.\\\\Add-Ons\\\\BoomerCyb WTiVo AMD Nodes.bat', 'Install the five BoomerCyb AMD nodes for ComfyUI: prebuilt native modules when available for your GPU (seconds), otherwise built for it (several minutes)')}
     ${_batBtn('MostAadTech WTiVo Nodes', '.\\\\Add-Ons\\\\MostAadTech WTiVo Nodes.bat', 'Install four MostAadTech utilities: Blender mesh repair and trimming, CPU welding, and memory cleanup; Blender installed separately')}
@@ -2089,7 +2088,6 @@ function show_settings() {
         // Installed add-ons are hidden, except those whose button is also the way to update.
         const updater = {
           'boomercyb wtivo amd nodes.bat': [' - Update', 'Update the five BoomerCyb AMD nodes to the tested version with matching native modules'],
-          'pixaroma workflows.bat': [' - Check for New', 'Check Pixaroma for new workflows and add missing files; existing files are preserved'],
         }[file];
         const installed = !!status[file];
         button.style.display = installed && !updater ? 'none' : '';
