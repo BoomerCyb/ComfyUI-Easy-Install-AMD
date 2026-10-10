@@ -124,6 +124,7 @@ The installer uses the folder containing `ComfyUI-Easy-Install-AMD.bat` directly
     - **InsightFace** - *Installs InsightFace*
     - **BoomerCyb WTiVo AMD Nodes** - *Installs the five custom AMD mesh nodes (tested on RX 9070 XT). With the default PyTorch bundle on a Radeon RX 5000 to RX 9000 series GPU or Ryzen AI / 600M-800M integrated graphics, their native modules are installed prebuilt - no compiler needed - and checked on your GPU. Otherwise each node's install batch builds them for your GPU, which requires Visual Studio C++ Build Tools/Windows SDK and WTiVo's vcpkg CPU dependencies. After backend verification succeeds, the button changes to "BoomerCyb WTiVo AMD Nodes - Update", which updates the nodes together with matching native modules.*
     - **MostAadTech WTiVo Nodes** - *Installs four mesh and memory utilities; Blender is required for the Blender-based nodes*
+    - **Pixaroma Workflows tab: Download All Workflows** - *Downloads every episode's workflows; later runs add only the new ones*
     - **PixelArtistry Workflows** - *Downloads the watertight workflows*
     - **Torch-Pack / ROCm Bundle Manager** - *Choose precompiled stable PyTorch/ROCm presets, the nightly bundle used to test the BoomerCyb mesh nodes, advanced versions, or restore a saved environment. After a switch, installed BoomerCyb nodes are rebuilt for the new PyTorch. Option D lists saved bundles with their size and deletes the ones you pick*
     - **Easy-model2GGUF** - *Convert & quantize models to GGUF (Q2_K–Q8_0) with 5D tensor fixes if available*

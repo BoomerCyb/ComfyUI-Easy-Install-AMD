@@ -2,64 +2,12 @@
 import argparse
 import io
 import json
-from pathlib import Path, PurePosixPath
-import time
+from pathlib import Path
 from urllib.parse import quote
-from urllib.request import urlopen
 import zipfile
+from download_pixaroma import fetch, install_archive
 
 REPOSITORY = 'pixelartistry/PixelArtistry-Watertight-Meshes'
-
-
-def fetch(url):
-    for attempt in range(3):
-        try:
-            with urlopen(url,timeout=60) as response:
-                data = response.read(128*1024*1024+1)
-                if len(data)>128*1024*1024:
-                    raise ValueError('Download exceeds the archive size limit')
-                return data
-        except OSError:
-            if attempt==2:
-                raise
-            time.sleep(1+attempt)
-
-
-def install_archive(data, destination, backup, stats=None):
-    count = 0
-    with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        if sum(item.file_size for item in archive.infolist())>256*1024*1024:
-            raise ValueError('Expanded archive exceeds the size limit')
-        for item in archive.infolist():
-            name = PurePosixPath(item.filename.replace('\\','/'))
-            if name.is_absolute() or '..' in name.parts or any(':' in part for part in name.parts):
-                raise ValueError('Unsafe archive path')
-            if item.is_dir() or name.suffix.lower()!='.json':
-                continue
-            if item.file_size>64*1024*1024:
-                raise ValueError('Workflow exceeds the size limit')
-            contents = archive.read(item)
-            workflow = json.loads(contents.decode('utf-8-sig'))
-            if not isinstance(workflow,dict) or not (
-                isinstance(workflow.get('nodes'),list) or
-                (workflow and all(isinstance(node,dict) and 'class_type' in node for node in workflow.values()))):
-                continue
-            target = destination.joinpath(*name.parts)
-            if not target.resolve().is_relative_to(destination.resolve()):
-                raise ValueError('Workflow escapes destination')
-            if target.exists():
-                if stats is not None:
-                    stats['existing']+=1
-                count+=1
-                continue
-            target.parent.mkdir(parents=True,exist_ok=True)
-            partial = target.with_suffix('.json.part')
-            partial.write_bytes(contents)
-            partial.replace(target)
-            if stats is not None:
-                stats['added']+=1
-            count+=1
-    return count
 
 
 def main(root):

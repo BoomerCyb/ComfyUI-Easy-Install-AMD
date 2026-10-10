@@ -4203,6 +4203,11 @@ class Api:
             return
         self._start_operation(self._do_run_bat, bat)
 
+    def download_pixaroma_workflows(self):
+        # Own console window: ComfyUI keeps running and lists the new workflows on refresh.
+        subprocess.Popen(['cmd.exe', '/c', os.path.join(ROOT_DIR, 'amd', 'pixaroma-workflows.bat')],
+                         cwd=ROOT_DIR, creationflags=subprocess.CREATE_NEW_CONSOLE)
+
     def _do_models_linker(self):
         try:
             result = subprocess.run(
