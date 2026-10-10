@@ -4203,6 +4203,11 @@ class Api:
             return
         self._start_operation(self._do_run_bat, bat)
 
+    def install_wtivo_amd_nodes(self):
+        addons = os.path.join(ROOT_DIR, 'Add-Ons')
+        self._start_operation(self._do_run_bat, os.path.join(addons, 'BoomerCyb WTiVo AMD Nodes.bat'), None, False,
+                              (os.path.join(addons, 'MostAadTech WTiVo Nodes.bat'),))
+
     def download_pixaroma_workflows(self):
         # Own console window: ComfyUI keeps running and lists the new workflows on refresh.
         subprocess.Popen(['cmd.exe', '/c', os.path.join(ROOT_DIR, 'amd', 'pixaroma-workflows.bat')],
@@ -4229,7 +4234,7 @@ class Api:
         finally:
             self._updating = False
 
-    def _do_run_bat(self, bat, status_label=None, hide_update_notice=False):
+    def _do_run_bat(self, bat, status_label=None, hide_update_notice=False, then=()):
         name = os.path.basename(bat)
         is_ezi_update = name.lower() == "update easy-install.bat"
         label = status_label or f'Running {name}...'
@@ -4265,6 +4270,10 @@ class Api:
             self._safe_eval("switchToConsole('Node installation failed — ComfyUI stopped')")
             self._updating = False
             return
+
+        if then and not result:
+            # Next add-on of a group; ComfyUI restarts once, after the last one.
+            return self._do_run_bat(then[0], then=then[1:])
 
         if is_ezi_update:
             if result:
