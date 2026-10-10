@@ -1,0 +1,43 @@
+name: Upstream release check
+
+# Scheduled workflows run only from the default branch (Windows), so
+# tools/sync_windows.py copies this file there. It reads the synced upstream
+# release from tools/upstream.json on the source branch.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open an issue when upstream publishes a newer release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          state=$(gh api "repos/$REPO/contents/tools/upstream.json?ref=source" -H "Accept: application/vnd.github.raw")
+          upstream=$(jq -r .repository <<< "$state")
+          synced=$(jq -r .synced_tag <<< "$state")
+          latest=$(gh api "repos/$upstream/releases/latest" --jq .tag_name)
+          echo "Synced to $upstream $synced; latest release is $latest."
+          if [ "$latest" = "$synced" ]; then exit 0; fi
+          title="Upstream $upstream $latest released"
+          if gh issue list -R "$REPO" --state all --search "\"$title\" in:title" --json title --jq '.[].title' | grep -qxF "$title"; then
+            echo "Issue already exists."
+            exit 0
+          fi
+          gh issue create -R "$REPO" --title "$title" --body "$(cat <<EOF
+          [$upstream $latest](https://github.com/$upstream/releases/tag/$latest) is out; source is synced to $synced.
+
+          - Changes: https://github.com/$upstream/compare/$synced...$latest
+          - Merge it: on a new branch from \`source\`, run \`python tools/sync_upstream.py\`, resolve the listed conflicts, test, and open a pull request.
+
+          Close this issue once the sync is merged.
+          EOF
+          )"
