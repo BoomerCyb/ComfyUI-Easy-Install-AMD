@@ -1364,9 +1364,6 @@ function show_settings() {
     ${_batBtn('Easy-Models-Linker', '.\\\\Add-Ons\\\\Easy-Models-Linker.bat', 'Link existing MODELS folder via extra_model_paths.yaml')}
     ${_batBtn('InsightFace', '.\\\\Add-Ons\\\\InsightFace.bat', 'Installs InsightFace')}
     ${_batBtn('Nunchaku - RX 9070 XT', '.\\\\Add-Ons\\\\Nunchaku - RX 9070 XT.bat', 'Installs Qwen, FLUX.1, FLUX.2, Z-Image, SDXL, SANA, T5 and LTX2 workflows; choose model downloads')}
-    ${_batBtn('PixelArtistry Watertight Workflows', '.\\\\Add-Ons\\\\PixelArtistry Watertight Workflows.bat', 'Download PixelArtistry watertight workflows; existing files are preserved')}
-    ${_batBtn('BoomerCyb WTiVo AMD Nodes', '.\\\\Add-Ons\\\\BoomerCyb WTiVo AMD Nodes.bat', 'Install the five BoomerCyb AMD nodes for ComfyUI: prebuilt native modules when available for your GPU (seconds), otherwise built for it (several minutes)')}
-    ${_batBtn('MostAadTech WTiVo Nodes', '.\\\\Add-Ons\\\\MostAadTech WTiVo Nodes.bat', 'Install four MostAadTech utilities: Blender mesh repair and trimming, CPU welding, and memory cleanup; Blender installed separately')}
   </div>`;
 
   const tabTorch = `<div id="stab-torch" style="display:none">
@@ -2192,17 +2189,9 @@ function show_settings() {
       tab.querySelectorAll('[data-bat]').forEach(function(button) {
         const label = button.querySelector('.bat-label');
         if (!label) return;
-        if (!label.dataset.originalLabel) label.dataset.originalLabel = label.textContent;
-        if (!button.dataset.originalTitle) button.dataset.originalTitle = button.title;
         const file = button.dataset.bat.split(/[\\/]+/).pop().toLowerCase();
-        // Installed add-ons are hidden, except those whose button is also the way to update.
-        const updater = {
-          'boomercyb wtivo amd nodes.bat': [' - Update', 'Update the five BoomerCyb AMD nodes to the tested version with matching native modules'],
-        }[file];
-        const installed = !!status[file];
-        button.style.display = installed && !updater ? 'none' : '';
-        label.textContent = label.dataset.originalLabel + (installed && updater ? updater[0] : '');
-        button.title = installed && updater ? updater[1] : button.dataset.originalTitle;
+        // Installed add-ons are hidden.
+        button.style.display = status[file] ? 'none' : '';
       });
     }).catch(function() {});
   }

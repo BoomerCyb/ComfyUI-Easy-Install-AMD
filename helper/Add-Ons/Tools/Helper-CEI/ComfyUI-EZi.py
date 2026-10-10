@@ -2628,8 +2628,6 @@ class Api:
         except OSError:
             models_linked = False
         status = {
-            'pixelartistry watertight workflows.bat': (Path(ROOT_DIR) / 'amd/pixelartistry-workflows.json').is_file() and
-                any((comfy / 'user/default/workflows/PixelArtistry').rglob('*.json')),
             # Keys are the add-on file names in lower case (the Add-Ons tab matches on them).
             'flashattention amd.bat': 'flash-attn' in packages and bool({'aiter','amd-aiter'} & packages),
             'insightface.bat': {'insightface', 'facexlib', 'onnxruntime'}.issubset(packages),
@@ -2637,17 +2635,6 @@ class Api:
                                              ('__init__.py', 'nunchaku_amd.py', 'packed_kernel.py')),
             'sageattention amd.bat': 'sageattention' in packages,
         }
-        group_file = Path(ROOT_DIR) / 'amd/wtivo-node-groups.json'
-        if group_file.is_file():
-            for group in json.loads(group_file.read_text(encoding='utf-8')).values():
-                status[group['button']] = all((comfy / 'custom_nodes' / name / '__init__.py').is_file()
-                                              for name in group['nodes'])
-                if group['button'] == 'boomercyb wtivo amd nodes.bat':
-                    try:
-                        report = json.loads((Path(ROOT_DIR)/'amd/wtivo-boomercyb-installed.json').read_text())
-                        status[group['button']] &= report.get('complete') is True and report.get('native_verified') is True
-                    except (OSError, ValueError):
-                        status[group['button']] = False
         return status
 
     def restart_ezi(self):

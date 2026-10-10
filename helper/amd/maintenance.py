@@ -28,7 +28,7 @@ def update_nodes(custom_nodes):
         if not (node / '.git').exists():
             continue
         if node.name in prebuilt:
-            print('Prebuilt node, update it with the BoomerCyb WTiVo AMD Nodes add-on:', node.name, flush=True)
+            print('Prebuilt node, update it with WTiVo AMD Download (EZi Settings, WTiVo AMD tab):', node.name, flush=True)
             continue
         if subprocess.run(['git','diff','--quiet','HEAD','--'],cwd=node).returncode:
             print('Local source changes found; preserving and skipping', node.name, flush=True)
