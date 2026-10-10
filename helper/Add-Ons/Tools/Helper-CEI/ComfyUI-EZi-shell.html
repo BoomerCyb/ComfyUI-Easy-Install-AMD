@@ -434,15 +434,6 @@
   .wctl-btn:active { background: var(--border3); }
   .wctl-close:hover { background: #e81123; color: #fff; }
   .wctl-close:active { background: #c50f1f; color: #fff; }
-  .rz { position: fixed; z-index: 999999; touch-action: none; }
-  .rz-n  { top: 0;    left: 8px;  right: 8px; height: 6px; cursor: ns-resize; }
-  .rz-s  { bottom: 0; left: 8px;  right: 8px; height: 6px; cursor: ns-resize; }
-  .rz-w  { left: 0;   top: 8px;   bottom: 8px; width: 6px; cursor: ew-resize; }
-  .rz-e  { right: 0;  top: 8px;   bottom: 8px; width: 6px; cursor: ew-resize; }
-  .rz-nw { top: 0; left: 0;  width: 8px; height: 8px; cursor: nwse-resize; }
-  .rz-ne { top: 0; right: 0; width: 8px; height: 8px; cursor: nesw-resize; }
-  .rz-sw { bottom: 0; left: 0;  width: 8px; height: 8px; cursor: nesw-resize; }
-  .rz-se { bottom: 0; right: 0; width: 8px; height: 8px; cursor: nwse-resize; }
   #dot { width: 8px; height: 8px; border-radius: 50%; background: #f1fa8c; animation: pulse 1.5s infinite; }
   #dot.ready { background: #50fa7b; animation: none; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
@@ -611,7 +602,7 @@
     display: flex; align-items: center;
   }
   #panels { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
-  #term-panel, #ui-panel {
+  #term-panel {
     position: absolute; inset: 0;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
     background: var(--bg);
@@ -635,8 +626,6 @@
     55%  { opacity: var(--ico-bg-peak, 0.5); filter: blur(0); transform: var(--ico-bg-base-tf) scale(1.04); }
     100% { opacity: var(--ico-bg-target, 0.12); filter: blur(0); transform: var(--ico-bg-base-tf) scale(1); }
   }
-  #ui-panel { z-index: 1; opacity: 0; transform: translateX(100vw); pointer-events: none; }
-  #ui-frame { width:100%; height:100%; border:none; }
   #term-jump {
     position: absolute; right: 26px; bottom: 14px; display: none; z-index: 7;
     padding: 5px 14px; font-family: inherit; font-size: 11px; font-weight: bold;
@@ -666,7 +655,6 @@
   }
   #term-detached-note button:hover { background: var(--accent-bg); color: var(--accent-hover); }
   html.console-detached #term-detached-note { display: flex; }
-  .ansi-red-fg { color:#ff5555 } .ansi-green-fg { color:#50fa7b } .ansi-yellow-fg { color:#f1fa8c }
   body.ezi-overlay { background: transparent; }
   #modal-overlay {
     display: none; position: fixed; inset: 0; z-index: 99999;
@@ -710,17 +698,7 @@
   }
   .stab-btn:hover { background: var(--accent-bg); color: var(--text-on-accent, var(--accent-hover)); border-color: var(--accent-hover); }
   .stab-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--text-on-accent, #fff); }
-  .bat-section-title { font-size: 11px; font-weight: bold; color: var(--text2); margin-bottom:4px; }
-  .bat-section-title--accent { color: var(--accent-hover); text-transform: uppercase; letter-spacing: 0.6px; font-size: 10px; border-bottom: 1px solid var(--border); padding-bottom: 3px; }
-  .bat-row {
-    display: flex; align-items: center; gap: 8px;
-    padding: 5px 0; border-bottom: 1px solid var(--border);
-  }
-  .bat-row:last-child { border-bottom: none; }
-  .bat-info { flex: 1; display: flex; flex-direction: column; gap: 1px; }
   .bat-label { font-size: 11px; color: var(--accent); font-weight: bold; }
-  .bat-desc  { font-size: 10px; color: var(--text2); }
-  .bat-run-btn { flex-shrink: 0; padding: 3px 12px; font-size: 11px; }
   .bat-clickable {
     display: flex; align-items: center; gap: 8px;
     padding: 7px 12px; font-size: 11px; color: var(--accent); cursor: pointer;
@@ -739,6 +717,255 @@
     border-color: var(--accent) !important;
     color: var(--accent) !important;
   }
+
+  #modal-box.ezi-settings {
+    padding: 0; gap: 0; max-width: none; border-radius: 10px;
+    width: min(980px, calc(100vw - 24px));
+    height: min(660px, calc(100vh - 80px)); max-height: none;
+    overflow: hidden;
+  }
+  #modal-box.ezi-settings #modal-msg { flex: 1; min-height: 0; display: flex; padding: 0; color: var(--text); line-height: 1.5; }
+  #modal-box.ezi-settings #modal-btns { margin: 0; padding: 10px 16px; border-top: 1px solid var(--border2); flex-shrink: 0; }
+  .cs-wrap { display: flex; flex: 1; min-width: 0; min-height: 0; width: 100%; }
+  .cs-nav {
+    width: 244px; flex-shrink: 0; display: flex; flex-direction: column;
+    background: var(--section-bg, var(--input-bg)); border-right: 1px solid var(--border2);
+    padding: 12px 10px; gap: 10px; min-height: 0;
+  }
+  .cs-search { position: relative; flex-shrink: 0; }
+  .cs-search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text2); pointer-events: none; }
+  .cs-search input {
+    width: 100%; background: var(--modal-bg); color: var(--text); border: 1px solid var(--border2);
+    border-radius: 6px; font-family: inherit; font-size: 12px; padding: 7px 8px 7px 29px; outline: none;
+  }
+  .cs-search input:focus { border-color: var(--accent); }
+  .cs-list { display: flex; flex-direction: column; gap: 2px; flex: 1; min-height: 0; overflow-y: auto; }
+  .cs-nav .stab-btn {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    padding: 8px 10px; font-size: 12px; font-weight: normal; letter-spacing: 0;
+    border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text);
+  }
+  .cs-nav .stab-btn svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--text2); transition: color .15s; }
+  .cs-nav .stab-btn:hover { background: var(--hover-row, var(--btn-bg)); border-color: transparent; color: var(--text3); }
+  .cs-nav .stab-btn:hover svg { color: var(--text3); }
+  .cs-nav .stab-btn.active { background: var(--btn-bg2, var(--btn-bg)); border-color: var(--border2); color: var(--text3); font-weight: bold; box-shadow: inset 3px 0 0 var(--accent); }
+  .cs-nav .stab-btn.active svg { color: var(--accent); }
+  .cs-spacer { flex: 1; min-height: 8px; }
+  .cs-sep { height: 1px; background: var(--border2); margin: 4px 2px; flex-shrink: 0; }
+  .cs-content { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 16px 22px 20px; position: relative; }
+  .cs-title {
+    font-size: 16px; font-weight: bold; color: var(--text3);
+    padding-bottom: 10px; margin-bottom: 6px; border-bottom: 1px solid var(--border2);
+  }
+  .cs-title small { font-size: 11px; font-weight: normal; color: var(--text2); margin-left: 8px; }
+  .cs-nomatch { display: none; padding: 40px 0; text-align: center; color: var(--text2); font-size: 12px; }
+  .cs-hide { display: none !important; }
+
+  .cs-section { margin-top: 14px; }
+  .cs-sec-head {
+    font-size: 12px; font-weight: bold; color: var(--text3); padding: 0 0 6px;
+    border-bottom: 1px solid var(--border2); margin-bottom: 2px;
+  }
+  .cs-sec-body { display: flex; flex-direction: column; gap: 2px; padding: 2px 0 4px; }
+
+  .cs-content .settings-row { padding: 10px 2px; min-height: 40px; }
+  .cs-content .settings-row label { font-size: 12px; color: var(--text); }
+  .cs-content .settings-row input[type=checkbox] {
+    appearance: none; -webkit-appearance: none; order: 2; margin-left: auto;
+    width: 34px; height: 18px; border-radius: 9px; background: var(--border3);
+    position: relative; transition: background .15s; flex-shrink: 0; cursor: pointer;
+  }
+  .cs-content .settings-row input[type=checkbox]::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+    border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+  .cs-content .settings-row input[type=checkbox]:checked { background: var(--accent); }
+  .cs-content .settings-row input[type=checkbox]:checked::after { transform: translateX(16px); }
+  .cs-content .settings-row select,
+  .cs-content .cs-sec-body input[type=text] { border-radius: 6px; padding: 5px 8px; }
+
+  .cs-content .bat-clickable {
+    border: none; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent;
+    margin: 0; padding: 11px 4px; white-space: normal; justify-content: space-between;
+  }
+  .cs-content .bat-clickable:last-child { border-bottom: none; }
+  .cs-content .bat-clickable:hover { background: var(--hover-row, var(--accent-bg)); }
+  .cs-content .bat-clickable::after {
+    content: 'Run'; flex-shrink: 0; font-size: 10px; font-weight: bold; padding: 3px 12px;
+    border: 1px solid var(--accent); border-radius: 5px; color: var(--accent); background: var(--btn-bg); transition: all .15s;
+  }
+  .cs-content .bat-clickable:hover::after { background: var(--accent-bg); color: var(--text-on-accent, #fff); border-color: var(--accent-hover); }
+  .cs-content .bat-label { font-size: 12px; }
+
+  #modal-box.ezi-settings { --cs-font: Inter, "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; }
+  #modal-box.ezi-settings,
+  #modal-box.ezi-settings *:not(#startup-args-info-panel):not(#startup-args-info-panel *):not(code) {
+    font-family: var(--cs-font) !important;
+  }
+  #modal-box.ezi-settings #modal-msg { font-size: 14px; line-height: 1.5; }
+  .cs-search input { font-size: 14px; }
+  .cs-nav .stab-btn { font-size: 14px; }
+  .cs-nav .stab-btn.active { font-weight: 600; }
+  .cs-title { font-size: 20px; font-weight: 600; padding-bottom: 12px; }
+  .cs-sec-head { font-size: 16px; font-weight: 600; padding-bottom: 8px; }
+  .cs-nomatch { font-size: 14px; }
+  .cs-content .settings-row label { font-size: 14px; }
+  .cs-content .bat-label { font-size: 14px; font-weight: 600; }
+  .cs-content .bat-clickable::after { font-size: 12px; font-weight: 600; }
+  #modal-box.ezi-settings .modal-btn { font-size: 13px; font-weight: 600; padding: 6px 20px; }
+  #modal-box.ezi-settings .cs-content [style*="font-size:10px"] { font-size: 12px !important; }
+  #modal-box.ezi-settings .cs-content [style*="font-size:11px"],
+  #modal-box.ezi-settings .cs-content [style*="font-size:12px"],
+  #modal-box.ezi-settings .cs-content [style*="font-size:13px"] { font-size: 14px !important; }
+  #modal-box.ezi-settings .cs-content input[type=text],
+  #modal-box.ezi-settings .cs-content select { font-size: 14px !important; }
+  #modal-box.ezi-settings .cs-content button,
+  #modal-box.ezi-settings .cs-content button[style] { font-size: 13px !important; }
+  #modal-box.ezi-settings .cs-content #sec-info-btn,
+  #modal-box.ezi-settings .cs-content #startup-args-info-btn { font-size: 12px !important; }
+  #modal-box.ezi-settings .cs-content #startup-args-info-panel { font-size: 12px !important; }
+  #modal-box.ezi-settings .cs-content .bat-clickable,
+  #modal-box.ezi-settings .cs-content table { font-size: 14px !important; }
+
+  .cs-content .cs-folder-btn {
+    flex-shrink: 0; width: 34px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border3); border-radius: 6px; background: var(--btn-bg); cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .cs-content .cs-folder-btn svg { display: block; transition: transform .15s; }
+  .cs-content .cs-folder-btn:hover { border-color: #FFCA28; background: var(--hover-row, var(--btn-bg2)); }
+  .cs-content .cs-folder-btn:hover svg { transform: scale(1.1); }
+  .cs-content .cs-folder-btn:focus-visible { outline: 2px solid #FFCA28; outline-offset: 1px; }
+
+  .cs-nav #stabtn-pixaroma svg { color: #FF8A1F; }
+  .cs-nav #stabtn-pixaroma:hover svg, .cs-nav #stabtn-pixaroma.active svg { color: #FFA13D; }
+  /* Pixaroma Workflows: styles are isolated to this pane. */
+  #stab-pixaroma { --px-coral: #f66744; color: #f5f3f1; container-type: inline-size; }
+  #stab-pixaroma * { box-sizing: border-box; }
+  #stab-pixaroma .px-card {
+    position: relative; overflow: hidden; margin-top: 10px; padding: 18px 24px;
+    border: 1px solid #574039; border-radius: 16px;
+    background: radial-gradient(ellipse at 100% 0%, #f667441c, transparent 65%), #1d1d1d;
+  }
+  #stab-pixaroma .px-hero-copy { position: relative; z-index: 1; max-width: calc(100% - 190px); }
+  #stab-pixaroma .px-eyebrow { display: flex; align-items: center; gap: 8px; color: #ff967c; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  #stab-pixaroma .px-eyebrow::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--px-coral); }
+  #stab-pixaroma .px-lead { margin: 8px 0; max-width: 390px; font-size: clamp(24px, 3.6cqi, 26px); font-weight: 700; letter-spacing: -.035em; line-height: 1.15; color: #fff5f1; }
+  #stab-pixaroma .px-sub { max-width: 360px; color: #bdb6b2; font-size: 14px; line-height: 1.55; }
+  #stab-pixaroma .px-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
+  #modal-box.ezi-settings .cs-content #stab-pixaroma .px-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 0 18px;
+    border: 1px solid transparent; border-radius: 9px; color: #fff; font-size: 13px !important; font-weight: 650;
+    cursor: pointer; transition: background .16s, border-color .16s, transform .16s; line-height: 1.3;
+  }
+  #stab-pixaroma .px-btn svg { flex-shrink: 0; }
+  #stab-pixaroma .px-ext { opacity: .7; flex-shrink: 0; }
+  #stab-pixaroma .px-btn .px-ext { margin-left: 8px; }
+  #stab-pixaroma .px-orange { background: var(--px-coral); box-shadow: 0 4px 16px #f667441a; }
+  #stab-pixaroma .px-orange:hover { background: #e95735; transform: translateY(-1px); }
+  #stab-pixaroma .px-btn:active { transform: translateY(0); }
+  #stab-pixaroma .px-btn:focus-visible, #stab-pixaroma .px-link:focus-visible, #stab-pixaroma .px-badge-link:focus-visible { outline: 2px solid #ff967c; outline-offset: 4px; }
+  #stab-pixaroma .px-cadence { display: flex; align-items: center; gap: 7px; margin-top: 10px; color: #aaa19c; font-size: 12px; }
+  #stab-pixaroma .px-cadence svg { color: #d78670; }
+  #stab-pixaroma .px-flow-art { position: absolute; right: 16px; top: 50%; width: 200px; height: 180px; transform: translateY(-50%); opacity: .85; pointer-events: none; }
+  #stab-pixaroma .px-community { display: flex; align-items: center; gap: 16px; margin-top: 12px; padding: 16px; border: 1px solid #3b3633; border-radius: 12px; background: #2a2a2a; }
+  #stab-pixaroma .px-community-icon { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: #f6674414; color: #ff967c; }
+  #stab-pixaroma .px-community-copy { flex: 1; min-width: 0; }
+  #stab-pixaroma .px-community-title { font-size: 15px; font-weight: 650; line-height: 1.4; }
+  #stab-pixaroma .px-community-sub { margin-top: 3px; color: #bdb6b2; font-size: 12px; line-height: 1.5; }
+  #modal-box.ezi-settings .cs-content #stab-pixaroma .px-discord { background: #34302e; border-color: #6b4a40; color: #ffb5a1; white-space: nowrap; }
+  #stab-pixaroma .px-discord:hover { background: #40332e; border-color: var(--px-coral); }
+  #stab-pixaroma .px-badge-link { display: inline-flex; margin-top: 10px; border-radius: 4px; }
+  #stab-pixaroma .px-badge { display: block; height: 20px; max-width: 100%; border-radius: 4px; }
+  #stab-pixaroma .px-resources { margin-top: 16px; }
+  #stab-pixaroma .px-resource-head { margin: 0 0 12px; color: #bdb6b2; font-size: 11px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; }
+  #stab-pixaroma .px-resource-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  #modal-box.ezi-settings .cs-content #stab-pixaroma .px-link {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; padding: 14px 16px; text-align: left;
+    background: #1d1d1d; border: 1px solid #3b3633; border-radius: 12px;
+    color: #f5f3f1; font-size: 14px !important; cursor: pointer; transition: border-color .16s, background .16s;
+  }
+  #stab-pixaroma .px-link:hover { background: #2a2522; border-color: #875344; }
+  #stab-pixaroma .px-link-icon { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; color: #ff967c; background: #f6674410; border-radius: 9px; }
+  #stab-pixaroma .px-link-copy { flex: 1; min-width: 0; }
+  #stab-pixaroma .px-link-name { display: block; font-size: 14px; font-weight: 650; }
+  #stab-pixaroma .px-link-desc { display: block; margin-top: 3px; color: #bdb6b2; font-size: 12px; line-height: 1.4; }
+  #stab-pixaroma .px-link-url { display: block; margin-top: 7px; color: #d78670; font-size: 10px; overflow-wrap: anywhere; }
+  #stab-pixaroma .px-link .px-ext { color: #bdb6b2; transition: transform .16s; }
+  #stab-pixaroma .px-link:hover .px-ext { transform: translate(2px,-2px); }
+  @container (max-width: 620px) {
+    #stab-pixaroma .px-flow-art { display: none; }
+    #stab-pixaroma .px-hero-copy { max-width: 100%; }
+    #stab-pixaroma .px-community { flex-wrap: wrap; }
+    #stab-pixaroma .px-community .px-discord { margin-left: 60px; }
+  }
+  @container (max-width: 450px) {
+    #stab-pixaroma .px-card { padding: 22px; }
+    #stab-pixaroma .px-resource-grid { grid-template-columns: 1fr; }
+    #stab-pixaroma .px-community { padding: 16px; gap: 12px; }
+    #stab-pixaroma .px-community .px-discord { margin-left: 0; width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #stab-pixaroma .px-btn, #stab-pixaroma .px-link, #stab-pixaroma .px-ext { transition: none !important; transform: none !important; }
+  }
+
+  .cs-nav #stabtn-about svg { color: var(--accent); }
+  .cs-nav #stabtn-about:hover svg, .cs-nav #stabtn-about.active svg { color: var(--accent-hover, var(--accent)); }
+  /* About EZi: follows the selected application theme. */
+  #stab-about { --ab-green: #50fa7b; text-align: left; container-type: inline-size; }
+  :root.theme-light #stab-about { --ab-green: #218739; }
+  #stab-about * { box-sizing: border-box; }
+  #stab-about .ab-card { margin-top: 14px; padding: 20px; border: 1px solid var(--border2); border-radius: 16px; background: radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 75%), var(--input-bg); }
+  #stab-about .ab-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  #stab-about .ab-identity { display: flex; align-items: center; gap: 12px; }
+  #stab-about .ab-mark { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid color-mix(in srgb, var(--ab-green) 50%, var(--border2)); border-radius: 13px; background: color-mix(in srgb, var(--ab-green) 12%, var(--input-bg)); color: var(--ab-green); }
+  #stab-about .ab-brand { color: var(--text3); font-size: 21px; font-weight: 750; letter-spacing: -.04em; line-height: 1.2; }
+  #stab-about .ab-kicker { color: var(--text2); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
+  #stab-about .ab-ver { padding: 4px 10px; color: var(--accent-hover); font-size: 11px; font-weight: 600; border: 1px solid var(--border2); background: var(--btn-bg); border-radius: 999px; white-space: nowrap; }
+  #stab-about .ab-lead { margin: 14px 0 8px; color: var(--text3); font-size: clamp(24px, 4cqi, 28px); font-weight: 700; letter-spacing: -.03em; line-height: 1.2; }
+  #stab-about .ab-sub { color: var(--text2); font-size: 14px; line-height: 1.6; max-width: 480px; }
+  #stab-about .ab-features { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  #stab-about .ab-feature { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border: 1px solid var(--border2); border-radius: 6px; font-size: 11px; color: var(--text); background: var(--modal-bg); }
+  #stab-about .ab-feature svg { color: var(--accent); }
+  #stab-about .ab-feature:nth-child(2) svg { color: var(--ab-green); }
+  #stab-about .ab-by { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border2); color: var(--text); font-size: 12px; }
+  #stab-about .ab-avatar { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: var(--accent-hover); font-size: 13px; font-weight: 700; background: color-mix(in srgb, var(--accent) 12%, var(--btn-bg)); }
+  #stab-about .ab-by b { color: var(--text3); }
+  #stab-about .ab-link { color: var(--accent-hover); font-weight: 600; text-decoration: none; }
+  #stab-about .ab-link:hover { text-decoration: underline; }
+  #stab-about .ab-project-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  #modal-box.ezi-settings .cs-content #stab-about .ab-btn {
+    display: flex; align-items: center; gap: 12px; min-width: 0; padding: 15px; text-align: left; cursor: pointer;
+    border: 1px solid var(--border2); border-radius: 12px; background: var(--input-bg); color: var(--text3);
+    font-size: 13px !important; font-weight: 600; line-height: 1.4; transition: background .15s, border-color .15s;
+  }
+  #stab-about .ab-btn:hover { background: var(--hover-row); border-color: var(--accent); }
+  #stab-about .ab-btn-icon { color: var(--accent); flex-shrink: 0; }
+  #stab-about .ab-btn-copy { flex: 1; min-width: 0; }
+  #stab-about .ab-btn-copy small { display: block; color: var(--text2); font-size: 11px; font-weight: 400; margin-top: 2px; }
+  #stab-about .ab-ext { color: var(--text2); flex-shrink: 0; }
+  #stab-about .ab-btn:focus-visible, #stab-about .ab-link:focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 3px; }
+  #stab-about .ab-support { margin-top: 16px; }
+  #stab-about .ab-support-head { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text3); font-size: 14px; font-weight: 600; }
+  #stab-about .ab-support-head svg, #stab-about .ab-support-btn:last-child svg { color: #ff5555; fill: #ff55551a; }
+  #stab-about .ab-support-sub { margin: 4px 0 12px; color: var(--text2); font-size: 12px; }
+  #stab-about .ab-support-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  #modal-box.ezi-settings .cs-content #stab-about .ab-support-btn { justify-content: center; gap: 8px; padding: 11px 8px; font-size: 12px !important; }
+  @container (max-width: 450px) {
+    #stab-about .ab-card { padding: 20px; }
+    #stab-about .ab-top { flex-wrap: wrap; }
+    #stab-about .ab-project-links { grid-template-columns: 1fr; }
+    #stab-about .ab-support-grid { grid-template-columns: 1fr; }
+    #modal-box.ezi-settings .cs-content #stab-about .ab-support-btn { justify-content: flex-start; padding-left: 15px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #stab-about .ab-btn { transition: none !important; } }
+
+  @media (max-width: 700px) {
+    .cs-nav { width: 56px; padding: 10px 6px; }
+    .cs-nav .cs-lbl, .cs-search { display: none; }
+    .cs-nav .stab-btn { justify-content: center; padding: 9px 0; }
+    .cs-content { padding: 14px 14px 18px; }
+  }
 </style>
 </head>
 <body>
@@ -746,9 +973,9 @@
   <div id="dot"></div><span id="status">Starting...</span>
   <div id="update-notice" style="display:none;align-items:center;gap:16px;">
     <div id="ezi-update-notice" style="display:none;align-items:center;gap:8px;"><span id="ezi-update-msg"
-        style="color:#bd93f9;font-size:11px;font-weight:bold;">&#x2B06; EZi update available</span><button onclick="doEziUpdate()"
+        style="color:#bd93f9;font-size:11px;font-weight:bold;">&#x2B06; EZi update available</span><button id="ezi-update-btn" onclick="doEziUpdate()"
         style="padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid #bd93f9;border-radius:4px;background:#3a1a6e;color:#bd93f9;cursor:pointer;transition:all .2s;line-height:1;letter-spacing:0.5px;"
-        onmouseover="this.style.background='#5a2a9e'" onmouseout="this.style.background='#3a1a6e'">Update</button><button
+        onmouseover="this.style.background='#5a2a9e'" onmouseout="this.style.background='#3a1a6e'">Update</button><button id="ezi-whatsnew-btn"
         onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest')"
         style="padding:3px 10px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid #6272a4;border-radius:4px;background:#1e2233;color:#8be9fd;cursor:pointer;transition:all .2s;line-height:1;letter-spacing:0.5px;"
         onmouseover="this.style.background='#2a3050';this.style.borderColor='#8be9fd';this.style.color='#caf7ff'"
@@ -760,7 +987,7 @@
   </div><button id="btn" onclick="toggle()">ComfyUI ▶</button><button id="detach-btn" tabindex="-1" data-tip="Detach console to its own window" onmousedown="event.preventDefault()" onclick="detachConsole()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 19h-6a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v4"/><path d="M14 15a1 1 0 0 1 1 -1h5a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1l0 -3"/><path d="M7 9l4 4"/><path d="M8 13h3v-3"/></svg></button><button id="reload-btn" title="Reload ComfyUI" style="display:none"
     onclick="(function(b){ b.classList.add('spinning'); try { pywebview.api.reload_comfy_view(); } catch(e) {} setTimeout(function(){ b.classList.remove('spinning'); }, 500); })(this)"><span>⟳</span></button>
   <div id="titlebar-drag" class="titlebar-drag"></div>
-  <div id="right-btns" style="display:flex;align-items:center;gap:8px;height:32px;">
+  <div style="display:flex;align-items:center;gap:8px;height:32px;">
     <div id="out-btn-wrap"><button id="out-btn" onclick="toggleOutDropdown(event)" title="Folders"><svg class="btn-icon"
           viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -791,12 +1018,12 @@
     </div>
     <div id="rec-indicator" style="display:none"></div><button id="settings-btn" title="Easy Menu">&#x2630;</button>
     <div id="win-controls">
-      <button id="win-min-btn" class="wctl-btn" title="Minimize" onclick="winMinimize()"><svg viewBox="0 0 10 10"><path
+      <button class="wctl-btn" title="Minimize" onclick="winMinimize()"><svg viewBox="0 0 10 10"><path
             d="M0 5H10" stroke="currentColor" stroke-width="1"/></svg></button>
       <button id="win-max-btn" class="wctl-btn" title="Maximize" onclick="winToggleMax()"><svg viewBox="0 0 10 10"
           id="win-max-icon"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor"
             stroke-width="1"/></svg></button>
-      <button id="win-close-btn" class="wctl-btn wctl-close" title="Close" onclick="winClose()"><svg viewBox="0 0 10 10"><path
+      <button class="wctl-btn wctl-close" title="Close" onclick="winClose()"><svg viewBox="0 0 10 10"><path
             d="M0 0L10 10M10 0L0 10" stroke="currentColor" stroke-width="1"/></svg></button>
     </div>
   </div>
@@ -817,7 +1044,6 @@
   <div id="ico-bg"></div>
   <button id="term-jump" onmousedown="event.preventDefault()" onclick="jumpBottom()">&#x2193; Jump To Latest</button>
   <div id="term-detached-note"><div>Console is open in a separate window.</div><button onclick="attachConsole()">Attach Console</button></div>
-  <div id="ui-panel"><iframe id="ui-frame" src="about:blank"></iframe></div>
 </div>
 <div id="modal-overlay">
   <div id="modal-box">
@@ -858,10 +1084,8 @@ const term = document.getElementById('term-panel');
 const dot = document.getElementById('dot');
 const statusEl = document.getElementById('status');
 const btn = document.getElementById('btn');
-const uiPanel = document.getElementById('ui-panel');
 const termPanel = document.getElementById('term-panel');
 const panels = document.getElementById('panels');
-const frame = document.getElementById('ui-frame');
 const icoBg = document.getElementById('ico-bg');
 const icoBgTargetOpacity = window.getComputedStyle(icoBg).opacity || '1';
 const icoBgBaseTransform = (function() {
@@ -930,25 +1154,10 @@ function show_settings() {
           applyTheme('comfyui');
         }
         var hasVars = fresh.comfyThemeVars && Object.keys(fresh.comfyThemeVars).length > 0;
-        var varsChanged = JSON.stringify(fresh.comfyThemeVars) !== JSON.stringify(eziSettings.comfyThemeVars);
-        if (varsChanged && (eziSettings.theme || 'dark') === 'comfyui') {
-          applyTheme('comfyui');
-        }
         var opt = document.querySelector('#set-theme option[value="comfyui"]');
         if (opt) {
           opt.textContent = 'ComfyUI' + (fresh.comfyTheme ? ' (' + fresh.comfyTheme + ')' : '');
           opt.disabled = !(fresh.comfyTheme && hasVars);
-        }
-        var span = document.getElementById('comfy-theme-value');
-        if (span) {
-          span.innerHTML = (fresh.comfyTheme && fresh.comfyTheme.trim())
-            ? fresh.comfyTheme.trim()
-            : '<span style="color:var(--text3,#666);font-style:italic">not found</span>';
-        }
-        var pathSpan = document.getElementById('comfy-settings-path');
-        if (pathSpan && fresh.comfySettingsPath) {
-          pathSpan.textContent = fresh.comfySettingsPath;
-          pathSpan.title       = fresh.comfySettingsPath;
         }
       } catch(e) {}
     }).catch(function(){});
@@ -958,27 +1167,90 @@ function show_settings() {
     return `<tr><td style="color:#8b949e;padding:2px 10px 2px 0;white-space:nowrap">${label}</td>` +
            `<td style="color:${color||'#f1fa8c'};font-weight:bold">${value}</td></tr>`;
   }
-  function _sysRowColor(label, value, color) { return _sysRow(label, value, color); }
 
   const _tabDisplay = {advanced:'flex', appearance:'block'};
   function _showTab(name) {
-    ['general','addons','torch','tools','appearance','advanced','about'].forEach(t => {
+    ['general','addons','torch','tools','appearance','advanced','pixaroma','about'].forEach(t => {
       document.getElementById('stab-'+t).style.display = (t===name)?(_tabDisplay[t]||'block'):'none';
       document.getElementById('stabtn-'+t).classList.toggle('active', t===name);
     });
+    const _ttl = document.getElementById('cs-title');
+    if (_ttl) _ttl.textContent = _tabTitles[name] || '';
+    const _cc = document.getElementById('cs-content');
+    if (_cc) _cc.scrollTop = 0;
   }
 
-  const tabBar = `<div style="margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:8px">
-    <div style="display:flex;gap:4px;margin-bottom:6px;align-items:center;flex-wrap:wrap">
-      <button id="stabtn-general"  class="stab-btn active">System Info</button>
-      <button id="stabtn-addons"   class="stab-btn">Add-Ons</button>
-      <button id="stabtn-torch"    class="stab-btn">Torch Pack</button>
-      <button id="stabtn-tools"    class="stab-btn">Tools</button>
-      <button id="stabtn-appearance" class="stab-btn">Appearance</button>
-      <button id="stabtn-advanced" class="stab-btn">Advanced</button>
-      <button id="stabtn-about"    class="stab-btn" style="margin-left:auto;">About</button>
-    </div>
-  </div>`;
+  const _tabIds = ['general','addons','torch','tools','appearance','advanced','pixaroma','about'];
+  const _tabTitles = {general:'System Info', addons:'Add-ons', torch:'Torch Pack', tools:'Tools', appearance:'Appearance', advanced:'Advanced', pixaroma:'Pixaroma Workflows', about:'About EZi'};
+  const _UNIT_SEL = '.settings-row, .bat-clickable';
+
+  function _csCurTab() {
+    return _tabIds.find(t => document.getElementById('stabtn-'+t).classList.contains('active')) || 'general';
+  }
+
+  function _csApplyFilter(q) {
+    q = (q || '').trim().toLowerCase();
+    document.querySelectorAll('#cs-content .cs-hide, .cs-nav .cs-hide').forEach(e => e.classList.remove('cs-hide'));
+    const nomatch = document.getElementById('cs-nomatch');
+    if (!q) { if (nomatch) nomatch.style.display = 'none'; return; }
+
+    const hits = {};
+    _tabIds.forEach(t => {
+      const pane = document.getElementById('stab-'+t);
+      const units = Array.from(pane.querySelectorAll(_UNIT_SEL));
+      const nameHit = (_tabTitles[t] || '').toLowerCase().includes(q);
+      let count = 0;
+      if (units.length) {
+        units.forEach(u => {
+          const txt = (u.textContent + ' ' + (u.title || '') + ' ' +
+            Array.from(u.querySelectorAll('input[placeholder]')).map(i => i.placeholder).join(' ')).toLowerCase();
+          if (nameHit || txt.includes(q)) count++; else u.classList.add('cs-hide');
+        });
+        pane.querySelectorAll('.cs-section').forEach(sec => {
+          const us = sec.querySelectorAll(_UNIT_SEL);
+          if (us.length && Array.from(us).every(u => u.classList.contains('cs-hide'))) sec.classList.add('cs-hide');
+        });
+      } else {
+        count = (nameHit || pane.textContent.toLowerCase().includes(q)) ? 1 : 0;
+      }
+      hits[t] = count;
+      document.getElementById('stabtn-'+t).classList.toggle('cs-hide', count === 0);
+    });
+
+    const any = _tabIds.some(t => hits[t] > 0);
+    if (nomatch) nomatch.style.display = any ? 'none' : 'block';
+    if (any && hits[_csCurTab()] === 0) {
+      document.getElementById('stabtn-' + _tabIds.find(t => hits[t] > 0)).click();
+    }
+    if (!any) { const cur = document.getElementById('stab-' + _csCurTab()); if (cur) cur.classList.add('cs-hide'); }
+  }
+
+  function _csInitSearch() {
+    const inp = document.getElementById('cs-search');
+    if (!inp) return;
+    inp.addEventListener('input', () => _csApplyFilter(inp.value));
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && inp.value) { inp.value = ''; _csApplyFilter(''); e.stopPropagation(); }
+    });
+    setTimeout(() => { try { inp.focus(); } catch(e) {} }, 60);
+  }
+
+
+  const tabBar = `<aside class="cs-nav">
+    <div class="cs-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="cs-search" placeholder="Search Settings..." autocomplete="off" spellcheck="false"></div>
+    <nav class="cs-list">
+      <button id="stabtn-general" class="stab-btn active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg><span class="cs-lbl">System Info</span></button>
+      <button id="stabtn-addons" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span class="cs-lbl">Add-Ons</span></button>
+      <button id="stabtn-torch" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span class="cs-lbl">Torch Pack</span></button>
+      <button id="stabtn-tools" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg><span class="cs-lbl">Tools</span></button>
+      <button id="stabtn-appearance" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg><span class="cs-lbl">Appearance</span></button>
+      <button id="stabtn-advanced" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M20 6h0M4 12h4M14 12h6M4 18h12M20 18h0"/><circle cx="17" cy="6" r="2"/><circle cx="11" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="cs-lbl">Advanced</span></button>
+      <div class="cs-spacer"></div>
+      <button id="stabtn-pixaroma" class="stab-btn" title="Free workflow files for every episode of the Pixaroma ComfyUI course."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M10 6.5h4a3.5 3.5 0 0 1 3.5 3.5v4"/></svg><span class="cs-lbl">Pixaroma Workflows</span></button>
+      <div class="cs-sep"></div>
+      <button id="stabtn-about" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span class="cs-lbl">About EZi</span></button>
+    </nav>
+  </aside>`;
 
   const tabGeneral = `<div id="stab-general">
     <div style="margin-bottom:10px">
@@ -986,9 +1258,9 @@ function show_settings() {
       <style>@keyframes sysinfo-pulse{0%,100%{opacity:1;text-shadow:0 0 8px #f1fa8c}50%{opacity:0.25;text-shadow:none}}</style>
       <div id="sysinfo-table"></div>
     </div>
-    <div style="margin-top:14px;border:1px solid var(--accent);border-radius:6px;overflow:hidden">
-      <div style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);background:var(--section-bg,var(--input-bg));padding:4px 10px;border-bottom:1px solid var(--border2)">Package Cache</div>
-      <div style="padding:8px 10px;display:flex;flex-direction:column;gap:6px">
+    <div class="cs-section">
+      <div class="cs-sec-head">Package Cache</div>
+      <div class="cs-sec-body" style="gap:6px">
         <div id="cache-warning" style="display:none;align-items:center;gap:6px;padding:5px 8px;border-radius:4px;background:rgba(64,156,255,0.08);border:1px solid rgba(64,156,255,0.30)">
           <span style="font-size:13px;line-height:1">💡️</span>
           <span style="font-size:10px;color:#4da3ff;line-height:1.4">This will clear pip and uv cache files to free disk space.</span>
@@ -1022,7 +1294,6 @@ function show_settings() {
     ${_batBtn('Easy-Models-Linker', '.\\\\Add-Ons\\\\Easy-Models-Linker.bat', 'Link existing MODELS folder via extra_model_paths.yaml')}
     ${_batBtn('InsightFace', '.\\\\Add-Ons\\\\InsightFace.bat', 'Installs InsightFace')}
     ${_batBtn('Nunchaku - RX 9070 XT', '.\\\\Add-Ons\\\\Nunchaku - RX 9070 XT.bat', 'Installs Qwen, FLUX.1, FLUX.2, Z-Image, SDXL, SANA, T5 and LTX2 workflows; choose model downloads')}
-    ${_batBtn('Pixaroma Workflows', '.\\\\Add-Ons\\\\Pixaroma Workflows.bat', 'Check Pixaroma for new workflows and add missing files to workflows / Pixaroma; existing files are preserved')}
     ${_batBtn('PixelArtistry Watertight Workflows', '.\\\\Add-Ons\\\\PixelArtistry Watertight Workflows.bat', 'Download PixelArtistry watertight workflows; existing files are preserved')}
     ${_batBtn('BoomerCyb WTiVo AMD Nodes', '.\\\\Add-Ons\\\\BoomerCyb WTiVo AMD Nodes.bat', 'Install the five BoomerCyb AMD nodes for ComfyUI: prebuilt native modules when available for your GPU (seconds), otherwise built for it (several minutes)')}
     ${_batBtn('MostAadTech WTiVo Nodes', '.\\\\Add-Ons\\\\MostAadTech WTiVo Nodes.bat', 'Install four MostAadTech utilities: Blender mesh repair and trimming, CPU welding, and memory cleanup; Blender installed separately')}
@@ -1040,10 +1311,6 @@ function show_settings() {
     ${_batBtn('Toggle DynamicVRAM', '.\\\\Add-Ons\\\\Tools\\\\Toggle-DynamicVRAM.bat', 'Toggles --disable-dynamic-vram in startup files')}
     ${_batBtn('Toggle Bitsandbytes', '.\\\\Add-Ons\\\\Tools\\\\Toggle Bitsandbytes.bat', 'Enables Or Disables Bitsandbytes; Disabled Files Are Kept Locally; Restart ComfyUI To Apply')}
   </div>`;
-
-  const _comfyThemeDisplay = (eziSettings.comfyTheme && eziSettings.comfyTheme.trim())
-    ? eziSettings.comfyTheme.trim()
-    : '<span style="color:var(--text3,#666);font-style:italic">not found</span>';
 
   let _cp = Object.assign({input:'', output:'', user:''}, eziSettings.customPaths || {});
 
@@ -1066,10 +1333,7 @@ function show_settings() {
   const _cpUseBase = !!_cpDetectedBase;
 
   function _cpBrowseBtn(id) {
-    return `<button id="${id}" title="Browse"
-      style="flex-shrink:0;padding:3px 10px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid var(--accent);border-radius:4px;background:var(--btn-bg);color:var(--accent);cursor:pointer;transition:all .15s;line-height:1.4;white-space:nowrap;"
-      onmouseover="this.style.background='var(--accent-bg)';this.style.borderColor='var(--accent-hover)';this.style.color='var(--accent-hover)';"
-      onmouseout="this.style.background='var(--btn-bg)';this.style.borderColor='var(--accent)';this.style.color='var(--accent)';">Browse</button>`;
+    return `<button id="${id}" class="cs-folder-btn" title="Browse" aria-label="Browse"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 6.5A2.5 2.5 0 0 1 4.5 4H9l2 2.2h8.5A2.5 2.5 0 0 1 22 8.7V10H2z" fill="#E0A800"/><path d="M2 9h20v8.5a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 17.5z" fill="#FFCA28"/></svg></button>`;
   }
 
   function _cpClearBtn(id) {
@@ -1087,8 +1351,9 @@ function show_settings() {
   }
 
   const tabAppearance = `<div id="stab-appearance" style="display:none">
-    <div style="border:1px solid var(--accent);border-radius:6px;overflow:hidden">
-      <div style="padding:6px 10px;display:flex;flex-direction:column;gap:2px">
+    <div class="cs-section" style="margin-top:6px">
+      <div class="cs-sec-head">Interface</div>
+      <div class="cs-sec-body">
         <div class="settings-row">
           <input type="checkbox" id="set-show-tooltips" ${eziSettings.showTooltips !== false ? 'checked' : ''}>
           <label for="set-show-tooltips">Show Tooltips</label>
@@ -1102,15 +1367,20 @@ function show_settings() {
             <option value="comfyui"  ${(eziSettings.theme||'dark')==='comfyui'  ?'selected':''}${(!eziSettings.comfyTheme||!eziSettings.comfyThemeVars||!Object.keys(eziSettings.comfyThemeVars||{}).length)?'disabled':''}>ComfyUI${eziSettings.comfyTheme?' ('+eziSettings.comfyTheme+')':''}</option>
           </select>
         </div>
-        <div class="settings-row">
-          <input type="checkbox" id="set-hide-deprecation" ${eziSettings.hideDeprecationWarnings ? 'checked' : ''}>
-          <label for="set-hide-deprecation">Hide Deprecation Warnings In Console</label>
-        </div>
         <div class="settings-row" style="gap:6px">
           <label style="cursor:default;flex:none;white-space:nowrap">Output Folder Browser</label>
           ${_cpInput('set-file-browser', eziSettings.customFileBrowser||'', 'Windows Explorer (default)')}
           ${_cpClearBtn('set-file-browser-clear')}
           ${_cpBrowseBtn('set-file-browser-btn')}
+        </div>
+      </div>
+    </div>
+    <div class="cs-section">
+      <div class="cs-sec-head">Console</div>
+      <div class="cs-sec-body">
+        <div class="settings-row">
+          <input type="checkbox" id="set-hide-deprecation" ${eziSettings.hideDeprecationWarnings ? 'checked' : ''}>
+          <label for="set-hide-deprecation">Hide Deprecation Warnings In Console</label>
         </div>
         <div class="settings-row" style="gap:6px;align-items:center">
           <label style="cursor:default;flex:none;white-space:nowrap">Console BG</label>
@@ -1140,9 +1410,9 @@ function show_settings() {
 
   const tabAdvanced = `<div id="stab-advanced" style="display:none;flex-direction:column;gap:8px">
 
-    <div id="sec-level-section" style="border:1px solid var(--accent);border-radius:6px;overflow:hidden">
-      <div style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);background:var(--section-bg,var(--input-bg));padding:4px 10px;border-bottom:1px solid var(--border2)">ComfyUI-Manager Security Level</div>
-      <div style="padding:6px 10px;display:flex;flex-direction:column;gap:2px">
+    <div id="sec-level-section" class="cs-section">
+      <div class="cs-sec-head">ComfyUI-Manager Security Level</div>
+      <div class="cs-sec-body" style="gap:2px">
         <div class="settings-row" style="gap:8px">
           <label for="set-security-level" style="cursor:default;flex:none;white-space:nowrap">Security Level</label>
           <select id="set-security-level" style="flex-shrink:0;max-width:130px;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;cursor:pointer" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
@@ -1166,9 +1436,9 @@ function show_settings() {
       </div>
     </div>
 
-    <div style="border:1px solid var(--accent);border-radius:6px;overflow:hidden">
-      <div style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);background:var(--section-bg,var(--input-bg));padding:4px 10px;border-bottom:1px solid var(--border2)">Pinned Packages Manager</div>
-      <div style="padding:6px 10px;display:flex;flex-direction:column;gap:4px">
+    <div class="cs-section">
+      <div class="cs-sec-head">Pinned Packages Manager</div>
+      <div class="cs-sec-body" style="gap:4px">
         <div id="pinned-list" style="display:flex;flex-direction:column;gap:3px"></div>
         <div style="display:flex;gap:6px;margin-top:2px">
           <input type="text" id="pinned-new-input" placeholder="e.g. numpy==1.26.4"
@@ -1183,9 +1453,9 @@ function show_settings() {
       </div>
     </div>
 
-    <div style="border:1px solid var(--accent);border-radius:6px;overflow:hidden">
-      <div style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);background:var(--section-bg,var(--input-bg));padding:4px 10px;border-bottom:1px solid var(--border2)">Custom Input, Output & User Folders</div>
-      <div style="padding:6px 10px;display:flex;flex-direction:column;gap:2px">
+    <div class="cs-section">
+      <div class="cs-sec-head">Custom Input, Output & User Folders</div>
+      <div class="cs-sec-body" style="gap:2px">
         <div class="settings-row" style="gap:6px;margin-bottom:2px">
           <input type="checkbox" id="set-cp-base-mode" ${_cpUseBase?'checked':''}>
           <label for="set-cp-base-mode" style="cursor:pointer;white-space:nowrap;flex:none">Same Base Folder For All</label>
@@ -1222,15 +1492,15 @@ function show_settings() {
       </div>
     </div>
 
-    <div style="border:1px solid var(--accent);border-radius:6px;overflow:hidden">
-      <div style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);background:var(--section-bg,var(--input-bg));padding:4px 10px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:6px">
+    <div class="cs-section">
+      <div class="cs-sec-head" style="display:flex;align-items:center;gap:6px">
         <span>Server — Startup Arguments</span>
         <button id="startup-args-info-btn" title="Show All Available Startup Arguments"
           style="flex-shrink:0;width:16px;height:16px;border-radius:50%;border:1px solid var(--accent);background:var(--btn-bg);color:var(--accent);font-size:10px;font-weight:bold;cursor:pointer;line-height:1;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s,color .15s;"
           onmouseover="this.style.background='var(--accent-bg)';this.style.borderColor='var(--accent-hover)';this.style.color='var(--accent-hover)';"
           onmouseout="this.style.background='var(--btn-bg)';this.style.borderColor='var(--accent)';this.style.color='var(--accent)';">i</button>
       </div>
-      <div style="padding:6px 10px;display:flex;flex-direction:column;gap:4px">
+      <div class="cs-sec-body" style="gap:4px">
         <div style="display:flex;gap:6px;align-items:center">
           <input type="text" id="set-startup-args"
             value="${(eziSettings.startupArgs||'').replace(/"/g,'&quot;')}"
@@ -1365,9 +1635,9 @@ function show_settings() {
       </div>
     </div>
 
-    <div style="border:1px solid var(--accent);border-radius:6px;overflow:hidden">
-      <div style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);background:var(--section-bg,var(--input-bg));padding:4px 10px;border-bottom:1px solid var(--border2)">Versions</div>
-      <div style="padding:6px 10px;display:flex;flex-direction:column;gap:2px">
+    <div class="cs-section">
+      <div class="cs-sec-head">Versions</div>
+      <div class="cs-sec-body" style="gap:2px">
         <div class="settings-row">
           <label for="set-comfy-ver" style="cursor:default">ComfyUI Version</label>
           <select id="set-comfy-ver" disabled><option>Loading...</option></select>
@@ -1613,27 +1883,6 @@ function show_settings() {
     }
   }
 
-  var _restartNoticeTimer = null;
-  function _showRestartNotice(text) {
-    var old = document.getElementById('ezi-restart-notice');
-    if (old && old.parentNode) old.parentNode.removeChild(old);
-    if (_restartNoticeTimer) { clearTimeout(_restartNoticeTimer); _restartNoticeTimer = null; }
-    _eziNoticeOpen = true;
-    _eziSetShellExpanded('full');
-    var n = document.createElement('div');
-    n.id = 'ezi-restart-notice';
-    n.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-width:90vw;box-sizing:border-box;white-space:normal;text-align:center;line-height:1.4;background:#1c3a1c;border:1px solid #50fa7b;color:#50fa7b;padding:10px 22px;border-radius:6px;font-size:12px;font-family:inherit;z-index:2147483647;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.5);visibility:hidden;';
-    n.textContent = text;
-    document.body.appendChild(n);
-    setTimeout(function() { n.style.visibility = 'visible'; }, showingUI ? 150 : 0);
-    _restartNoticeTimer = setTimeout(function() {
-      _restartNoticeTimer = null;
-      if (n.parentNode) n.parentNode.removeChild(n);
-      _eziNoticeOpen = false;
-      _resetShellFloat();
-    }, 5000);
-  }
-
   function _applySettings() {
     if (_pinnedPendingChanged()) {
       const _pinJson = JSON.stringify(_pinnedPackages);
@@ -1749,43 +1998,77 @@ function show_settings() {
     }
   }
 
-  const tabAbout = `<div id="stab-about" style="display:none;text-align:center;padding-top:6px">
-    <div style="color:var(--text2);font-size:11px;margin-bottom:14px">v{EZI_VERSION}</div>
-    <div style="color:var(--text2);font-size:12px;line-height:1.5;margin-bottom:16px">Complete portable ComfyUI &amp; dependency management system with EZi Desktop app</div>
-    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:18px">
-      <button onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD')"
-              style="padding:5px 14px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid var(--accent);border-radius:4px;background:var(--btn-bg);color:var(--accent);cursor:pointer;transition:all .15s;line-height:1.4;"
-              onmouseover="this.style.background='var(--accent-bg)';this.style.borderColor='var(--accent-hover)';this.style.color='var(--accent-hover)';"
-              onmouseout="this.style.background='var(--btn-bg)';this.style.borderColor='var(--accent)';this.style.color='var(--accent)';">
-        Home Page
-      </button>
-      <button onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest')"
-              style="padding:5px 14px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid var(--accent);border-radius:4px;background:var(--btn-bg);color:var(--accent);cursor:pointer;transition:all .15s;line-height:1.4;"
-              onmouseover="this.style.background='var(--accent-bg)';this.style.borderColor='var(--accent-hover)';this.style.color='var(--accent-hover)';"
-              onmouseout="this.style.background='var(--btn-bg)';this.style.borderColor='var(--accent)';this.style.color='var(--accent)';">
-        See What's New
-      </button>
+  const tabPixaroma = `<div id="stab-pixaroma" style="display:none">
+    <div class="px-card">
+      <div class="px-hero-copy">
+        <div class="px-eyebrow">Pixaroma ComfyUI course</div>
+        <h2 class="px-lead">Your next idea<br>starts with a workflow.</h2>
+        <div class="px-sub">Free workflow files for every course episode. Follow the lessons, then bring your own ideas to life.</div>
+        <div class="px-actions"><button class="px-btn px-orange" onclick="pywebview.api.open_url('https://workflows.pixaroma.com/')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M10 6.5h4a3.5 3.5 0 0 1 3.5 3.5v4"/></svg><span>ComfyUI Workflows</span><svg class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button><button class="px-btn px-orange" onclick="pywebview.api.download_pixaroma_workflows()" title="Download every episode's workflows into workflows / Pixaroma. Files you already have are skipped, so later runs add only new ones."><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg><span>Download All Workflows</span></button></div>
+        <div class="px-cadence"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>A new episode lands almost every week.</div>
+      </div>
+      <svg class="px-flow-art" viewBox="0 0 200 180" fill="none" aria-hidden="true">
+      <path d="M56 40h34q14 0 14 14v63h27M56 140h20q14 0 14-14V75q0-14 14-14h27" stroke="#f66744" stroke-width="1.5" opacity=".45"/>
+      <rect x="4" y="16" width="52" height="48" rx="9" fill="#2a2a2a" stroke="#705044"/><rect x="4" y="16" width="52" height="12" rx="6" fill="#f66744" opacity=".45"/>
+      <path d="M15 39h29M15 47h18" stroke="#84716a" stroke-width="3" stroke-linecap="round"/>
+      <rect x="4" y="116" width="52" height="48" rx="9" fill="#2a2a2a" stroke="#705044"/><rect x="4" y="116" width="52" height="12" rx="6" fill="#f66744" opacity=".45"/>
+      <path d="M15 139h29M15 147h18" stroke="#84716a" stroke-width="3" stroke-linecap="round"/>
+      <rect x="131" y="40" width="65" height="98" rx="10" fill="#2a2a2a" stroke="#b56750"/>
+      <rect x="131" y="40" width="65" height="14" rx="7" fill="#f66744" opacity=".8"/>
+      <rect x="143" y="66" width="41" height="39" rx="5" fill="#3b302b"/>
+      <path d="m150 97 10-15 7 9 5-6 7 12" stroke="#f66744" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M143 118h32M143 126h21" stroke="#84716a" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="56" cy="40" r="3" fill="#f66744"/><circle cx="56" cy="140" r="3" fill="#f66744"/><circle cx="131" cy="61" r="3" fill="#f66744"/><circle cx="131" cy="117" r="3" fill="#f66744"/>
+    </svg>
     </div>
-    <div style="border-top:1px solid var(--border2);padding-top:14px">
-      <div style="font-weight:bold;color:var(--text3);margin-bottom:2px">❤️ Like Easy Install?</div>
-      <div style="color:var(--text2);font-size:11px;margin-bottom:12px">Support future development</div>
-      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-        <img src="https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white"
-             style="cursor:pointer;height:28px" title="Donate via PayPal"
-             onclick="pywebview.api.open_url('https://paypal.me/tavris1')">
-        <img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black"
-             style="cursor:pointer;height:28px" title="Buy Me a Coffee"
-             onclick="pywebview.api.open_url('https://buymeacoffee.com/tavris1')">
-        <img src="https://img.shields.io/badge/Sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white"
-             style="cursor:pointer;height:28px" title="GitHub Sponsors"
-             onclick="pywebview.api.open_url('https://github.com/sponsors/Tavris1')">
+    <div class="px-community">
+      <div class="px-community-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/></svg></div>
+      <div class="px-community-copy">
+        <div class="px-community-title">Create together.</div>
+        <div class="px-community-sub">Join the Pixaroma Discord community.</div>
+        <a class="px-badge-link" href="https://discord.com/invite/gggpkVgBf3" onclick="pywebview.api.open_url(this.href);return false" aria-label="Join Pixaroma Discord"><img class="px-badge" alt="Join Pixaroma Discord" title="Join Pixaroma Discord" loading="lazy"
+           src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FgggpkVgBf3%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&logo=discord&logoColor=white&labelColor=3b3633&label=Community&color=f66744&suffix=%20users" onerror="this.parentElement.style.display='none'"></a>
+      </div>
+      <button class="px-btn px-discord" onclick="pywebview.api.open_url('https://discord.com/invite/gggpkVgBf3')"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/></svg><span>Join Discord</span><svg class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
+    </div>
+    <div class="px-resources">
+      <h3 class="px-resource-head">Keep exploring</h3>
+      <div class="px-resource-grid">
+        <button class="px-link" onclick="pywebview.api.open_url('https://workflows.pixaroma.com/help/')"><span class="px-link-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1.1 1-1.1 1.8M12 17h.01"/></svg></span><span class="px-link-copy"><span class="px-link-name">Help</span><span class="px-link-desc">Guides &amp; troubleshooting</span><span class="px-link-url">workflows.pixaroma.com/help</span></span><svg class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
+        <button class="px-link" onclick="pywebview.api.open_url('https://www.youtube.com/@pixaroma')"><span class="px-link-icon"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="1.5" y="4.5" width="21" height="15" rx="4.5" fill="#FF0000"/><path d="M10 9l5.2 3-5.2 3z" fill="#fff"/></svg></span><span class="px-link-copy"><span class="px-link-name">YouTube</span><span class="px-link-desc">Watch the ComfyUI course</span><span class="px-link-url">@pixaroma</span></span><svg class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
+      </div>
+    </div>
+  </div>`;
+
+  const tabAbout = `<div id="stab-about" style="display:none">
+    <div class="ab-card">
+      <div class="ab-top">
+        <div class="ab-identity"><div class="ab-mark"><svg class="" viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="3"/><path d="M8 21h8M12 18v3m-5-12 3 3-3 3M13 12h4"/></svg></div><div><div class="ab-brand">EZi Desktop</div><div class="ab-kicker">ComfyUI Easy Install</div></div></div>
+        <span class="ab-ver">v{EZI_VERSION}</span>
+      </div>
+      <h2 class="ab-lead">Portable ComfyUI.<br>One place to manage it.</h2>
+      <div class="ab-sub">A dashboard for your packages, environments, and configuration.</div>
+      <div class="ab-features"><span class="ab-feature"><svg class="" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5v8l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5"/></svg>Packages</span><span class="ab-feature"><svg class="" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>Environments</span><span class="ab-feature"><svg class="" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--modal-bg)"/><circle cx="15" cy="17" r="3" fill="var(--modal-bg)"/></svg>Configuration</span></div>
+      <div class="ab-by"><span class="ab-avatar" aria-hidden="true">I</span><span>Made with love by <b>Ivo</b>, a.k.a. <a class="ab-link" href="https://github.com/Tavris1" onclick="pywebview.api.open_url(this.href);return false" title="github.com/Tavris1">Tavris1</a></span></div>
+      <div class="ab-by"><span class="ab-avatar" aria-hidden="true">B</span><span>AMD edition by <a class="ab-link" href="https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD" onclick="pywebview.api.open_url(this.href);return false" title="github.com/BoomerCyb/ComfyUI-Easy-Install-AMD">BoomerCyb</a></span></div>
+    </div>
+    <div class="ab-project-links">
+      <button class="ab-btn" onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD')"><svg class="ab-btn-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1Z"/></svg><span class="ab-btn-copy">Home Page<small>Explore the project on GitHub</small></span><svg class="ab-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></button>
+      <button class="ab-btn" onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest')"><svg class="ab-btn-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg><span class="ab-btn-copy">See what's new<small>Latest release &amp; improvements</small></span><svg class="ab-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></button>
+    </div>
+    <div class="ab-support">
+      <h3 class="ab-support-head"><svg class="" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>Like Easy Install?</h3>
+      <div class="ab-support-sub">Support Ivo and the future of EZi.</div>
+      <div class="ab-support-grid">
+        <button class="ab-btn ab-support-btn" onclick="pywebview.api.open_url('https://paypal.me/tavris1')" title="Donate via PayPal"><svg class="ab-btn-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 21 3-18h5a5 5 0 0 1 0 10h-6M6 17l2-12h5"/></svg><span>PayPal</span></button>
+        <button class="ab-btn ab-support-btn" onclick="pywebview.api.open_url('https://buymeacoffee.com/tavris1')"><svg class="ab-btn-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h12v6a6 6 0 0 1-12 0ZM17 8h2a3 3 0 1 1 0 6h-2M8 3v2M12 3v2M4 21h15"/></svg><span>Buy Me a Coffee</span></button>
+        <button class="ab-btn ab-support-btn" onclick="pywebview.api.open_url('https://github.com/sponsors/Tavris1')"><svg class="" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg><span>Sponsor</span></button>
       </div>
     </div>
   </div>`;
 
   showModal('', '',
-    `<div style="min-width:552px">
-${tabBar}${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdvanced}${tabAbout}</div>`,
+    `<div class="cs-wrap">${tabBar}<div class="cs-content" id="cs-content"><div class="cs-title" id="cs-title">System Info</div><div class="cs-nomatch" id="cs-nomatch">No settings found</div>${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdvanced}${tabPixaroma}${tabAbout}</div></div>`,
     [
       { label: 'Apply', cls: 'primary', noClose: true, action: _applySettings },
       { label: 'Close', cls: '', action: () => {} },
@@ -1805,7 +2088,6 @@ ${tabBar}${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdv
         // Installed add-ons are hidden, except those whose button is also the way to update.
         const updater = {
           'boomercyb wtivo amd nodes.bat': [' - Update', 'Update the five BoomerCyb AMD nodes to the tested version with matching native modules'],
-          'pixaroma workflows.bat': [' - Check for New', 'Check Pixaroma for new workflows and add missing files; existing files are preserved'],
         }[file];
         const installed = !!status[file];
         button.style.display = installed && !updater ? 'none' : '';
@@ -1816,7 +2098,10 @@ ${tabBar}${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdv
   }
   _refreshAddonStatus();
 
-  ['general','addons','torch','tools','appearance','advanced','about'].forEach(t => {
+  document.getElementById('modal-box').classList.add('ezi-settings');
+  _csInitSearch();
+
+  ['general','addons','torch','tools','appearance','advanced','pixaroma','about'].forEach(t => {
     const btn = document.getElementById('stabtn-'+t);
     if (btn) btn.addEventListener('click', () => {
       _showTab(t);
@@ -1887,7 +2172,6 @@ ${tabBar}${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdv
       const row = e.target.closest('.bat-clickable');
       if (!row || !row.dataset.bat) return;
       document.getElementById('modal-overlay').classList.remove('active');
-      switchToConsole();
       pywebview.api.run_bat(row.dataset.bat);
     });
   });
@@ -2171,7 +2455,7 @@ ${tabBar}${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdv
       _sysRow('Python',     s.python    || 'N/A'),
       _sysRow('PyTorch',    s.torch     || 'N/A'),
       _sysRow('HIP',        s.hip       || 'N/A'),
-      _sysRowColor('AMD Drv', s.driver || 'N/A', driverColor),
+      _sysRow('AMD Drv', s.driver || 'N/A', driverColor),
       _sysRow('GPU Model',  s.gpu       || 'N/A'),
       _sysRow('Video VRAM', s.vram      || 'N/A'),
       _sysRow('System RAM', s.ram       || 'N/A'),
@@ -2211,7 +2495,7 @@ ${tabBar}${tabGeneral}${tabAddons}${tabTorch}${tabTools}${tabAppearance}${tabAdv
       });
     };
     btns.insertBefore(copyBtn, btns.firstChild);
-    const activeTab = ['general','addons','appearance','advanced'].find(t => {
+    const activeTab = ['general','addons','torch','tools','appearance','advanced','pixaroma','about'].find(t => {
       const el = document.getElementById('stab-'+t);
       return el && el.style.display !== 'none';
     }) || 'general';
@@ -2367,7 +2651,6 @@ function comfy_webview_ready() {
   uiLoaded = true; btn.classList.add('active');
   dot.style.background = ''; dot.style.animation = '';
   dot.classList.add('ready');
-  _restoreTabsAfterLoad();
   if (!showingUI) setTimeout(toggle, 200);
   (function() {
     var notice = document.getElementById('comfy-update-notice');
@@ -2388,75 +2671,24 @@ function comfy_webview_ready() {
   }, 8000);
   setTimeout(function() {
     var eziNotice  = document.getElementById('ezi-update-notice');
+    if (eziNotice && eziNotice.dataset.sticky === 'true') return;
     if (eziNotice) eziNotice.style.display = 'none';
     var comfyNotice = document.getElementById('comfy-update-notice');
     if (comfyNotice && comfyNotice.style.display !== 'none') return;
     var wrapNotice = document.getElementById('update-notice');
     if (wrapNotice) wrapNotice.style.display = 'none';
   }, 20000);
+  (function() {
+    var eziNotice = document.getElementById('ezi-update-notice');
+    if (eziNotice && eziNotice.dataset.sticky === 'true' && eziNotice.style.display !== 'none') _eziScheduleReadyHide();
+  })();
   try { pywebview.api.set_title('Running'); } catch(e) {}
-  _startStorageWatch();
-}
-
-function load_ui(url) {
-  frame.src = url;
-  frame.onload = () => {
-    uiLoaded = true; btn.classList.add('active');
-    dot.style.background = ''; dot.style.animation = '';
-    dot.classList.add('ready');
-    try {
-      var w = frame.contentWindow;
-      if (w) {
-        w.onbeforeunload = null;
-        Object.defineProperty(w, 'onbeforeunload', {
-          get: function() { return null; },
-          set: function() {},
-          configurable: true
-        });
-        var _origAEL = w.EventTarget.prototype.addEventListener;
-        w.EventTarget.prototype.addEventListener = function(type, fn, opts) {
-          if (type === 'beforeunload') return;
-          return _origAEL.call(this, type, fn, opts);
-        };
-      }
-    } catch(e) {}
-    _restoreTabsAfterLoad();
-    if(!showingUI) setTimeout(toggle, 200);
-    (function() {
-      var notice = document.getElementById('comfy-update-notice');
-      if (notice && notice.dataset.unstable === 'true') {
-        _nonStableNoticeDismissed = true;
-        notice.style.display = 'none';
-        var eziVisible = document.getElementById('ezi-update-notice').style.display !== 'none';
-        if (!eziVisible) document.getElementById('update-notice').style.display = 'none';
-      }
-    })();
-    setTimeout(function() {
-      var comfyNotice = document.getElementById('comfy-update-notice');
-      if (comfyNotice) comfyNotice.style.display = 'none';
-      var eziNotice = document.getElementById('ezi-update-notice');
-      if (eziNotice && eziNotice.style.display !== 'none') return;
-      var wrapNotice = document.getElementById('update-notice');
-      if (wrapNotice) wrapNotice.style.display = 'none';
-    }, 8000);
-    setTimeout(function() {
-      var eziNotice  = document.getElementById('ezi-update-notice');
-      if (eziNotice) eziNotice.style.display = 'none';
-      var comfyNotice = document.getElementById('comfy-update-notice');
-      if (comfyNotice && comfyNotice.style.display !== 'none') return;
-      var wrapNotice = document.getElementById('update-notice');
-      if (wrapNotice) wrapNotice.style.display = 'none';
-    }, 20000);
-    try { pywebview.api.set_title('Running'); } catch(e) {}
-    _startStorageWatch();
-  };
 }
 
 function toggle() {
   if (!uiLoaded && !showingUI) return;
   if (_toggling) return;
   _toggling = true;
-  if (showingUI) _saveTabsToDisk();
   showingUI = !showingUI;
   updateJump();
   updateDetachBtn();
@@ -2512,7 +2744,6 @@ function toggle() {
     panels.style.display = '';
     panels.style.background = '';
     tSnapBottom();
-    uiPanel.style.transform = 'translateX(100vw)'; uiPanel.style.opacity = '0'; uiPanel.style.pointerEvents = 'none';
     termPanel.style.transition = 'none'; termPanel.style.transform = 'translateX(-100vw)'; void termPanel.offsetWidth;
     termPanel.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease';
     termPanel.style.transform = 'translateX(0)'; termPanel.style.opacity = '1'; termPanel.style.pointerEvents = 'auto';
@@ -2978,6 +3209,27 @@ const shadeL   = document.getElementById("crop-shade-l");
 const shadeR   = document.getElementById("crop-shade-r");
 let cropStart  = null;
 
+var _restartNoticeTimer = null;
+function _showRestartNotice(text) {
+  var old = document.getElementById('ezi-restart-notice');
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+  if (_restartNoticeTimer) { clearTimeout(_restartNoticeTimer); _restartNoticeTimer = null; }
+  _eziNoticeOpen = true;
+  _eziSetShellExpanded('full');
+  var n = document.createElement('div');
+  n.id = 'ezi-restart-notice';
+  n.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-width:90vw;box-sizing:border-box;white-space:normal;text-align:center;line-height:1.4;background:#1c3a1c;border:1px solid #50fa7b;color:#50fa7b;padding:10px 22px;border-radius:6px;font-size:12px;font-family:inherit;z-index:2147483647;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.5);visibility:hidden;';
+  n.textContent = text;
+  document.body.appendChild(n);
+  setTimeout(function() { n.style.visibility = 'visible'; }, showingUI ? 150 : 0);
+  _restartNoticeTimer = setTimeout(function() {
+    _restartNoticeTimer = null;
+    if (n.parentNode) n.parentNode.removeChild(n);
+    _eziNoticeOpen = false;
+    _resetShellFloat();
+  }, 5000);
+}
+
 function _resetShellFloat() {
   _eziSetShellExpanded(!showingUI);
 }
@@ -3073,9 +3325,6 @@ function stopRecording() {
   recIndicator.innerHTML = '';
   _resetShellFloat();
 }
-function onRecBtnClick() {
-  startCrop('video');
-}
 function toggleScrDropdown(e) {
   e.stopPropagation();
   var dd = document.getElementById('out-dropdown');
@@ -3118,179 +3367,58 @@ function doUpdate() {
   pywebview.api.run_update();
 }
 
-function show_ezi_update(version) {
+function _eziNoticeSet(o) {
+  const notice = document.getElementById('ezi-update-notice');
   const msg = document.getElementById('ezi-update-msg');
-  if (msg) msg.textContent = '\u2B06 EZi update available' + (version ? ' \u2192 ' + version : '');
-  document.getElementById('ezi-update-notice').style.display = 'flex';
+  const upd = document.getElementById('ezi-update-btn');
+  const wn = document.getElementById('ezi-whatsnew-btn');
+  msg.style.display = o.msg ? '' : 'none';
+  msg.textContent = o.msg || '';
+  msg.style.color = o.color || '#bd93f9';
+  upd.style.display = o.button ? '' : 'none';
+  upd.textContent = o.button || '';
+  upd.title = o.title || '';
+  wn.style.display = o.whatsNew ? '' : 'none';
+  notice.dataset.sticky = o.sticky ? 'true' : '';
+  notice.style.display = 'flex';
   document.getElementById('update-notice').style.display = 'flex';
+}
+
+function show_ezi_update(version) {
+  _eziNoticeSet({ msg: '\u2B06 EZi update available' + (version ? ' \u2192 ' + version : ''), button: 'Update', whatsNew: true });
+}
+
+var _eziReadyHideTimer = null;
+function _eziScheduleReadyHide() {
+  clearTimeout(_eziReadyHideTimer);
+  _eziReadyHideTimer = setTimeout(function() {
+    var eziNotice = document.getElementById('ezi-update-notice');
+    if (!eziNotice || eziNotice.dataset.sticky !== 'true') return;
+    eziNotice.dataset.sticky = '';
+    eziNotice.style.display = 'none';
+    var comfyNotice = document.getElementById('comfy-update-notice');
+    if (comfyNotice && comfyNotice.style.display !== 'none') return;
+    var wrapNotice = document.getElementById('update-notice');
+    if (wrapNotice) wrapNotice.style.display = 'none';
+  }, 20000);
+}
+
+function show_ezi_update_ready(version) {
+  _eziNoticeSet({ button: '\u27F3 EZi Update ready', title: version ? 'EZi ' + version : '', whatsNew: true, sticky: true });
+  if (uiLoaded) _eziScheduleReadyHide();
+}
+
+function show_ezi_updating() {
+  document.getElementById('comfy-update-notice').style.display = 'none';
+  _eziNoticeSet({ msg: '\u27F3 EZi is updating...', color: '#f1fa8c' });
+}
+
+function show_ezi_updated(version) {
+  _eziNoticeSet({ msg: '\u2713 EZi updated' + (version ? ' \u2192 ' + version : ''), color: '#50fa7b', whatsNew: true });
 }
 
 function doEziUpdate() {
   pywebview.api.run_ezi_update();
-}
-
-var _lastGoodSnapshot = null;
-var _storageWatchInterval = null;
-var _lastStorageHash = '';
-var _storageSaveTimer = null;
-
-function _scheduleSave() {
-  if (_storageSaveTimer) clearTimeout(_storageSaveTimer);
-  _storageSaveTimer = setTimeout(function() {
-    _storageSaveTimer = null;
-    if (!uiLoaded || !showingUI) return;
-    _saveTabsToDisk();
-  }, 300);
-}
-
-function _patchIframeStorage(w) {
-  try {
-    ['localStorage', 'sessionStorage'].forEach(function(storeName) {
-      var store = w[storeName];
-      if (!store || store.__eziPatched) return;
-      var _origSet    = store.setItem.bind(store);
-      var _origRemove = store.removeItem.bind(store);
-      var _origClear  = store.clear.bind(store);
-      store.setItem = function(k, v) {
-        _origSet(k, v);
-        _scheduleSave();
-      };
-      store.removeItem = function(k) {
-        _origRemove(k);
-        _scheduleSave();
-      };
-      store.clear = function() {
-        _origClear();
-        _scheduleSave();
-      };
-      store.__eziPatched = true;
-    });
-  } catch(e) {}
-}
-
-function _startStorageWatch() {
-  try {
-    var w = frame.contentWindow;
-    if (w) _patchIframeStorage(w);
-  } catch(e) {}
-}
-
-function _stopStorageWatch() {
-  if (_storageWatchInterval) { clearInterval(_storageWatchInterval); _storageWatchInterval = null; }
-  if (_storageSaveTimer) { clearTimeout(_storageSaveTimer); _storageSaveTimer = null; }
-  _lastStorageHash = '';
-}
-
-function _saveTabsToDisk() {
-  try {
-    var f = document.getElementById('ui-frame');
-    var out = { ls: {}, ss: {} };
-
-    if (f && f.contentWindow && uiLoaded) {
-      var w = f.contentWindow;
-
-      var href = '';
-      try { href = w.location.href; } catch(e) {}
-      if (!href || href === 'about:blank') {
-        if (_lastGoodSnapshot) {
-          pywebview.api.save_comfy_storage(JSON.stringify(_lastGoodSnapshot));
-        }
-        return;
-      }
-
-      try {
-        var ls = w.localStorage;
-        for (var i = 0; i < ls.length; i++) {
-          var k = ls.key(i);
-          if (k) out.ls[k] = ls.getItem(k);
-        }
-      } catch(e) {}
-      try {
-        var ss = w.sessionStorage;
-        for (var j = 0; j < ss.length; j++) {
-          var sk = ss.key(j);
-          if (sk) out.ss[sk] = ss.getItem(sk);
-        }
-      } catch(e) {}
-    }
-
-    var hasData = Object.keys(out.ls).length > 0 || Object.keys(out.ss).length > 0;
-
-    if (hasData) {
-      _lastGoodSnapshot = out;
-      pywebview.api.save_comfy_storage(JSON.stringify(out));
-    } else if (_lastGoodSnapshot) {
-      pywebview.api.save_comfy_storage(JSON.stringify(_lastGoodSnapshot));
-    }
-  } catch(e) {}
-}
-
-function _ezi_isDraftKey(k) {
-  var DRAFT_PREFIXES = [
-    'Comfy.Workflow.DraftIndex.v2:',
-    'Comfy.Workflow.Draft.v2:',
-    'Comfy.Workflow.LastActivePath:',
-    'Comfy.Workflow.LastOpenPaths:',
-    'workflow'
-  ];
-  for (var i = 0; i < DRAFT_PREFIXES.length; i++) {
-    if (k.indexOf(DRAFT_PREFIXES[i]) === 0) return true;
-  }
-  return false;
-}
-
-function _restoreTabsAfterLoad() {
-  try {
-    var w = frame.contentWindow;
-    if (!w) return;
-    var wls = w.localStorage;
-    var prefix_ss = '_ezi_ss_';
-    var prefix_ls = '_ezi_ls_';
-    var hadData = false;
-    for (var i = 0; i < localStorage.length; i++) {
-      var key = localStorage.key(i);
-      if (key && key.startsWith(prefix_ss)) {
-        var rk = key.slice(prefix_ss.length);
-        if (!_ezi_isDraftKey(rk)) {
-          try { w.sessionStorage.setItem(rk, localStorage.getItem(key)); hadData = true; } catch(e) {}
-        }
-      }
-      if (key && key.startsWith(prefix_ls)) {
-        var rk = key.slice(prefix_ls.length);
-        if (!_ezi_isDraftKey(rk)) {
-          try { wls.setItem(rk, localStorage.getItem(key)); hadData = true; } catch(e) {}
-        }
-      }
-    }
-    if (hadData) return;
-  } catch(e) {}
-
-  try {
-    pywebview.api.get_comfy_storage().then(function(stored) {
-      if (!stored) return;
-      try {
-        var w = frame.contentWindow;
-        if (!w) return;
-        var wls = w.localStorage;
-        var wss = w.sessionStorage;
-        if (stored.ls) {
-          Object.keys(stored.ls).forEach(function(k) {
-            if (!_ezi_isDraftKey(k)) {
-              try { wls.setItem(k, stored.ls[k]); } catch(e) {}
-            }
-          });
-        }
-        if (stored.ss) {
-          Object.keys(stored.ss).forEach(function(k) {
-            if (!_ezi_isDraftKey(k)) {
-              try { wss.setItem(k, stored.ss[k]); } catch(e) {}
-            }
-          });
-        }
-        _lastGoodSnapshot = stored;
-      } catch(e) {}
-    }).catch(function(){});
-  } catch(e) {}
 }
 
 function switchToConsole(statusMsg) {
@@ -3305,36 +3433,12 @@ function switchToConsole(statusMsg) {
   if (showingUI) {
     showingUI = false;
     updateDetachBtn(); updateJump();
-    uiPanel.style.transform = 'translateX(100vw)'; uiPanel.style.opacity = '0'; uiPanel.style.pointerEvents = 'none';
     termPanel.style.transition = 'none'; termPanel.style.transform = 'translateX(-100vw)'; void termPanel.offsetWidth;
     termPanel.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease';
     termPanel.style.transform = 'translateX(0)'; termPanel.style.opacity = '1'; termPanel.style.pointerEvents = 'auto';
     _playIcoBgDissolve();
   }
-  _stopStorageWatch();
-  _saveTabsToDisk();
-  hide_update_notice();
-  frame.onload = null;
-  try {
-    if (frame.contentWindow) {
-      var _eziCW = frame.contentWindow;
-      _eziCW.onbeforeunload = undefined;
-      try {
-        Object.defineProperty(_eziCW, 'onbeforeunload', {
-          get: function() { return null; },
-          set: function() {},
-          configurable: true
-        });
-      } catch(e) {}
-      try {
-        var _eziAEL = _eziCW.EventTarget.prototype.addEventListener;
-        _eziCW.EventTarget.prototype.addEventListener = function(type, fn, opts) {
-          if (type === 'beforeunload') return;
-          return _eziAEL.call(this, type, fn, opts);
-        };
-      } catch(e) {}
-    }
-  } catch(e) {}
+  document.getElementById('reload-btn').style.display = 'none';
   uiLoaded = false;
   btn.textContent = 'ComfyUI ▶'; btn.classList.remove('active');
   btn.style.background = ''; btn.style.borderColor = '';
@@ -3351,7 +3455,6 @@ function switchToConsole(statusMsg) {
 }
 
 function updateShades(x, y, w, h) {
-  const W = window.innerWidth, H = window.innerHeight;
   shadeT.style.cssText  = `top:0;left:0;right:0;height:${y}px;`;
   shadeB.style.cssText  = `top:${y+h}px;left:0;right:0;bottom:0;`;
   shadeL.style.cssText  = `top:${y}px;left:0;width:${x}px;height:${h}px;`;
@@ -3427,7 +3530,22 @@ document.getElementById('settings-btn').addEventListener('click', function(e) {
   }
 });
 
+(function () {
+  var ov = document.getElementById('modal-overlay');
+  if (!ov) return;
+  var downOnBackdrop = false;
+  ov.addEventListener('mousedown', function (e) { downOnBackdrop = (e.target === ov); });
+  ov.addEventListener('click', function (e) {
+    var box = document.getElementById('modal-box');
+    if (e.target === ov && downOnBackdrop && box && box.classList.contains('ezi-settings')) {
+      ov.classList.remove('active');
+    }
+    downOnBackdrop = false;
+  });
+})();
+
 function showModal(icon, title, msg, buttons) {
+  document.getElementById('modal-box').classList.remove('ezi-settings');
   document.getElementById('modal-icon').textContent = icon;
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-msg').innerHTML = msg;
@@ -3473,9 +3591,10 @@ function show_update_confirm() {
   );
 }
 
-function show_update_missing(path) {
-  showModal('⚠', 'Update not available',
-    'Update ComfyUI.bat not found in:<br><code style="color:#f1fa8c;font-size:11px">' + path + '</code><br><br>Nothing was changed.',
+function show_update_missing(path, name) {
+  var esc = function(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  showModal('⚠', 'Bat file not found',
+    '<code style="color:#f1fa8c;font-size:11px">' + esc(name || 'Update ComfyUI.bat') + '</code> not found in:<br><code style="color:#f1fa8c;font-size:11px">' + esc(path) + '</code><br><br>Nothing was changed.',
     [
       { label: 'OK', cls: 'primary', action: () => {} },
     ]
@@ -3657,11 +3776,6 @@ window.addEventListener('resize', send_columns);
 })();
 
 window.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'ezi_comfy_ready') {
-        _saveTabsToDisk();
-        try { pywebview.api.ui_shown(); } catch(e) {}
-        return;
-    }
 
     if (event.data && event.data.type === 'ezi_clipboard_request') {
         if (event.data.action === 'paste') {
@@ -3681,42 +3795,12 @@ window.addEventListener('message', function(event) {
         return;
     }
 
-    if (event.data && event.data.type === 'ezi_open_auth_popup') {
-        try { pywebview.api.open_auth_popup(event.data.url); } catch(e) {}
-        return;
-    }
-
     if (event.data && event.data.type === 'ezi_save_image') {
         try {
             pywebview.api.handle_comfyui_download(event.data.url, event.data.filename);
         } catch(e) {}
     }
 });
-
-Object.defineProperty(window, 'app', {
-    get: function() {
-        try {
-            var f = document.getElementById('ui-frame');
-            return f && f.contentWindow && f.contentWindow.app;
-        } catch(e) { return undefined; }
-    },
-    configurable: true
-});
-
-(function() {
-    var _orig = document.getElementById.bind(document);
-    document.getElementById = function(id) {
-        var el = _orig(id);
-        if (el) return el;
-        try {
-            var f = _orig('ui-frame');
-            if (f && f.contentWindow && f.contentWindow.document) {
-                return f.contentWindow.document.getElementById(id);
-            }
-        } catch(e) {}
-        return null;
-    };
-})();
 
 </script>
 </body>

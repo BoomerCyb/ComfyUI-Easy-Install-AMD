@@ -22,7 +22,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 # The release ZIP contents, plus .gitattributes so clones get CRLF batch files.
 USER_FILES = ("ComfyUI-Easy-Install-AMD.bat", "Helper-CEI.zip", "README.md", "LICENSE")
-WINDOWS_ONLY = (".gitattributes", ".git")
+# Scheduled GitHub Actions run only from the default branch (Windows).
+WORKFLOWS = (".github/workflows/upstream-check.yml",)
+WINDOWS_ONLY = (".gitattributes", ".git", ".github")
 
 
 def main() -> int:
@@ -33,7 +35,8 @@ def main() -> int:
         raise SystemExit(f"{target} is not a separate checkout of the Windows branch.")
     if subprocess.run([sys.executable, str(ROOT / "tools/build_release.py"), "--check"]).returncode:
         raise SystemExit("Helper-CEI.zip is out of date; rebuild it on the source branch first.")
-    for name in USER_FILES:
+    for name in USER_FILES + WORKFLOWS:
+        (target / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / name, target / name)
         print("Copied", name)
     extra = sorted(p.name for p in target.iterdir() if p.name not in USER_FILES + WINDOWS_ONLY)

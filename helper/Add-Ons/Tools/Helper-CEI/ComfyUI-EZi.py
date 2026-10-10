@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.20-amd"
+APP_VERSION = "0.1.21-amd"
 
 import sys
 import os
@@ -69,14 +69,12 @@ if not _ezi_wv2_registered:
 
 try:
     import webview
-    from webview.window import FixPoint
 except ImportError:
     import sys, subprocess, os
     print("pywebview not found - attempting to install...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "pywebview"])
     try:
         import webview
-        from webview.window import FixPoint
     except ImportError:
         print("ERROR: pywebview could not be installed. Please run:")
         print("  pip install pywebview")
@@ -122,29 +120,6 @@ def _ezi_report_webview2_failure(exc):
     except Exception:
         pass
     os._exit(1)
-
-
-def _patch_pywebview_for_drag_regions():
-    try:
-        from webview.platforms import edgechromium as _edge
-    except Exception:
-        return
-    if getattr(_edge.EdgeChrome, '_ezi_drag_region_patched', False):
-        return
-    _orig_on_webview_ready = _edge.EdgeChrome.on_webview_ready
-
-    def _patched_on_webview_ready(self, sender, args):
-        try:
-            if getattr(args, 'IsSuccess', True):
-                sender.CoreWebView2.Settings.IsNonClientRegionSupportEnabled = True
-            else:
-                _ezi_report_webview2_failure(getattr(args, 'InitializationException', None))
-        except Exception:
-            pass
-        return _orig_on_webview_ready(self, sender, args)
-
-    _edge.EdgeChrome.on_webview_ready = _patched_on_webview_ready
-    _edge.EdgeChrome._ezi_drag_region_patched = True
 
 
 _EZI_BAR_HEIGHT = 34
@@ -224,305 +199,281 @@ def _make_clickthrough(hwnd):
         pass
 
 
-def _patch_pywebview_top_gap():
+def _ezi_on_core_ready(sender, args):
+    if not getattr(args, 'IsSuccess', True):
+        _ezi_report_webview2_failure(getattr(args, 'InitializationException', None))
+        return
     try:
-        from webview.platforms import edgechromium as _edge
+        core = sender.CoreWebView2
     except Exception:
         return
-    if getattr(_edge.EdgeChrome, '_ezi_top_gap_patched', False):
+    try:
+        core.Settings.IsNonClientRegionSupportEnabled = True
+    except Exception:
+        pass
+    try:
+        core.DownloadStarting += _ezi_on_download_starting
+    except Exception:
+        pass
+
+
+class _EziCoreOk:
+    IsSuccess = True
+    InitializationException = None
+
+
+def _ezi_hook_core_ready(window):
+    form = getattr(window, 'native', None)
+    wv = getattr(form, 'webview', None)
+    if form is None or wv is None:
         return
-    _orig_init = _edge.EdgeChrome.__init__
 
-    def _patched_init(self, form, window, cache_dir):
-        _orig_init(self, form, window, cache_dir)
-        if window is not _EZI_WINDOW_REF.get("window"):
-            return
+    def _do():
+        if wv.CoreWebView2 is not None:
+            _ezi_on_core_ready(wv, _EziCoreOk())
+        else:
+            wv.CoreWebView2InitializationCompleted += _ezi_on_core_ready
+
+    if form.InvokeRequired:
+        import System
+        form.Invoke(System.Action(_do))
+    else:
+        _do()
+
+
+def _ezi_setup_main_window(window):
+    form = window.native
+    shell = form.webview
+    _ezi_hook_core_ready(window)
+    try:
+        import System.Windows.Forms as _WinForms
+        shell.Dock   = getattr(_WinForms.DockStyle, 'None')
+        shell.Anchor = _WinForms.AnchorStyles.Top | _WinForms.AnchorStyles.Left
         try:
-            import System.Windows.Forms as _WinForms
-            self.webview.Dock   = getattr(_WinForms.DockStyle, 'None')
-            self.webview.Anchor = _WinForms.AnchorStyles.Top | _WinForms.AnchorStyles.Left
-            try:
-                from System.Drawing import Color as _EziSysColor
-                self.webview.DefaultBackgroundColor = _EziSysColor.Transparent
-            except Exception:
-                pass
+            from System.Drawing import Color as _EziSysColor
+            shell.DefaultBackgroundColor = _EziSysColor.Transparent
+        except Exception:
+            pass
 
-            comfy_webview = None
+        comfy_webview = None
+        try:
+            _WebView2Class = type(shell)
+            comfy_webview = _WebView2Class()
+            comfy_webview.Anchor = _WinForms.AnchorStyles.Top | _WinForms.AnchorStyles.Left
             try:
-                _WebView2Class = type(self.webview)
-                comfy_webview = _WebView2Class()
-                comfy_webview.Anchor = _WinForms.AnchorStyles.Top | _WinForms.AnchorStyles.Left
+                _comfy_userdata = os.path.join(CURRENT_SCRIPT_DIR, "EZi_cache")
+                os.makedirs(_comfy_userdata, exist_ok=True)
+                from Microsoft.Web.WebView2.WinForms import CoreWebView2CreationProperties as _EziCWV2CP
+                _cprops = _EziCWV2CP()
+                _cprops.UserDataFolder = _comfy_userdata
+                comfy_webview.CreationProperties = _cprops
+            except Exception as _cache_err:
+                print("EZi_cache: could not set UserDataFolder:", _cache_err)
+            form.Controls.Add(comfy_webview)
+            comfy_webview.BringToFront()
+            shell.BringToFront()
+            _EZI_WINDOW_REF["comfy_webview"] = comfy_webview
+
+            def _ezi_init_comfy_webview(sender=None, args=None):
                 try:
-                    _comfy_userdata = os.path.join(CURRENT_SCRIPT_DIR, "EZi_cache")
-                    os.makedirs(_comfy_userdata, exist_ok=True)
-                    from Microsoft.Web.WebView2.WinForms import CoreWebView2CreationProperties as _EziCWV2CP
-                    _cprops = _EziCWV2CP()
-                    _cprops.UserDataFolder = _comfy_userdata
-                    comfy_webview.CreationProperties = _cprops
-                except Exception as _cache_err:
-                    print("EZi_cache: could not set UserDataFolder:", _cache_err)
-                form.Controls.Add(comfy_webview)
-                comfy_webview.BringToFront()
-                self.webview.BringToFront()
-                _EZI_WINDOW_REF["comfy_webview"] = comfy_webview
+                    shell.CoreWebView2InitializationCompleted -= _ezi_init_comfy_webview
+                except Exception:
+                    pass
+                try:
+                    comfy_webview.EnsureCoreWebView2Async(None)
+                except Exception:
+                    pass
 
-                def _ezi_init_comfy_webview(sender=None, args=None):
-                    try:
-                        self.webview.CoreWebView2InitializationCompleted -= _ezi_init_comfy_webview
-                    except Exception:
-                        pass
-                    try:
-                        comfy_webview.EnsureCoreWebView2Async(None)
-                    except Exception:
-                        pass
+            def _ezi_on_comfy_message(sender=None, args=None):
+                try:
+                    raw = args.WebMessageAsJson
+                except Exception:
+                    return
+                if not raw:
+                    return
+                try:
+                    parsed = json.loads(raw)
+                except Exception:
+                    parsed = None
+                if isinstance(parsed, dict) and parsed.get("type") == "ezi_storage_save":
+                    api_ref = _EZI_WINDOW_REF.get("api")
+                    if api_ref is not None:
+                        api_ref._store_comfy_storage(parsed)
+                    return
+                try:
+                    shell.CoreWebView2.ExecuteScriptAsync(
+                        "window.postMessage(" + raw + ", '*');"
+                    )
+                except Exception:
+                    pass
 
-                def _ezi_on_comfy_message(sender=None, args=None):
-                    try:
-                        raw = args.WebMessageAsJson
-                    except Exception:
-                        return
-                    if not raw:
-                        return
-                    try:
-                        parsed = json.loads(raw)
-                    except Exception:
-                        parsed = None
-                    if isinstance(parsed, dict) and parsed.get("type") == "ezi_storage_save":
+            def _ezi_on_comfy_ready(sender=None, args=None):
+                try:
+                    ok = getattr(args, 'IsSuccess', True)
+                    if not ok:
                         try:
-                            api_ref = _EZI_WINDOW_REF.get("api")
-                            if api_ref is not None:
-                                api_ref.save_comfy_storage(json.dumps({
-                                    "ls": parsed.get("ls", {}) or {},
-                                    "ss": parsed.get("ss", {}) or {},
-                                }))
+                            exc = getattr(args, 'InitializationException', None)
+                            detail = f"\n\nDetails: {exc}" if exc else ""
+                            ctypes.windll.user32.MessageBoxW(
+                                0,
+                                "ComfyUI-EZi could not create the ComfyUI display "
+                                "window (a second WebView2 instance)." + detail,
+                                "ComfyUI-Easy-Install-AMD - ComfyUI Display Unavailable",
+                                0x30
+                            )
                         except Exception:
-                            pass
+                            _log_error('_ezi_on_comfy_ready')
                         return
+                    _EZI_WINDOW_REF["comfy_ready"] = True
+
                     try:
-                        self.webview.CoreWebView2.ExecuteScriptAsync(
-                            "window.postMessage(" + raw + ", '*');"
+                        comfy_webview.CoreWebView2.Settings.UserAgent = CHROME_UA
+                    except Exception:
+                        pass
+
+                    try:
+                        comfy_webview.CoreWebView2.CallDevToolsProtocolMethodAsync(
+                            "Network.clearBrowserCache", "{}"
                         )
                     except Exception:
                         pass
 
-                def _ezi_on_comfy_ready(sender=None, args=None):
                     try:
-                        ok = getattr(args, 'IsSuccess', True)
-                        if not ok:
-                            try:
-                                exc = getattr(args, 'InitializationException', None)
-                                detail = f"\n\nDetails: {exc}" if exc else ""
-                                ctypes.windll.user32.MessageBoxW(
-                                    0,
-                                    "ComfyUI-EZi could not create the ComfyUI display "
-                                    "window (a second WebView2 instance)." + detail,
-                                    "ComfyUI-Easy-Install-AMD - ComfyUI Display Unavailable",
-                                    0x30
-                                )
-                            except Exception:
-                                pass
-                            return
-                        _EZI_WINDOW_REF["comfy_ready"] = True
+                        _ezi_beforeunload_guard_js = (
+                            "(function(){"
+                            "try{"
+                            "Object.defineProperty(window,'onbeforeunload',{"
+                            "get:function(){return null;},"
+                            "set:function(){},"
+                            "configurable:true"
+                            "});"
+                            "var _ael=window.EventTarget.prototype.addEventListener;"
+                            "window.EventTarget.prototype.addEventListener=function(type,fn,opts){"
+                            "if(type==='beforeunload')return;"
+                            "return _ael.call(this,type,fn,opts);"
+                            "};"
+                            "}catch(e){}"
+                            "})();"
+                        )
+                        comfy_webview.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                            _ezi_beforeunload_guard_js
+                        )
+                    except Exception as _beforeunload_guard_err:
+                        print("EZi: could not install beforeunload guard:", _beforeunload_guard_err)
 
-                        try:
-                            comfy_webview.CoreWebView2.Settings.UserAgent = CHROME_UA
-                        except Exception:
-                            pass
-
-                        try:
-                            comfy_webview.CoreWebView2.CallDevToolsProtocolMethodAsync(
-                                "Network.clearBrowserCache", "{}"
-                            )
-                        except Exception:
-                            pass
-
-                        try:
-                            _ezi_beforeunload_guard_js = (
-                                "(function(){"
-                                "try{"
-                                "Object.defineProperty(window,'onbeforeunload',{"
-                                "get:function(){return null;},"
-                                "set:function(){},"
-                                "configurable:true"
-                                "});"
-                                "var _ael=window.EventTarget.prototype.addEventListener;"
-                                "window.EventTarget.prototype.addEventListener=function(type,fn,opts){"
-                                "if(type==='beforeunload')return;"
-                                "return _ael.call(this,type,fn,opts);"
-                                "};"
-                                "}catch(e){}"
-                                "})();"
-                            )
-                            comfy_webview.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
-                                _ezi_beforeunload_guard_js
-                            )
-                        except Exception as _beforeunload_guard_err:
-                            print("EZi: could not install beforeunload guard:", _beforeunload_guard_err)
-
-                        try:
-                            comfy_webview.CoreWebView2.WebMessageReceived += _ezi_on_comfy_message
-                        except Exception:
-                            pass
-
-                        def _ezi_on_comfy_download_starting(s3=None, e3=None):
-                            try:
-                                op = getattr(e3, 'DownloadOperation', None)
-                                uri = str(getattr(op, 'Uri', '') or '') if op else ''
-                                try:
-                                    e3.Cancel = True
-                                except Exception:
-                                    pass
-                                if not uri:
-                                    return
-                                if not _ezi_claim_download(uri):
-                                    return
-
-                                suggested = os.path.basename(uri.split('?')[0]) or "download"
-                                try:
-                                    from urllib.parse import urlparse, parse_qs
-                                    qs = parse_qs(urlparse(uri).query)
-                                    if qs.get('filename'):
-                                        suggested = qs['filename'][0]
-                                except Exception:
-                                    pass
-
-                                def _do_comfy_download():
-                                    api_ref = _EZI_WINDOW_REF.get("api")
-                                    println = api_ref._print if api_ref is not None else None
-                                    try:
-                                        result = window.create_file_dialog(
-                                            webview.SAVE_DIALOG,
-                                            save_filename=suggested
-                                        )
-                                        path = result[0] if isinstance(result, (list, tuple)) else result
-                                        if not path:
-                                            return
-                                        _ezi_download_with_progress(
-                                            uri, path, println=println, label=suggested,
-                                            headers={"User-Agent": "ComfyUI-EZi"}, timeout=120
-                                        )
-                                        if api_ref is not None:
-                                            api_ref._println(f"\033[92m[Download] Saved to {path}\033[0m")
-                                    except Exception as ex:
-                                        if api_ref is not None:
-                                            api_ref._println(f"\033[91m[Download] Error: {ex}\033[0m")
-
-                                threading.Thread(target=_do_comfy_download, daemon=True).start()
-                            except Exception as _ds_err:
-                                pass
-
-                        try:
-                            comfy_webview.CoreWebView2.DownloadStarting += _ezi_on_comfy_download_starting
-                        except Exception as _dl_wire_err:
-                            pass
-
-                        def _ezi_on_comfy_new_window(s4=None, e4=None):
-                            try:
-                                uri = str(getattr(e4, 'Uri', '') or '')
-                            except Exception:
-                                uri = ''
-                            if _ezi_is_auth_popup(e4, uri):
-                                return
-                            try:
-                                e4.Handled = True
-                            except Exception:
-                                pass
-
-                            def _do_new_window():
-                                try:
-                                    if uri:
-                                        if not _ezi_claim_download(uri):
-                                            return
-                                        import webbrowser
-                                        opened = webbrowser.open(uri)
-                                except Exception as _nw_err:
-                                    pass
-
-                            threading.Thread(target=_do_new_window, daemon=True).start()
-
-                        try:
-                            comfy_webview.CoreWebView2.NewWindowRequested += _ezi_on_comfy_new_window
-                        except Exception as _nw_wire_err:
-                            pass
-
-                        def _ezi_comfy_nav_completed(sender2=None, args2=None):
-                            try:
-                                self.webview.CoreWebView2.ExecuteScriptAsync(
-                                    "if (typeof comfy_webview_ready === 'function') comfy_webview_ready();"
-                                )
-                            except Exception:
-                                pass
-
-
-                        comfy_webview.CoreWebView2.NavigationCompleted += _ezi_comfy_nav_completed
-
-                        pending_url = _EZI_WINDOW_REF.get("comfy_pending_url")
-                        if pending_url:
-                            comfy_webview.CoreWebView2.Navigate(pending_url)
+                    try:
+                        comfy_webview.CoreWebView2.WebMessageReceived += _ezi_on_comfy_message
                     except Exception:
                         pass
 
-                comfy_webview.CoreWebView2InitializationCompleted += _ezi_on_comfy_ready
-                try:
-                    if self.webview.CoreWebView2 is not None:
-                        comfy_webview.EnsureCoreWebView2Async(None)
-                    else:
-                        self.webview.CoreWebView2InitializationCompleted += _ezi_init_comfy_webview
-                except Exception:
-                    self.webview.CoreWebView2InitializationCompleted += _ezi_init_comfy_webview
-            except Exception as _e:
-                print("Could not create ComfyUI webview:", _e)
-                comfy_webview = None
+                    try:
+                        comfy_webview.CoreWebView2.DownloadStarting += _ezi_on_download_starting
+                    except Exception:
+                        pass
 
-            def _ezi_apply_bounds(sender=None, args=None):
-                try:
-                    is_maximized = (form.WindowState == _WinForms.FormWindowState.Maximized)
-                    gap = 0 if is_maximized else _EZI_TOP_RESIZE_GAP
-                    target_w = max(0, form.ClientSize.Width)
-                    full_h = max(0, form.ClientSize.Height - gap)
-                    _sc = _ezi_dpi_scale(form=form)
-                    bar_h = int(round(_EZI_BAR_HEIGHT * _sc))
-                    expanded = _EZI_WINDOW_REF.get("shell_expanded", True)
-                    if expanded is True:
-                        shell_h = full_h
-                    elif isinstance(expanded, (int, float)) and expanded > 0:
-                        shell_h = min(int(round(expanded * _sc)), full_h)
-                    elif comfy_webview is None:
-                        shell_h = full_h
-                    else:
-                        shell_h = bar_h
-                    if comfy_webview is not None:
-                        ctop = gap + bar_h
-                        _prog = _EZI_WINDOW_REF.get("comfy_slide_progress", 1.0)
-                        comfy_x = int(round(target_w * (1.0 - _prog))) if _prog < 1.0 else 0
-                        comfy_webview.SetBounds(comfy_x, ctop, target_w,
-                                                max(0, form.ClientSize.Height - ctop))
-                        self.webview.SetBounds(0, gap, target_w,
-                                               max(bar_h, shell_h))
-                        self.webview.BringToFront()
-                    else:
-                        self.webview.SetBounds(0, gap, target_w, shell_h)
-                except Exception:
-                    pass
+                    def _ezi_on_comfy_new_window(s4=None, e4=None):
+                        try:
+                            uri = str(getattr(e4, 'Uri', '') or '')
+                        except Exception:
+                            uri = ''
+                        if _ezi_is_auth_popup(e4, uri):
+                            return
+                        try:
+                            e4.Handled = True
+                        except Exception:
+                            pass
 
-            form.Resize += _ezi_apply_bounds
-            self._ezi_apply_bounds = _ezi_apply_bounds
-            _EZI_WINDOW_REF["apply_bounds"] = _ezi_apply_bounds
-            _EZI_WINDOW_REF["winforms_form"] = form
+                        def _do_new_window():
+                            try:
+                                if uri:
+                                    if not _ezi_claim_download(uri):
+                                        return
+                                    import webbrowser
+                                    webbrowser.open(uri)
+                            except Exception:
+                                pass
+
+                        threading.Thread(target=_do_new_window, daemon=True).start()
+
+                    try:
+                        comfy_webview.CoreWebView2.NewWindowRequested += _ezi_on_comfy_new_window
+                    except Exception:
+                        pass
+
+                    def _ezi_comfy_nav_completed(sender2=None, args2=None):
+                        try:
+                            shell.CoreWebView2.ExecuteScriptAsync(
+                                "if (typeof comfy_webview_ready === 'function') comfy_webview_ready();"
+                            )
+                        except Exception:
+                            pass
+
+
+                    comfy_webview.CoreWebView2.NavigationCompleted += _ezi_comfy_nav_completed
+
+                    pending_url = _EZI_WINDOW_REF.get("comfy_pending_url")
+                    if pending_url:
+                        comfy_webview.CoreWebView2.Navigate(pending_url)
+                except Exception:
+                    _log_error('_ezi_on_comfy_ready')
+
+            comfy_webview.CoreWebView2InitializationCompleted += _ezi_on_comfy_ready
             try:
-                _ezi_bounds_fns[int(form.Handle.ToInt32())] = _ezi_apply_bounds
+                if shell.CoreWebView2 is not None:
+                    comfy_webview.EnsureCoreWebView2Async(None)
+                else:
+                    shell.CoreWebView2InitializationCompleted += _ezi_init_comfy_webview
+            except Exception:
+                shell.CoreWebView2InitializationCompleted += _ezi_init_comfy_webview
+        except Exception as _e:
+            print("Could not create ComfyUI webview:", _e)
+            comfy_webview = None
+
+        def _ezi_apply_bounds(sender=None, args=None):
+            try:
+                is_maximized = (form.WindowState == _WinForms.FormWindowState.Maximized)
+                gap = 0 if is_maximized else _EZI_TOP_RESIZE_GAP
+                target_w = max(0, form.ClientSize.Width)
+                full_h = max(0, form.ClientSize.Height - gap)
+                _sc = _ezi_dpi_scale(form=form)
+                bar_h = int(round(_EZI_BAR_HEIGHT * _sc))
+                expanded = _EZI_WINDOW_REF.get("shell_expanded", True)
+                if expanded is True:
+                    shell_h = full_h
+                elif isinstance(expanded, (int, float)) and expanded > 0:
+                    shell_h = min(int(round(expanded * _sc)), full_h)
+                elif comfy_webview is None:
+                    shell_h = full_h
+                else:
+                    shell_h = bar_h
+                if comfy_webview is not None:
+                    ctop = gap + bar_h
+                    _prog = _EZI_WINDOW_REF.get("comfy_slide_progress", 1.0)
+                    comfy_x = int(round(target_w * (1.0 - _prog))) if _prog < 1.0 else 0
+                    comfy_webview.SetBounds(comfy_x, ctop, target_w,
+                                            max(0, form.ClientSize.Height - ctop))
+                    shell.SetBounds(0, gap, target_w,
+                                           max(bar_h, shell_h))
+                    shell.BringToFront()
+                else:
+                    shell.SetBounds(0, gap, target_w, shell_h)
             except Exception:
                 pass
-            try:
-                _EZI_WINDOW_REF["main_hwnd"] = int(form.Handle.ToInt64())
-            except Exception:
-                pass
-            _ezi_apply_bounds()
+
+        form.Resize += _ezi_apply_bounds
+        _EZI_WINDOW_REF["apply_bounds"] = _ezi_apply_bounds
+        _EZI_WINDOW_REF["winforms_form"] = form
+        try:
+            _ezi_bounds_fns[int(form.Handle.ToInt32())] = _ezi_apply_bounds
         except Exception:
             pass
-
-    _edge.EdgeChrome.__init__ = _patched_init
-    _edge.EdgeChrome._ezi_top_gap_patched = True
+        try:
+            _EZI_WINDOW_REF["main_hwnd"] = int(form.Handle.ToInt64())
+        except Exception:
+            pass
+        _ezi_apply_bounds()
+    except Exception:
+        _log_error('_ezi_setup_main_window')
 
 
 import threading as _ezi_threading_early
@@ -654,121 +605,77 @@ def _ezi_download_with_progress(url, dest_path, println=None, label=None, header
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
         except Exception:
-            pass
+            _log_error('_ezi_download_with_progress')
         raise
 
 
-def _patch_pywebview_downloads():
+def _ezi_on_download_starting(sender, e):
     try:
-        from webview.platforms import edgechromium as _edge
-    except Exception as e:
-        return
-    if getattr(_edge.EdgeChrome, '_ezi_download_patched', False):
-        return
-    _orig_on_webview_ready = _edge.EdgeChrome.on_webview_ready
-
-    def _patched_on_webview_ready(self, sender, args):
+        op = getattr(e, 'DownloadOperation', None)
+        uri = str(getattr(op, 'Uri', '') or '') if op else ''
         try:
-            if getattr(args, 'IsSuccess', True):
-                core = sender.CoreWebView2
+            e.Cancel = True
+        except Exception:
+            _log_error('_ezi_on_download_starting')
+        if not uri:
+            return
+        if not _ezi_claim_download(uri):
+            return
 
-                def _on_download_starting(s, e):
-                    try:
-                        op = getattr(e, 'DownloadOperation', None)
-                        uri = str(getattr(op, 'Uri', '') or '') if op else ''
+        if uri.startswith('blob:'):
+            try:
+                blob_name = os.path.basename(str(getattr(e, 'ResultFilePath', '') or '')) or "download"
+                js = (
+                    "(function(){var u=%s,n=%s;"
+                    "var post=window._eziPostToShell||function(m){try{window.chrome.webview.postMessage(m);}catch(x){}};"
+                    "fetch(u).then(function(r){return r.blob();}).then(function(b){"
+                    "var t=/^(text\\/|application\\/json|application\\/xml|image\\/svg\\+xml)/.test(b.type)"
+                    "||/\\.(json|txt|ya?ml|csv|svg)$/i.test(n);"
+                    "var f=new FileReader();"
+                    "f.onload=function(){post({type:'ezi_save_blob',filename:n,content:f.result,isBase64:!t});};"
+                    "if(t){f.readAsText(b);}else{f.readAsDataURL(b);}"
+                    "}).catch(function(x){console.error('EZi blob download failed:',x);});})();"
+                ) % (json.dumps(uri), json.dumps(blob_name))
+                sender.ExecuteScriptAsync(js)
+            except Exception:
+                _log_error('_ezi_on_download_starting')
+            return
 
-                        try:
-                            e.Cancel = True
-                        except Exception as ce:
-                            pass
+        suggested = os.path.basename(uri.split('?')[0]) or "download"
+        try:
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(uri).query)
+            if qs.get('filename'):
+                suggested = qs['filename'][0]
+        except Exception:
+            _log_error('_ezi_on_download_starting')
 
-                        if not uri:
-                            return
-                        if not _ezi_claim_download(uri):
-                            return
+        def _manual_download():
+            api_ref = _EZI_WINDOW_REF.get("api")
+            println = api_ref._print if api_ref is not None else None
+            try:
+                w = _EZI_WINDOW_REF.get("window")
+                if w is None:
+                    return
+                result = w.create_file_dialog(SAVE_DIALOG_TYPE, save_filename=suggested)
+                path = result[0] if isinstance(result, (list, tuple)) else result
+                if not path:
+                    return
+                _ezi_download_with_progress(
+                    uri, path, println=println, label=suggested,
+                    headers={"User-Agent": "ComfyUI-EZi"}, timeout=120
+                )
+                if api_ref is not None:
+                    api_ref._println(f"\033[92m[Download] Saved to {path}\033[0m")
+            except Exception as ex:
+                if api_ref is not None:
+                    api_ref._println(f"\033[91m[Download] Error: {ex}\033[0m")
 
-                        suggested = os.path.basename(uri.split('?')[0]) or "download"
-                        try:
-                            from urllib.parse import urlparse, parse_qs
-                            qs = parse_qs(urlparse(uri).query)
-                            if qs.get('filename'):
-                                suggested = qs['filename'][0]
-                        except Exception as qe:
-                            pass
-
-                        def _manual_download():
-                            api_ref = _EZI_WINDOW_REF.get("api")
-                            println = api_ref._print if api_ref is not None else None
-                            try:
-                                w = getattr(self, 'window', None) or _EZI_WINDOW_REF.get("window")
-                                if w is None:
-                                    return
-                                result = w.create_file_dialog(
-                                    webview.SAVE_DIALOG,
-                                    save_filename=suggested
-                                )
-                                path = result[0] if isinstance(result, (list, tuple)) else result
-                                if not path:
-                                    return
-
-                                _ezi_download_with_progress(
-                                    uri, path, println=println, label=suggested,
-                                    headers={"User-Agent": "ComfyUI-EZi"}, timeout=120
-                                )
-                                if api_ref is not None:
-                                    api_ref._println(f"\033[92m[Download] Saved to {path}\033[0m")
-                            except Exception as ex:
-                                if api_ref is not None:
-                                    api_ref._println(f"\033[91m[Download] Error: {ex}\033[0m")
-
-                        threading.Thread(target=_manual_download, daemon=True).start()
-                    except Exception as ex:
-                        pass
-
-                try:
-                    core.DownloadStarting += _on_download_starting
-                except Exception as ex:
-                    pass
-
-                def _on_new_window(s5=None, e5=None):
-                    try:
-                        uri = str(getattr(e5, 'Uri', '') or '')
-                    except Exception:
-                        uri = ''
-                    if _ezi_is_auth_popup(e5, uri):
-                        return
-                    try:
-                        e5.Handled = True
-                    except Exception:
-                        pass
-
-                    def _do_shell_new_window():
-                        try:
-                            if uri:
-                                if not _ezi_claim_download(uri):
-                                    return
-                                import webbrowser
-                                webbrowser.open(uri)
-                        except Exception as _snw_err:
-                            pass
-
-                    threading.Thread(target=_do_shell_new_window, daemon=True).start()
-
-                try:
-                    core.NewWindowRequested += _on_new_window
-                except Exception as ex:
-                    pass
-        except Exception as ex:
-            pass
-        return _orig_on_webview_ready(self, sender, args)
-
-    _edge.EdgeChrome.on_webview_ready = _patched_on_webview_ready
-    _edge.EdgeChrome._ezi_download_patched = True
+        threading.Thread(target=_manual_download, daemon=True).start()
+    except Exception:
+        _log_error('_ezi_on_download_starting')
 
 
-_patch_pywebview_for_drag_regions()
-_patch_pywebview_top_gap()
-_patch_pywebview_downloads()
 
 import subprocess
 import threading
@@ -780,6 +687,7 @@ import socket
 import shlex
 import base64
 import time
+import traceback
 
 try:
     from aiohttp import web, ClientSession, ClientTimeout, WSMsgType
@@ -793,6 +701,7 @@ CURRENT_SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 _DEPR_MARK = '[DEPRECATION WARNING] Detected import of deprecated legacy API:'
 _DEPR_HOLD_MAX = len(_DEPR_MARK) + 80
 _LINE_TERM_RE = re.compile(r'[\r\n]')
+_PRESS_KEY_RE = re.compile(r'[^\r\n]*press any key[^\r\n]*(?:\r?\n|$)', re.IGNORECASE)
 
 _PTY_ROWS = 40
 _winpty_lock = threading.Lock()
@@ -857,7 +766,22 @@ os.environ["UV_CONSTRAINT"] = os.environ["PIP_CONSTRAINT"]
 sys.path.insert(0, os.path.join(ROOT_DIR, "amd"))
 
 ICO_PATH = os.path.join(CURRENT_SCRIPT_DIR, "ComfyUI-EZi-Desktop.ico")
+ICO_CMD_PATH = os.path.join(CURRENT_SCRIPT_DIR, "ComfyUI-EZi-CMD.ico")
 SETTINGS_PATH = os.path.join(CURRENT_SCRIPT_DIR, "ComfyUI-EZi.settings.json")
+LOG_PATH = os.path.join(CURRENT_SCRIPT_DIR, "ComfyUI-EZi.log")
+_log_lock = threading.Lock()
+
+
+def _log_error(where):
+    try:
+        with _log_lock:
+            if os.path.exists(LOG_PATH) and os.path.getsize(LOG_PATH) > 512 * 1024:
+                os.replace(LOG_PATH, LOG_PATH + ".1")
+            with open(LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(time.strftime("%Y-%m-%d %H:%M:%S") + " [" + where + "]\n" + traceback.format_exc() + "\n")
+    except Exception:
+        pass
+
 
 EZI_UA_TAG = "ComfyUI-EZi-Desktop"
 # Releases of this AMD edition (Update Easy-Install installs the latest one).
@@ -872,9 +796,11 @@ def _get_browser_version():
     from windows_tools import browser_version
     return browser_version()
 
+EZI_BROWSER_VER = _get_browser_version()
+
 CHROME_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    f"(KHTML, like Gecko) Chrome/{_get_browser_version()} Safari/537.36 {EZI_UA_TAG}/{APP_VERSION}"
+    f"(KHTML, like Gecko) Chrome/{EZI_BROWSER_VER} Safari/537.36 {EZI_UA_TAG}/{APP_VERSION}"
 )
 
 _argv_rest = sys.argv[1:]
@@ -888,50 +814,6 @@ COMFYUI_URL_RE = re.compile(
     r'To see the GUI go to:\s+https?://(?:127\.0\.0\.1|localhost|0\.0\.0\.0):(\d+)',
     re.IGNORECASE
 )
-
-_KILL_ON_CLOSE_JOB = None
-
-
-def _assign_to_kill_on_close_job(proc):
-    """Put a child process in a Job Object that Windows ends together with EZi.
-
-    The job handle lives as long as this process; when EZi exits for any reason
-    (including a crash or Task Manager), Windows closes it and terminates ComfyUI
-    and the processes it started, so no orphan keeps the port. Best effort.
-    """
-    global _KILL_ON_CLOSE_JOB
-    if os.name != 'nt':
-        return
-    try:
-        from ctypes import wintypes
-        k32 = ctypes.WinDLL('kernel32', use_last_error=True)
-        k32.CreateJobObjectW.restype = wintypes.HANDLE
-        k32.CreateJobObjectW.argtypes = (ctypes.c_void_p, wintypes.LPCWSTR)
-        k32.SetInformationJobObject.argtypes = (wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD)
-        k32.AssignProcessToJobObject.argtypes = (wintypes.HANDLE, wintypes.HANDLE)
-        if _KILL_ON_CLOSE_JOB is None:
-            class _BASIC(ctypes.Structure):
-                _fields_ = [('PerProcessUserTimeLimit', ctypes.c_int64), ('PerJobUserTimeLimit', ctypes.c_int64),
-                            ('LimitFlags', wintypes.DWORD), ('MinimumWorkingSetSize', ctypes.c_size_t),
-                            ('MaximumWorkingSetSize', ctypes.c_size_t), ('ActiveProcessLimit', wintypes.DWORD),
-                            ('Affinity', ctypes.c_size_t), ('PriorityClass', wintypes.DWORD),
-                            ('SchedulingClass', wintypes.DWORD)]
-            class _EXTENDED(ctypes.Structure):
-                _fields_ = [('BasicLimitInformation', _BASIC), ('IoInfo', ctypes.c_uint64 * 6),
-                            ('ProcessMemoryLimit', ctypes.c_size_t), ('JobMemoryLimit', ctypes.c_size_t),
-                            ('PeakProcessMemoryUsed', ctypes.c_size_t), ('PeakJobMemoryUsed', ctypes.c_size_t)]
-            job = k32.CreateJobObjectW(None, None)
-            if not job:
-                return
-            info = _EXTENDED()
-            info.BasicLimitInformation.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-            if not k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):  # extended limits
-                k32.CloseHandle(job)
-                return
-            _KILL_ON_CLOSE_JOB = job
-        k32.AssignProcessToJobObject(_KILL_ON_CLOSE_JOB, int(proc._handle))
-    except Exception:
-        pass
 
 
 def _setup_path():
@@ -1087,12 +969,13 @@ def _get_hwnd(window):
         pass
     return None
 
-def _set_window_icon(hwnd):
-    if not hwnd or not os.path.exists(ICO_PATH):
+def _set_window_icon(hwnd, ico_path=None):
+    ico_path = ico_path if (ico_path and os.path.exists(ico_path)) else ICO_PATH
+    if not hwnd or not os.path.exists(ico_path):
         return
     try:
         ico = ctypes.windll.user32.LoadImageW(
-            None, ICO_PATH, 1, 0, 0, 0x00000010 | 0x00000040
+            None, ico_path, 1, 0, 0, 0x00000010 | 0x00000040
         )
         if ico:
             ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 0, ico)
@@ -1103,7 +986,6 @@ def _set_window_icon(hwnd):
 
 import ctypes.wintypes as _wt
 
-_MONITOR_DEFAULTTONEAREST = 2
 
 class _MONITORINFO(ctypes.Structure):
     _fields_ = [("cbSize", _wt.DWORD), ("rcMonitor", _wt.RECT),
@@ -1153,7 +1035,7 @@ def _apply_captioned_frame_style(hwnd):
         user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
                              SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
     except Exception:
-        pass
+        _log_error('_apply_captioned_frame_style')
 
 
 _hidden_titlebar_hooks = {}
@@ -1164,33 +1046,6 @@ _correcting_rect  = set()
 _in_sizemove      = set()
 _settings_ref     = {"obj": None}
 
-
-def _get_rect_now(user32, hwnd_):
-    import ctypes.wintypes as wt
-    rc = wt.RECT()
-    if user32.GetWindowRect(hwnd_, ctypes.byref(rc)):
-        return [rc.left, rc.top, rc.right, rc.bottom]
-    return None
-
-def _snap_rect(hwnd_, rect, tag=""):
-    try:
-        user32 = ctypes.windll.user32
-        l, t, r, b = rect
-        w, h = r - l, b - t
-        if w <= 50 or h <= 50:
-            return
-        before = _get_rect_now(user32, hwnd_)
-        SWP_NOZORDER   = 0x0004
-        SWP_NOACTIVATE = 0x0010
-        user32.SetWindowPos(hwnd_, None, l, t, w, h, SWP_NOZORDER | SWP_NOACTIVATE)
-        after = _get_rect_now(user32, hwnd_)
-    except Exception as e:
-        pass
-
-def _schedule_reapply(hwnd_, rect):
-    import threading as _th
-    for delay in (0.05, 0.15, 0.35, 0.7, 1.2):
-        _th.Timer(delay, lambda d=delay: _snap_rect(hwnd_, rect, tag=f"+{d}s")).start()
 
 def _install_hidden_titlebar_hook(hwnd):
     if not hwnd or hwnd in _hidden_titlebar_hooks:
@@ -1222,14 +1077,6 @@ def _install_hidden_titlebar_hook(hwnd):
 
         class _NCCALCSIZE_PARAMS(ctypes.Structure):
             _fields_ = [('rgrc', wt.RECT * 3), ('lppos', ctypes.c_void_p)]
-
-        class _MONITORINFO(ctypes.Structure):
-            _fields_ = [
-                ('cbSize',    ctypes.c_ulong),
-                ('rcMonitor', wt.RECT),
-                ('rcWork',    wt.RECT),
-                ('dwFlags',   ctypes.c_ulong),
-            ]
 
         class _MINMAXINFO(ctypes.Structure):
             _fields_ = [
@@ -1481,7 +1328,7 @@ def _install_hidden_titlebar_hook(hwnd):
         _hidden_titlebar_hooks[hwnd] = {'ref': ref, 'orig': holder['orig']}
         _apply_win11_rounded_corners(hwnd)
     except Exception:
-        pass
+        _log_error('_install_hidden_titlebar_hook')
 
 def _reapply_no_border(hwnd):
     if not hwnd:
@@ -1561,11 +1408,7 @@ def _guid_bytes(s):
 _CLSID_TaskbarList = _guid_bytes('56FDF344-FD6D-11d0-958A-006097C9A090')
 _IID_ITaskbarList3 = _guid_bytes('EA1AFB91-9E28-4B86-90E9-9E9F8A5EEFAF')
 
-_TBPF_NOPROGRESS    = 0
-_TBPF_INDETERMINATE = 1
 _TBPF_NORMAL        = 2
-_TBPF_ERROR         = 4
-_TBPF_PAUSED        = 8
 
 _taskbar_com_obj  = None
 _taskbar_com_lock = __import__('threading').Lock()
@@ -1649,28 +1492,89 @@ def _get_desktop():
         pass
     return os.path.join(os.path.expanduser("~"), "Desktop")
 
+
+BAT_NAMES = (
+    'Start ComfyUI.bat',
+    'Start ComfyUI SageAttention.bat',
+    'Start ComfyUI FlashAttention.bat',
+    'Start ComfyUI KitchenAttention.bat',
+)
+
+
+def _installed_frontend_version():
+    try:
+        import importlib.metadata as im
+        for pkg in ('comfyui_frontend_package', 'comfyui-frontend-package'):
+            try:
+                ver = im.version(pkg)
+            except Exception:
+                continue
+            if ver and ver != '0.1.0':
+                return ver
+    except Exception:
+        _log_error('_installed_frontend_version')
+    try:
+        import glob
+        site = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages')
+        pattern = os.path.join(site, 'comfyui_frontend_package-*.dist-info', 'METADATA')
+        for meta_path in sorted(glob.glob(pattern), reverse=True):
+            with open(meta_path, 'r', encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    if line.startswith('Version:'):
+                        ver = line.split(':', 1)[1].strip()
+                        if ver and ver != '0.1.0':
+                            return ver
+                        break
+    except Exception:
+        _log_error('_installed_frontend_version')
+    return None
+
+
+def _latest_release_tag(repo):
+    import urllib.request as _ur
+    req = _ur.Request(f"https://github.com/{repo}/releases/latest",
+                      headers={"User-Agent": EZI_UA_TAG}, method="HEAD")
+    with _ur.urlopen(req, timeout=8) as r:
+        final_url = r.geturl()
+    if "/releases/tag/" not in final_url:
+        raise ValueError(f"could not parse tag from redirect target: {final_url!r}")
+    return final_url.rstrip("/").rsplit("/", 1)[-1].strip()
+
+
+def _read_bat():
+    if not os.path.exists(BAT_FILE):
+        return None
+    with open(BAT_FILE, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
+
+
+def _bat_env(bat_content, name):
+    m = re.search(r'(?i)set\s+"?' + re.escape(name) + r'=([^"\n]+)"?', bat_content)
+    return m.group(1).strip().strip('"') if m else None
+
+
+def _bat_args(bat_content):
+    m = re.search(r'python_embeded[/\\]python\.exe["\']?\s+(.*)',
+                  _find_bat_comfy_line(bat_content) or '', re.IGNORECASE)
+    return shlex.split(m.group(1).strip(), posix=False) if m else []
+
+
+def _bat_flag_value(tokens, flag):
+    for i, tok in enumerate(tokens):
+        if tok == flag and i + 1 < len(tokens):
+            return tokens[i + 1].strip('"\'')
+    return None
+
+
 def _get_comfy_user_dir():
     user_dir = None
-    if os.path.exists(BAT_FILE):
-        try:
-            with open(BAT_FILE, 'r', encoding='utf-8', errors='replace') as f:
-                bat_content = f.read()
-            m_env = re.search(r'(?i)set\s+"?COMFY_USER_DIR=([^"\n]+)"?', bat_content)
-            if m_env:
-                user_dir = m_env.group(1).strip().strip('"')
-            else:
-                comfy_line = _find_bat_comfy_line(bat_content)
-                if comfy_line:
-                    m = re.search(r'python_embeded[/\\]python\.exe["\']?\s+(.*)',
-                                  comfy_line, re.IGNORECASE)
-                    if m:
-                        tokens = shlex.split(m.group(1).strip(), posix=False)
-                        for i, tok in enumerate(tokens):
-                            if tok == '--user-directory' and i + 1 < len(tokens):
-                                user_dir = tokens[i + 1].strip('"\'')
-                                break
-        except Exception:
-            pass
+    try:
+        bat_content = _read_bat()
+        if bat_content is not None:
+            user_dir = (_bat_env(bat_content, 'COMFY_USER_DIR')
+                        or _bat_flag_value(_bat_args(bat_content), '--user-directory'))
+    except Exception:
+        pass
     if user_dir:
         if not os.path.isabs(user_dir):
             user_dir = os.path.normpath(os.path.join(ROOT_DIR, user_dir))
@@ -1700,18 +1604,20 @@ def _get_comfy_current_theme():
     return ''
 
 
-def _get_builtin_palettes_from_frontend():
+def _frontend_pkg_dir():
     site_pkgs = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages')
-    if not os.path.isdir(site_pkgs):
-        return {}
-
     pkg_dir = os.path.join(site_pkgs, 'comfyui_frontend_package')
-    if not os.path.isdir(pkg_dir):
-        import glob as _glob
-        candidates = _glob.glob(os.path.join(site_pkgs, 'comfyui_frontend_package*'))
-        pkg_dir = next((c for c in candidates if os.path.isdir(c) and 'dist-info' not in c), None)
-        if not pkg_dir:
-            return {}
+    if os.path.isdir(pkg_dir):
+        return pkg_dir
+    import glob
+    candidates = glob.glob(os.path.join(site_pkgs, 'comfyui_frontend_package*'))
+    return next((c for c in candidates if os.path.isdir(c) and 'dist-info' not in c), None)
+
+
+def _get_builtin_palettes_from_frontend():
+    pkg_dir = _frontend_pkg_dir()
+    if not pkg_dir:
+        return {}
 
     palettes_dir = os.path.join(pkg_dir, 'static', 'assets', 'palettes')
     if not os.path.isdir(palettes_dir):
@@ -1949,13 +1855,11 @@ def _get_comfy_theme_css_vars():
 
         bg        = c('bg-color', '#202020')
         menu_bg   = c('comfy-menu-bg', bg)
-        menu_bg2  = c('comfy-menu-secondary-bg', menu_bg)
         input_bg  = c('comfy-input-bg', bg)
         fg        = c('fg-color', '#cccccc')
         border    = c('border-color', '#444444')
         lg_bg     = lg_c('CLEAR_BACKGROUND_COLOR', bg)
         node_bg   = lg_c('NODE_DEFAULT_BGCOLOR', menu_bg)
-        widget_bg = lg_c('WIDGET_BGCOLOR', input_bg)
         node_title = lg_c('NODE_TITLE_COLOR', fg)
 
         accent = lg_c('NODE_BOX_OUTLINE_COLOR', c('border-color', '#388bfd'))
@@ -2060,17 +1964,17 @@ def _load_settings():
                         json.dump(data, f, indent=2, ensure_ascii=False)
                     os.replace(tmp, SETTINGS_PATH)
                 except Exception:
-                    pass
+                    _log_error('_load_settings')
             defaults.update(data)
     except Exception:
-        pass
+        _log_error('_load_settings')
     return defaults
 
 def _save_settings(settings):
     try:
         if not settings or not isinstance(settings, dict):
             return
-        ALLOWED = ("last_save_dir", "window_maximized", "comfy_storage", "show_tooltips", "hide_deprecation_warnings", "window_placement", "custom_file_browser", "theme", "console_detached", "console_placement", "_dpi_aware_version", "rec_fps", "console_bg_image", "console_bg_fit", "console_bg_opacity", "console_bg_animate", "cached_comfy_stable_version", "pinned_packages", "proxy_port")
+        ALLOWED = ("last_save_dir", "window_maximized", "comfy_storage", "show_tooltips", "hide_deprecation_warnings", "window_placement", "custom_file_browser", "theme", "console_detached", "console_placement", "_dpi_aware_version", "rec_fps", "console_bg_image", "console_bg_fit", "console_bg_opacity", "console_bg_animate", "cached_comfy_stable_version", "pinned_packages", "proxy_port", "ezi_updated_from")
         existing = {}
         try:
             if os.path.exists(SETTINGS_PATH):
@@ -2079,7 +1983,7 @@ def _save_settings(settings):
                 if not isinstance(existing, dict):
                     existing = {}
         except Exception:
-            pass
+            _log_error('_save_settings')
         merged = {}
         for k in ALLOWED:
             if k in settings:
@@ -2093,7 +1997,7 @@ def _save_settings(settings):
             json.dump(merged, f, indent=2, ensure_ascii=False)
         os.replace(tmp, SETTINGS_PATH)
     except Exception:
-        pass
+        _log_error('_save_settings')
 
 def _get_save_dialog_type():
     try:
@@ -2340,6 +2244,8 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
                                 pass
                             except Exception:
                                 pass
+                            if src is ws_client and not ws_server.closed and api_ref is not None:
+                                api_ref._ws_lost.set()
                         await asyncio.gather(fwd(ws_server, ws_client), fwd(ws_client, ws_server), return_exceptions=True)
             except Exception:
                 pass
@@ -2371,12 +2277,6 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
                                         if stored_data else 'null')
                             inject_js = f"""<script>
     (function() {{
-        try {{
-            var data = {data_str};
-            if (data && data.ls) {{ Object.keys(data.ls).forEach(function(k) {{ try {{ if (localStorage.getItem(k) === null) localStorage.setItem(k, data.ls[k]); }} catch(e) {{}} }}); }}
-            if (data && data.ss) {{ Object.keys(data.ss).forEach(function(k) {{ try {{ if (sessionStorage.getItem(k) === null) sessionStorage.setItem(k, data.ss[k]); }} catch(e) {{}} }}); }}
-        }} catch(e) {{}}
-
         window._eziPostToShell = function(msg) {{
             try {{
                 if (window.chrome && window.chrome.webview) {{
@@ -2395,83 +2295,31 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
             }}
         }} catch(e) {{}}
 
+        try {{
+            var data = {data_str};
+            if (data && data.ls && Object.keys(data.ls).length && !sessionStorage.getItem('__ezi_restored')) {{
+                localStorage.clear();
+                Object.keys(data.ls).forEach(function(k) {{ try {{ localStorage.setItem(k, data.ls[k]); }} catch(e) {{}} }});
+            }}
+            sessionStorage.setItem('__ezi_restored', '1');
+        }} catch(e) {{}}
+
         window.__eziFlushStorageNow = function() {{
             try {{
-                var out = {{ ls: {{}}, ss: {{}} }};
+                var out = {{}};
                 var ls = window.localStorage;
                 for (var i = 0; i < ls.length; i++) {{
                     var k = ls.key(i);
-                    if (k) out.ls[k] = ls.getItem(k);
+                    if (k) out[k] = ls.getItem(k);
                 }}
-                var ss = window.sessionStorage;
-                for (var j = 0; j < ss.length; j++) {{
-                    var sk = ss.key(j);
-                    if (sk) out.ss[sk] = ss.getItem(sk);
-                }}
-                window._eziPostToShell({{ type: 'ezi_storage_save', ls: out.ls, ss: out.ss }});
-            }} catch(e) {{}}
-        }};
-        window.addEventListener('pagehide', window.__eziFlushStorageNow);
-        window.addEventListener('beforeunload', window.__eziFlushStorageNow);
-
-        var _eziComfyReady = false;
-        var _OrigWS = window.WebSocket;
-        function _eziCheckMsg(data) {{
-            if (_eziComfyReady) return;
-            try {{
-                var d = JSON.parse(data);
-                if (d && d.type === 'status') {{
-                    _eziComfyReady = true;
-                    window._eziPostToShell({{ type: 'ezi_comfy_ready' }});
-                }}
-            }} catch(e) {{}}
-        }}
-        window.WebSocket = function(url, protocols) {{
-            var ws = protocols ? new _OrigWS(url, protocols) : new _OrigWS(url);
-            var _origAEL = ws.addEventListener.bind(ws);
-            ws.addEventListener = function(type, fn, opts) {{
-                if (type === 'message' && !_eziComfyReady) {{
-                    return _origAEL('message', function(ev) {{ _eziCheckMsg(ev.data); return fn.apply(this, arguments); }}, opts);
-                }}
-                return _origAEL(type, fn, opts);
-            }};
-            var _onmsg = null;
-            Object.defineProperty(ws, 'onmessage', {{
-                get: function() {{ return _onmsg; }},
-                set: function(fn) {{
-                    _onmsg = fn ? function(ev) {{ _eziCheckMsg(ev.data); return fn.apply(this, arguments); }} : fn;
-                }},
-                configurable: true
-            }});
-            return ws;
-        }};
-        window.WebSocket.prototype = _OrigWS.prototype;
-        window.WebSocket.CONNECTING = _OrigWS.CONNECTING;
-        window.WebSocket.OPEN = _OrigWS.OPEN;
-        window.WebSocket.CLOSING = _OrigWS.CLOSING;
-        window.WebSocket.CLOSED = _OrigWS.CLOSED;
-
-        var _origOpen = window.open;
-        var _EZI_FAKE_AUTH_POPUP = false;
-        window.open = function(url, target, features) {{
-            if (_EZI_FAKE_AUTH_POPUP && url && (
-                url.includes('accounts.google.com') ||
-                url.includes('github.com/login') ||
-                url.includes('/__/auth/') ||
-                url.includes('/api/auth/signin')
-            )) {{
-                try {{
-                    window._eziPostToShell({{ type: 'ezi_open_auth_popup', url: url }});
-                }} catch(e) {{}}
-                var fakeWin = {{
-                    closed: false,
-                    close: function() {{ this.closed = true; }},
-                    focus: function() {{}},
-                    postMessage: function() {{}}
-                }};
-                return fakeWin;
+                window._eziPostToShell({{
+                    type: 'ezi_storage_save',
+                    settled: performance.now() > 5000,
+                    ls: out
+                }});
+            }} catch(e) {{
+                window._eziPostToShell({{ type: 'ezi_storage_save' }});
             }}
-            return _origOpen.call(this, url, target, features);
         }};
 
         var _origConsoleError = console.error;
@@ -2491,61 +2339,75 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
             }}
         }});
 
-        document.addEventListener('click', function(ev) {{
-            var anyA = ev.target && ev.target.closest ? ev.target.closest('a') : null;
-            if (!anyA) return;
-            try {{
+        function _eziSendBlobToShell(myBlob, filename) {{
+            var isText = /^(text\\/|application\\/json|application\\/xml|image\\/svg\\+xml)/.test(myBlob.type) ||
+                         /\\.(json|txt|ya?ml|csv|svg)$/i.test(filename);
+            var reader = new FileReader();
+            reader.onload = function() {{
                 window._eziPostToShell({{
-                    type: 'ezi_debug_log',
-                    msg: 'anchor click: href=' + anyA.href +
-                         ' download=' + JSON.stringify(anyA.getAttribute('download')) +
-                         ' target=' + JSON.stringify(anyA.getAttribute('target'))
+                    type: 'ezi_save_blob',
+                    filename: filename,
+                    content: reader.result,
+                    isBase64: !isText
                 }});
-            }} catch(e) {{}}
-        }}, true);
+            }};
+            if (isText) {{
+                reader.readAsText(myBlob);
+            }} else {{
+                reader.readAsDataURL(myBlob);
+            }}
+        }}
 
-        document.addEventListener('click', function(ev) {{
-            var a = ev.target && ev.target.closest ? ev.target.closest('a[download]') : null;
-            if (!a || !a.href) return;
+        function _eziHandleDownloadAnchor(a) {{
             try {{
-                ev.preventDefault();
-                ev.stopPropagation();
                 var filename = a.getAttribute('download') || 'download';
+                var href = a.href;
 
-                if (a.href.startsWith('blob:')) {{
+                if (href.indexOf('blob:') === 0) {{
                     var xhr = new XMLHttpRequest();
-                    xhr.open('GET', a.href, true);
+                    xhr.open('GET', href, true);
                     xhr.responseType = 'blob';
                     xhr.onload = function(e) {{
-                        if (this.status == 200) {{
-                            var myBlob = this.response;
-                            var isText = /^(text\\/|application\\/json|application\\/xml|image\\/svg\\+xml)/.test(myBlob.type) ||
-                                         /\\.(json|txt|ya?ml|csv|svg)$/i.test(filename);
-                            var reader = new FileReader();
-                            reader.onload = function() {{
-                                window._eziPostToShell({{
-                                    type: 'ezi_save_blob',
-                                    filename: filename,
-                                    content: reader.result,
-                                    isBase64: !isText
-                                }});
-                            }};
-                            if (isText) {{
-                                reader.readAsText(myBlob);
-                            }} else {{
-                                reader.readAsDataURL(myBlob);
-                            }}
-                        }}
+                        if (this.status == 200) _eziSendBlobToShell(this.response, filename);
                     }};
                     xhr.send();
                     return;
                 }}
 
-                var urlObj = new URL(a.href, window.location.origin);
+                if (href.indexOf('data:') === 0) {{
+                    fetch(href)
+                        .then(function(r) {{ return r.blob(); }})
+                        .then(function(b) {{ _eziSendBlobToShell(b, filename); }})
+                        .catch(function(e) {{ console.error("Download interceptor error:", e); }});
+                    return;
+                }}
+
+                var urlObj = new URL(href, window.location.origin);
                 var relativeUrl = urlObj.pathname + urlObj.search;
                 window._eziPostToShell({{ type: 'ezi_save_image', url: relativeUrl, filename: filename }});
             }} catch(e) {{ console.error("Download interceptor error:", e); }}
+        }}
+
+        document.addEventListener('click', function(ev) {{
+            var a = ev.target && ev.target.closest ? ev.target.closest('a[download]') : null;
+            if (!a || !a.href) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            _eziHandleDownloadAnchor(a);
         }}, true);
+
+        try {{
+            var _eziOrigAnchorClick = HTMLAnchorElement.prototype.click;
+            HTMLAnchorElement.prototype.click = function() {{
+                try {{
+                    if (!this.isConnected && this.hasAttribute('download') && this.href) {{
+                        _eziHandleDownloadAnchor(this);
+                        return;
+                    }}
+                }} catch(e) {{}}
+                return _eziOrigAnchorClick.apply(this, arguments);
+            }};
+        }} catch(e) {{}}
     }})();
     </script>"""
                             idx = html.lower().find('<head>')
@@ -2554,7 +2416,7 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
                             else:
                                 html = inject_js + html
                         except Exception:
-                            pass
+                            _log_error('handle_any')
 
                         cmenu_js = """<script>
     (function() {
@@ -2676,6 +2538,15 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
         if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initTooltipFix); } else { initTooltipFix(); }
     })();
     </script>"""
+                        tabs_css = """<style id="ezi-chrome-tabs">
+    .workflow-tabs .p-togglebutton {
+        border-top-left-radius: 10px !important;
+        border-top-right-radius: 10px !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+    }
+    </style>"""
+                        html = html.replace('</head>', tabs_css + '</head>', 1)
                         html = html.replace('</body>', cmenu_js + '</body>')
 
                         body = html.encode('utf-8')
@@ -2759,7 +2630,6 @@ class Api:
         status = {
             'pixelartistry watertight workflows.bat': (Path(ROOT_DIR) / 'amd/pixelartistry-workflows.json').is_file() and
                 any((comfy / 'user/default/workflows/PixelArtistry').rglob('*.json')),
-            'pixaroma workflows.bat': any((comfy / 'user/default/workflows/Pixaroma').rglob('*.json')),
             # Keys are the add-on file names in lower case (the Add-Ons tab matches on them).
             'flashattention amd.bat': 'flash-attn' in packages and bool({'aiter','amd-aiter'} & packages),
             'insightface.bat': {'insightface', 'facexlib', 'onnxruntime'}.issubset(packages),
@@ -2780,38 +2650,27 @@ class Api:
                         status[group['button']] = False
         return status
 
-    def exit_app(self):
-        self.save_window_state()
-        self._confirm_close = True
-        self._graceful_close()
-
     def restart_ezi(self):
         self.save_window_state()
         self._confirm_close = True
+        self._flush_state_to_disk()
 
         try:
             self._kill_running_proc()
         except Exception:
-            pass
-
-        self._flush_state_to_disk()
+            _log_error('restart_ezi')
 
         try:
             subprocess.Popen(
                 [sys.executable] + sys.argv,
                 cwd=os.getcwd(),
                 creationflags=0x00000008,
+                env=dict(os.environ, EZI_WAIT_PID=str(os.getpid())),
             )
-        except Exception as e:
-            pass
+        except Exception:
+            _log_error('restart_ezi')
 
         self._close_window()
-
-    def restart_after_update(self):
-        self._safe_eval("document.getElementById('modal-overlay').classList.remove('active');")
-        self._safe_eval("switchToConsole()")
-        self._updating = False
-        self._restart_comfy()
 
     def read_clipboard(self):
         try:
@@ -2967,7 +2826,7 @@ class Api:
                     self._settings["last_save_dir"] = self._last_save_dir
                     _save_settings(self._settings)
         except Exception:
-            pass
+            _log_error('_do_save_blob')
 
         if save_path:
             try:
@@ -2983,148 +2842,9 @@ class Api:
             except Exception as e:
                 self._println(f"[Save Blob] Error: {e}\n")
 
-    def open_auth_popup(self, url):
-        msg = (
-            "Google sign-in doesn't work inside the desktop app - Google "
-            "blocks embedded browsers for security. The desktop app uses a "
-            "<b>Comfy API Key</b> instead.<br><br>"
-            "<b>Step-by-step:</b><br>"
-            "1. Click <i>Get a key in browser</i> below - your Comfy "
-            "account page will open in your default browser.<br>"
-            "2. Sign in there with Google (it only works in a real "
-            "browser).<br>"
-            "3. On the <i>API Keys</i> page, click <b>+ New API Key</b> "
-            "(top-right).<br>"
-            "4. Type any name you want (e.g. <i>Desktop EZi</i>), leave "
-            "<i>Description</i> blank, then click <b>Generate</b>.<br>"
-            "5. The key is shown <u>only once</u>. Click the <i>copy</i> "
-            "icon on the right of the key field.<br>"
-            "6. Come back here, paste the key into the field below and "
-            "click <i>Apply</i>. That's it &mdash; the desktop app will "
-            "fill ComfyUI's API Key dialog and sign you in "
-            "automatically.<br><br>"
-            "<input type='password' id='ezi-api-key' placeholder='Paste your API key here' "
-            "style='width:100%;padding:8px;background:#111;color:#ccc;"
-            "border:1px solid #555;border-radius:4px;font-family:monospace;"
-            "box-sizing:border-box;margin-top:4px;'>"
-        )
-        safe_msg = json.dumps(msg)
-        js = (
-            "showModal('\\uD83D\\uDD11', 'Sign in with a Comfy API Key', " + safe_msg + ", ["
-            "{ label: 'Cancel', cls: '', action: function(){} },"
-            "{ label: 'Get a key in browser', cls: '', noClose: true, "
-            "  action: function(){ try { pywebview.api.open_url('https://platform.comfy.org/profile/api-keys'); } catch(e){} } },"
-            "{ label: 'Apply', cls: 'primary', "
-            "  action: function(){"
-            "    var el = document.getElementById('ezi-api-key');"
-            "    var k = el && el.value ? el.value.trim() : '';"
-            "    try { pywebview.api.apply_api_key(k); } catch(e){}"
-            "  } }"
-            "]);"
-            "setTimeout(function(){"
-            "  var el = document.getElementById('ezi-api-key');"
-            "  if (el) el.focus();"
-            "}, 50);"
-        )
-        try:
-            self._safe_eval(js)
-        except Exception:
-            pass
-
-    def apply_api_key(self, key):
-        key = (key or '').strip()
-        if not key:
-            self._println("[Auth] No API key provided\n")
-            return
-        try:
-            self.write_clipboard(key)
-        except Exception as e:
-            self._println(f"[Auth] clipboard write failed: {e}\n")
-
-        key_js = json.dumps(key)
-        auto_js = (
-            "(function(){"
-            "  try {"
-            "    var iframe = document.getElementById('ui-frame');"
-            "    var doc = iframe && iframe.contentDocument;"
-            "    var win = iframe && iframe.contentWindow;"
-            "    if (!doc || !win) return 'no-doc';"
-            "    var KEY = " + key_js + ";"
-            "    var clicked = false;"
-            "    var cands = doc.querySelectorAll('button, [role=\"button\"], a');"
-            "    for (var i = 0; i < cands.length; i++) {"
-            "      var txt = (cands[i].textContent || '').trim();"
-            "      if (txt === 'Comfy API Key' || txt.indexOf('Comfy API Key') !== -1) {"
-            "        cands[i].click(); clicked = true; break;"
-            "      }"
-            "    }"
-            "    function clickUseApiKey(){"
-            "      var bs = doc.querySelectorAll('button');"
-            "      for (var j = 0; j < bs.length; j++) {"
-            "        var t = (bs[j].textContent || '').trim();"
-            "        if (/API Key/i.test(t) && !/Comfy API Key/i.test(t)) { bs[j].click(); return true; }"
-            "      }"
-            "      return false;"
-            "    }"
-            "    function submitForm(input){"
-            "      var form = input.closest('form');"
-            "      if (!form) return false;"
-            "      try { if (typeof form.requestSubmit === 'function') { form.requestSubmit(); return true; } } catch(e){}"
-            "      var btn = form.querySelector('button[type=\"submit\"]');"
-            "      try { form.dispatchEvent(new win.Event('submit', {bubbles: true, cancelable: true})); } catch(e){}"
-            "      if (btn && !btn.disabled) { btn.click(); return true; }"
-            "      return false;"
-            "    }"
-            "    var tries = 0;"
-            "    function fill(){"
-            "      tries++;"
-            "      var input = doc.getElementById('comfy-org-api-key');"
-            "      if (!input) {"
-            "        if (tries === 5) { clickUseApiKey(); }"
-            "        if (tries < 80) { setTimeout(fill, 100); return; }"
-            "        return;"
-            "      }"
-            "      try { input.focus(); } catch(e){}"
-            "      var setter = null;"
-            "      try { setter = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set; } catch(e){}"
-            "      try {"
-            "        if (setter) setter.call(input, ''); else input.value = '';"
-            "        input.dispatchEvent(new win.Event('input', {bubbles: true}));"
-            "      } catch(e){}"
-            "      try {"
-            "        if (setter) setter.call(input, KEY); else input.value = KEY;"
-            "      } catch(e) { input.value = KEY; }"
-            "      input.dispatchEvent(new win.Event('input', {bubbles: true}));"
-            "      input.dispatchEvent(new win.Event('change', {bubbles: true}));"
-            "      var submitTries = 0;"
-            "      function trySubmit(){"
-            "        submitTries++;"
-            "        if (submitForm(input)) return;"
-            "        try {"
-            "          var ev = new win.KeyboardEvent('keydown', {key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true, cancelable:true});"
-            "          input.dispatchEvent(ev);"
-            "          var ev2 = new win.KeyboardEvent('keypress', {key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true, cancelable:true});"
-            "          input.dispatchEvent(ev2);"
-            "        } catch(e){}"
-            "        if (submitTries < 10) setTimeout(trySubmit, 200);"
-            "      }"
-            "      setTimeout(trySubmit, 400);"
-            "    }"
-            "    setTimeout(fill, 300);"
-            "    return clicked ? 'auto' : 'no-button';"
-            "  } catch(e) { return 'err:' + String(e); }"
-            "})();"
-        )
-        def _do():
-            try:
-                result = self._window.evaluate_js(auto_js)
-                self._println(f"[Auth] API key auto-apply: {result}\n")
-            except Exception as e:
-                self._println(f"[Auth] auto-apply error: {e}\n")
-        threading.Thread(target=_do, daemon=True).start()
-
     def __init__(self, proxy_port, comfy_port_holder, settings, storage_holder, settings_holder=None):
         self._window, self._proc = None, None
+        self._job = None
         self._settings = settings
         self._storage_holder = storage_holder
         self._settings_holder = settings_holder
@@ -3135,7 +2855,9 @@ class Api:
         # Claimed by _start_operation: only one install/update/switch at a time.
         self._op_lock = threading.Lock()
         self._confirm_close = False
-        self._ui_shown = False
+        self._storage_ack = threading.Event()
+        self._ws_lost = threading.Event()
+        self._services_started = False
         self._restarting = False
         self._run_id = 0
         # Exit code when ComfyUI stopped on its own (crash); None while it runs or was stopped by EZi.
@@ -3164,7 +2886,6 @@ class Api:
         threading.Thread(target=self._do_handle_download, args=(url, filename), daemon=True).start()
 
     def _do_handle_download(self, url, filename):
-        import urllib.request
         port = self._comfy_port_holder[0]
         if not port:
             return
@@ -3199,7 +2920,7 @@ class Api:
                     self._settings["last_save_dir"] = self._last_save_dir
                     _save_settings(self._settings)
         except Exception:
-            pass
+            _log_error('_do_handle_download')
 
         if not save_path:
             return
@@ -3211,12 +2932,6 @@ class Api:
             self._println(f"\033[92m[Save Media] Saved to {save_path}\033[0m")
         except Exception as e:
             self._println(f"\033[91m[Save Media] Error: {e}\033[0m")
-
-    def confirm_close(self):
-        if not self._updating:
-            self.save_window_state()
-        self._confirm_close = True
-        self._graceful_close()
 
     def modal_response(self, result, action):
         if action == 'close':
@@ -3230,41 +2945,31 @@ class Api:
                 bat = os.path.join(ROOT_DIR, 'Update ComfyUI.bat')
                 self._start_operation(self._do_update, bat)
 
-    def _flush_state_to_disk(self):
+    def _flush_state_to_disk(self, timeout=3.0):
+        cw = _EZI_WINDOW_REF.get("comfy_webview")
+        if cw is None or not _EZI_WINDOW_REF.get("comfy_ready"):
+            return
+        form = _EZI_WINDOW_REF.get("winforms_form")
+        on_ui_thread = False
         try:
-            cw = _EZI_WINDOW_REF.get("comfy_webview")
-            if cw is not None and _EZI_WINDOW_REF.get("comfy_ready"):
-                def _do_flush():
-                    try:
-                        cw.CoreWebView2.ExecuteScriptAsync(
-                            "window.__eziFlushStorageNow && window.__eziFlushStorageNow();"
-                        )
-                    except Exception:
-                        pass
-                self._ui_invoke(_do_flush)
+            on_ui_thread = form is not None and not form.InvokeRequired
         except Exception:
             pass
+        self._storage_ack.clear()
 
-        time.sleep(0.4)
+        def _do_flush():
+            try:
+                cw.CoreWebView2.ExecuteScriptAsync(
+                    "(window.__eziFlushStorageNow || function(){try{window.chrome.webview.postMessage({type:'ezi_storage_save'});}catch(e){}})();"
+                )
+            except Exception:
+                self._storage_ack.set()
+
+        self._ui_invoke(_do_flush)
+        if not on_ui_thread:
+            self._storage_ack.wait(timeout)
 
     def _close_window(self):
-        try:
-            self._safe_eval("""
-                (function() {
-                    try {
-                        var f = document.getElementById('ui-frame');
-                        if (!f) return;
-                        try {
-                            var w = f.contentWindow;
-                            if (w) w.onbeforeunload = null;
-                        } catch(e2) {}
-                        f.src = 'about:blank';
-                    } catch(e) {}
-                })();
-            """)
-        except Exception:
-            pass
-
         def _delayed_destroy():
             time.sleep(0.4)
             if self._window:
@@ -3303,105 +3008,6 @@ class Api:
         except Exception:
             pass
 
-    def get_maximized_state(self):
-        return self._is_maximized()
-
-    def get_window_rect(self):
-        try:
-            w = self._window
-            if not w:
-                return None
-            return {'x': w.x, 'y': w.y, 'w': w.width, 'h': w.height}
-        except Exception:
-            return None
-
-    def move_window_to(self, x, y):
-        try:
-            if self._window:
-                self._window.move(int(x), int(y))
-        except Exception:
-            pass
-
-    def resize_window(self, width, height, fix_east=False, fix_south=False):
-        try:
-            if not self._window:
-                return
-            fp = FixPoint(0)
-            if fix_east:
-                fp |= FixPoint.EAST
-            if fix_south:
-                fp |= FixPoint.SOUTH
-            self._window.resize(int(width), int(height), fp)
-        except Exception:
-            pass
-
-    def set_window_rect(self, x, y, w, h):
-        try:
-            hwnd = self._main_hwnd or _get_hwnd(self._window)
-            if not hwnd:
-                return
-            import ctypes.wintypes as wt
-            user32 = ctypes.windll.user32
-            try:
-                scale = user32.GetDpiForWindow(hwnd) / 96.0
-            except Exception:
-                scale = 1.0
-            if not scale:
-                scale = 1.0
-            px_x = int(round(x * scale))
-            px_y = int(round(y * scale))
-            px_w = int(round(w * scale))
-            px_h = int(round(h * scale))
-            SWP_NOZORDER   = 0x0004
-            SWP_NOACTIVATE = 0x0010
-            user32.SetWindowPos(hwnd, None, px_x, px_y, px_w, px_h, SWP_NOZORDER | SWP_NOACTIVATE)
-        except Exception:
-            pass
-
-    def get_work_area(self):
-        try:
-            w = self._window
-            if not w:
-                return None
-            hwnd = _get_hwnd(w)
-            if not hwnd:
-                return None
-
-            import ctypes.wintypes
-            user32 = ctypes.windll.user32
-            MONITOR_DEFAULTTONEAREST = 2
-
-            class _RECT(ctypes.Structure):
-                _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
-                            ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
-
-            class _MONITORINFO(ctypes.Structure):
-                _fields_ = [("cbSize", ctypes.c_ulong), ("rcMonitor", _RECT),
-                            ("rcWork", _RECT), ("dwFlags", ctypes.c_ulong)]
-
-            hmon = user32.MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
-            mi = _MONITORINFO()
-            mi.cbSize = ctypes.sizeof(_MONITORINFO)
-            if not hmon or not user32.GetMonitorInfoW(hmon, ctypes.byref(mi)):
-                return None
-
-            try:
-                scale = user32.GetDpiForWindow(hwnd) / 96.0
-            except Exception:
-                scale = 1.0
-            if not scale:
-                scale = 1.0
-
-            rw = mi.rcWork
-            return {
-                'x': int(round(rw.left / scale)),
-                'y': int(round(rw.top / scale)),
-                'w': int(round((rw.right - rw.left) / scale)),
-                'h': int(round((rw.bottom - rw.top) / scale)),
-            }
-        except Exception:
-            return None
-
     def _tb_set(self, value, maximum, state=2):
         self._tb_queue.put_nowait((value, maximum, state))
 
@@ -3433,10 +3039,36 @@ class Api:
         self._js_ready.set()
         if not self._started:
             self._started = True
-            threading.Thread(target=self._run, daemon=True).start()
-            threading.Thread(target=self._check_update, daemon=True).start()
-            threading.Thread(target=self._check_ezi_update, daemon=True).start()
-            threading.Thread(target=self._port_monitor, daemon=True).start()
+            if self._settings.get('ezi_updated_from'):
+                self._settings['ezi_updated_from'] = ''
+                _save_settings(self._settings)
+                self._safe_eval(f"show_ezi_updated({json.dumps('v' + APP_VERSION)});")
+            self._start_services()
+
+    def _start_services(self):
+        if self._services_started:
+            return
+        self._services_started = True
+        threading.Thread(target=self._run, daemon=True).start()
+        threading.Thread(target=self._check_update, daemon=True).start()
+        threading.Thread(target=self._check_ezi_update, daemon=True).start()
+        threading.Thread(target=self._port_monitor, daemon=True).start()
+
+    def _apply_ezi_update(self, bat):
+        self._settings['ezi_updated_from'] = APP_VERSION
+        _save_settings(self._settings)
+        self._do_run_bat(bat, status_label='Updating EZi...')
+
+    def _ezi_update_failed(self):
+        self._settings['ezi_updated_from'] = ''
+        _save_settings(self._settings)
+        self._println("\033[91m=== EZi update did not complete. Use the Update button to retry. ===\033[0m")
+        self._updating = False
+        if self._services_started:
+            self._safe_eval("switchToConsole()")
+            self._restart_comfy(check_update=False)
+        else:
+            self._start_services()
 
     def set_columns(self, cols):
         try:
@@ -3457,7 +3089,6 @@ class Api:
 
     def _is_maximized(self):
         try:
-            import ctypes.wintypes as wt
             hwnd = _get_hwnd(self._window)
             if not hwnd:
                 return False
@@ -3500,9 +3131,6 @@ class Api:
         except Exception:
             pass
         return self._columns
-
-    def ui_shown(self):
-        self._ui_shown = True
 
     def on_loaded(self):
         hwnd = _get_hwnd(self._window)
@@ -3606,10 +3234,76 @@ class Api:
         except Exception:
             pass
 
-    def _kill_running_proc(self):
-        port = self._comfy_port_holder[0]
+    def _job_kill(self):
+        job, self._job = self._job, None
+        if not job:
+            return
+        try:
+            k32 = ctypes.WinDLL('kernel32')
+            k32.TerminateJobObject.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+            k32.CloseHandle.argtypes = [ctypes.c_void_p]
+            k32.TerminateJobObject(job, 1)
+            k32.CloseHandle(job)
+        except Exception:
+            _log_error('_job_kill')
 
-        self._restarting = False
+    def _job_attach(self, proc):
+        self._job_kill()
+        try:
+            class IO_COUNTERS(ctypes.Structure):
+                _fields_ = [(n, ctypes.c_ulonglong) for n in (
+                    'ReadOperationCount', 'WriteOperationCount', 'OtherOperationCount',
+                    'ReadTransferCount', 'WriteTransferCount', 'OtherTransferCount')]
+
+            class BASIC_LIMITS(ctypes.Structure):
+                _fields_ = [
+                    ('PerProcessUserTimeLimit', ctypes.c_int64),
+                    ('PerJobUserTimeLimit', ctypes.c_int64),
+                    ('LimitFlags', ctypes.c_uint32),
+                    ('MinimumWorkingSetSize', ctypes.c_size_t),
+                    ('MaximumWorkingSetSize', ctypes.c_size_t),
+                    ('ActiveProcessLimit', ctypes.c_uint32),
+                    ('Affinity', ctypes.c_size_t),
+                    ('PriorityClass', ctypes.c_uint32),
+                    ('SchedulingClass', ctypes.c_uint32),
+                ]
+
+            class EXTENDED_LIMITS(ctypes.Structure):
+                _fields_ = [
+                    ('BasicLimitInformation', BASIC_LIMITS),
+                    ('IoInfo', IO_COUNTERS),
+                    ('ProcessMemoryLimit', ctypes.c_size_t),
+                    ('JobMemoryLimit', ctypes.c_size_t),
+                    ('PeakProcessMemoryUsed', ctypes.c_size_t),
+                    ('PeakJobMemoryUsed', ctypes.c_size_t),
+                ]
+
+            k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+            k32.CreateJobObjectW.restype = ctypes.c_void_p
+            k32.CreateJobObjectW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p]
+            k32.SetInformationJobObject.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+            k32.AssignProcessToJobObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+            k32.CloseHandle.argtypes = [ctypes.c_void_p]
+
+            job = k32.CreateJobObjectW(None, None)
+            if not job:
+                return
+            info = EXTENDED_LIMITS()
+            info.BasicLimitInformation.LimitFlags = 0x2000
+            if not k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)) \
+                    or not k32.AssignProcessToJobObject(job, int(proc._handle)):
+                k32.CloseHandle(job)
+                return
+            self._job = job
+        except Exception:
+            _log_error('_job_attach')
+
+    def _kill_running_proc(self, keep_restarting=False):
+        port = self._comfy_port_holder[0]
+        self._job_kill()
+
+        if not keep_restarting:
+            self._restarting = False
 
         started_own_proc = self._proc is not None
 
@@ -3639,23 +3333,27 @@ class Api:
     def _port_monitor(self):
         import urllib.request as _ur
 
-        def _http_alive(port):
+        def _http_alive(port, timeout=5):
             try:
-                r = _ur.urlopen(f'http://127.0.0.1:{port}/system_stats', timeout=5)
+                r = _ur.urlopen(f'http://127.0.0.1:{port}/system_stats', timeout=timeout)
                 return r.status == 200
             except Exception:
                 return False
 
         was_up = False
-        down_count = 0
+        down_since = 0
         restart_start_time = 0
-        _SOCK_DOWN_THRESHOLD = 12
+        ws_lost_at = -1e9
+        gave_up = False
+        _SOCK_DOWN_SECONDS = 12.0
 
         while self._window:
-            time.sleep(0.5)
+            if self._ws_lost.wait(0.5):
+                self._ws_lost.clear()
+                ws_lost_at = time.monotonic()
             if self._updating:
                 was_up = False
-                down_count = 0
+                down_since = 0
                 continue
             port = self._comfy_port_holder[0]
             if not port:
@@ -3668,8 +3366,9 @@ class Api:
             except Exception:
                 pass
             if sock_up:
-                down_count = 0
+                down_since = 0
                 if self._restarting:
+                    gave_up = False
                     if restart_start_time == 0:
                         restart_start_time = time.time()
                     if _http_alive(port):
@@ -3688,7 +3387,14 @@ class Api:
                             self._safe_eval("set_dot_ready();")
                             self._navigate_comfy_webview(f'http://127.0.0.1:{self._proxy_port}/')
                 elif not was_up:
-                    was_up = True
+                    if not gave_up:
+                        was_up = True
+                    elif _http_alive(port):
+                        gave_up = False
+                        self._url_found = True
+                        was_up = True
+                        self._safe_eval("set_dot_ready();")
+                        self._navigate_comfy_webview(f'http://127.0.0.1:{self._proxy_port}/')
             else:
                 if self._proc is None or self._comfy_exit_code is not None:
                     # Stopped by EZi (add-on, tool) or exited on its own: _run reports
@@ -3697,25 +3403,29 @@ class Api:
                     down_count = 0
                     continue
                 if was_up and not self._restarting:
-                    down_count += 1
-                    if down_count >= _SOCK_DOWN_THRESHOLD:
-                        if not _http_alive(port):
+                    ws_dropped = time.monotonic() - ws_lost_at < 10
+                    if not down_since:
+                        down_since = time.monotonic()
+                    if ws_dropped or time.monotonic() - down_since >= _SOCK_DOWN_SECONDS:
+                        if ws_dropped or not _http_alive(port, timeout=2):
                             was_up = False
-                            down_count = 0
+                            down_since = 0
+                            ws_lost_at = -1e9
                             self._restarting = True
                             self._url_found = False
                             restart_start_time = time.time()
-                            self._println(f"\n\033[93m⚠  ComfyUI is restarting...\033[0m")
-                            self._safe_eval("switchToConsole('Restarting...')")
+                            self._safe_eval("switchToConsole('Restarting...'); _showRestartNotice('⟳ ComfyUI is restarting...');")
+                            self._flush_state_to_disk()
                         else:
-                            down_count = 0
+                            down_since = 0
                 if self._restarting:
                     if restart_start_time > 0 and time.time() - restart_start_time > 300:
                         self._restarting = False
                         restart_start_time = 0
                         self._url_found = False
                         was_up = False
-                        self._println(f"\n\033[91m⚠  Restart timed out. ComfyUI did not come back online.\033[0m")
+                        gave_up = True
+                        self._println("\n\033[91m⚠  Restart timed out. ComfyUI did not come back online.\033[0m")
                         self._safe_eval("switchToConsole('Stopped')")
     def _check_update(self):
         try:
@@ -3723,20 +3433,6 @@ class Api:
                 return
             self._println('\033[93mChecking for ComfyUI update...\033[0m')
             subprocess.run(['git', 'fetch', '--quiet', '--tags'], cwd=self.COMFY_DIR, capture_output=True, timeout=8, creationflags=self._NO_WIN)
-            local = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.COMFY_DIR, capture_output=True, timeout=5, creationflags=self._NO_WIN
-            ).stdout.strip().decode(errors='replace')
-            for ref in ['origin/main', 'origin/master', 'origin/HEAD']:
-                r = subprocess.run(
-                    ['git', 'rev-parse', ref],
-                    cwd=self.COMFY_DIR, capture_output=True, timeout=5, creationflags=self._NO_WIN
-                )
-                if r.returncode == 0:
-                    remote = r.stdout.strip().decode(errors='replace')
-                    break
-            else:
-                remote = ''
             all_tags = subprocess.run(
                 ['git', 'tag', '--sort=-version:refname'],
                 cwd=self.COMFY_DIR, capture_output=True, timeout=5, creationflags=self._NO_WIN
@@ -3767,57 +3463,25 @@ class Api:
                 tag_is_newer = head_hash and tag_hash and head_hash != tag_hash and \
                     _commit_time(f'{latest_tag}^{{}}') > _commit_time('HEAD')
                 if tag_is_newer:
-                    stable_tag = None
-                    try:
-                        import urllib.request as _ur, json as _json
-                        req = _ur.Request(
-                            'https://api.github.com/repos/Comfy-Org/ComfyUI/releases/latest',
-                            headers={'User-Agent': EZI_UA_TAG}
-                        )
-                        with _ur.urlopen(req, timeout=8) as resp:
-                            rel_data = _json.loads(resp.read())
-                        stable_tag = rel_data.get('tag_name') or None
-                    except Exception:
-                        pass
+                    stable_tag = self._stable_comfy_tag()
                     is_stable = bool(stable_tag and latest_tag == stable_tag)
-                    if stable_tag:
-                        try:
-                            import json as _json2
-                            _cu_data = {}
-                            if os.path.exists(SETTINGS_PATH):
-                                with open(SETTINGS_PATH, 'r', encoding='utf-8') as _sf:
-                                    _cu_data = _json2.loads(_sf.read())
-                            _cu_data['cached_comfy_stable_version'] = stable_tag
-                            _tmp = SETTINGS_PATH + '.tmp'
-                            with open(_tmp, 'w', encoding='utf-8') as _sf:
-                                _json2.dump(_cu_data, _sf, indent=2, ensure_ascii=False)
-                            os.replace(_tmp, SETTINGS_PATH)
-                        except Exception:
-                            pass
-                    elif not stable_tag:
-                        try:
-                            import json as _json2
-                            if os.path.exists(SETTINGS_PATH):
-                                with open(SETTINGS_PATH, 'r', encoding='utf-8') as _sf:
-                                    _cu_data = _json2.loads(_sf.read())
-                                _cached_stable = _cu_data.get('cached_comfy_stable_version') or None
-                                is_stable = bool(_cached_stable and latest_tag == _cached_stable)
-                        except Exception:
-                            pass
                     self._safe_eval(f"show_update({json.dumps(latest_tag)}, {json.dumps(is_stable)})")
         except Exception:
-            pass
+            _log_error('_check_update')
+
+    def _stable_comfy_tag(self):
+        cached = self._settings.get('cached_comfy_stable_version') or None
+        try:
+            tag = _latest_release_tag('Comfy-Org/ComfyUI')
+        except Exception:
+            return cached
+        if tag != cached:
+            self._settings['cached_comfy_stable_version'] = tag
+            _save_settings(self._settings)
+        return tag
 
     def _get_latest_ezi_tag(self):
-        import urllib.request as _ur
-        url = f"https://github.com/{EZI_RELEASES_REPO}/releases/latest"
-        req = _ur.Request(url, headers={"User-Agent": EZI_UA_TAG}, method="HEAD")
-        with _ur.urlopen(req, timeout=8) as r:
-            final_url = r.geturl()
-        tag = final_url.rstrip("/").rsplit("/", 1)[-1].strip().lstrip("v")
-        if tag:
-            return tag
-        raise ValueError(f"could not parse tag from redirect target: {final_url!r}")
+        return _latest_release_tag(EZI_RELEASES_REPO).lstrip("v")
 
     def _get_latest_ezi_tag_via_api(self):
         import urllib.request as _ur
@@ -3851,16 +3515,16 @@ class Api:
     def run_update(self):
         bat = os.path.join(ROOT_DIR, 'Update ComfyUI.bat')
         if not os.path.exists(bat):
-            self._safe_eval(f"show_update_missing({json.dumps(ROOT_DIR)})")
+            self._safe_eval(f"show_update_missing({json.dumps(ROOT_DIR)}, {json.dumps(os.path.basename(bat))})")
             return
         self._safe_eval("show_update_confirm()")
 
     def run_ezi_update(self):
         bat = os.path.join(ROOT_DIR, "Update Easy-Install.bat")
         if not os.path.exists(bat):
-            self._safe_eval(f"show_update_missing({json.dumps(ROOT_DIR)})")
+            self._safe_eval(f"show_update_missing({json.dumps(ROOT_DIR)}, {json.dumps(os.path.basename(bat))})")
             return
-        self._start_operation(self._do_run_bat, bat)
+        self._start_operation(self._apply_ezi_update, bat)
 
     def _do_update(self, bat):
         self._do_run_bat(bat, status_label='Updating...', hide_update_notice=True)
@@ -3875,12 +3539,17 @@ class Api:
         self._restart_comfy(check_update=False)
 
     def _restart_comfy(self, check_update=True):
+        self._flush_state_to_disk()
         self._started = False
         self._url_found = False
-        self._ui_shown = False
         self._restarting = True
         self._run_id += 1
-        threading.Thread(target=self._run, daemon=True).start()
+
+        def _kill_then_run():
+            self._kill_running_proc(keep_restarting=True)
+            self._run()
+
+        threading.Thread(target=_kill_then_run, daemon=True).start()
         if check_update:
             threading.Thread(target=self._check_update, daemon=True).start()
             threading.Thread(target=self._check_ezi_update, daemon=True).start()
@@ -3888,23 +3557,10 @@ class Api:
     def _resolve_output_dir(self):
         output_dir = None
         try:
-            if os.path.exists(BAT_FILE):
-                with open(BAT_FILE, 'r', encoding='utf-8', errors='replace') as f:
-                    bat_content = f.read()
-                m_env = re.search(
-                    r'(?i)set\s+"?COMFY_OUTPUT_DIR=([^"\n]+)"?',
-                    bat_content
-                )
-                if m_env:
-                    output_dir = m_env.group(1).strip().strip('"')
-                m_arg = re.search(r'python_embeded[/\\]python\.exe["\'"]?\s+(.*)',
-                                  _find_bat_comfy_line(bat_content) or '', re.IGNORECASE)
-                if m_arg:
-                    parsed = shlex.split(m_arg.group(1).strip(), posix=False)
-                    for idx, tok in enumerate(parsed):
-                        if tok == '--output-directory' and idx + 1 < len(parsed):
-                            output_dir = parsed[idx + 1].strip('"\'')
-                            break
+            bat_content = _read_bat()
+            if bat_content is not None:
+                output_dir = (_bat_flag_value(_bat_args(bat_content), '--output-directory')
+                              or _bat_env(bat_content, 'COMFY_OUTPUT_DIR'))
         except Exception:
             pass
         if not output_dir:
@@ -3914,7 +3570,6 @@ class Api:
 
     def get_system_info(self):
         import shutil
-        import glob
         from concurrent.futures import ThreadPoolExecutor
 
         def _ps(cmd, timeout=8):
@@ -3941,7 +3596,7 @@ class Api:
                 cv = cuda_m.group(1) if cuda_m else 'N/A'
                 return tv, cv
             except Exception:
-                pass
+                _log_error('_get_torch')
             try:
                 r = subprocess.run(
                     [self.PY_EXE, "-c", "import torch; v=torch.__version__; cv=torch.version.hip or 'N/A'; print(v+'|'+cv)"],
@@ -3952,7 +3607,7 @@ class Api:
                     torch_v, cuda_v = out.split('|', 1)
                     return torch_v, cuda_v
             except Exception:
-                pass
+                _log_error('_get_torch')
             return 'N/A', 'N/A'
 
         def _get_comfyui():
@@ -3983,30 +3638,7 @@ class Api:
                 return 'N/A'
 
         def _get_frontend():
-            try:
-                import importlib.metadata as _im
-                ver = _im.version('comfyui_frontend_package')
-                if ver and ver != '0.1.0':
-                    return ver
-            except Exception:
-                pass
-            try:
-                site = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages')
-                matches = sorted(glob.glob(
-                    os.path.join(site, 'comfyui_frontend_package-*.dist-info', 'METADATA')
-                ), reverse=True)
-                for meta_path in matches:
-                    with open(meta_path, 'r', encoding='utf-8', errors='replace') as f:
-                        for line in f:
-                            if line.startswith('Version:'):
-                                ver = line.split(':', 1)[1].strip()
-                                if ver and ver != '0.1.0':
-                                    return ver
-                            elif line.startswith('Name:') or (line.strip() == '' and line != line.lstrip()):
-                                break
-            except Exception:
-                pass
-            return 'N/A'
+            return _installed_frontend_version() or 'N/A'
 
         def _get_amd_driver(gpu):
             import winreg
@@ -4157,7 +3789,7 @@ class Api:
                     capture_output=True, stdin=subprocess.DEVNULL, timeout=30, creationflags=self._NO_WIN
                 )
             except Exception:
-                pass
+                _log_error('clear_cache')
             size = 0
             try:
                 r = subprocess.run(
@@ -4196,7 +3828,7 @@ class Api:
                         capture_output=True, stdin=subprocess.DEVNULL, timeout=60, creationflags=self._NO_WIN
                     )
                 except Exception:
-                    pass
+                    _log_error('clear_cache')
 
                 if uv_dir and os.path.isdir(uv_dir):
                     try:
@@ -4223,37 +3855,7 @@ class Api:
 
     def get_frontend_versions(self):
         import urllib.request as _ur, json as _json
-        current = None
-        try:
-            import importlib.metadata as _im
-            for _pkg in ('comfyui_frontend_package', 'comfyui-frontend-package'):
-                try:
-                    ver = _im.version(_pkg)
-                    if ver and ver != '0.1.0':
-                        current = ver
-                        break
-                except Exception:
-                    continue
-        except Exception:
-            pass
-        if not current:
-            try:
-                site = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages')
-                matches = sorted(glob.glob(
-                    os.path.join(site, 'comfyui_frontend_package-*.dist-info', 'METADATA')
-                ), reverse=True)
-                for meta_path in matches:
-                    with open(meta_path, 'r', encoding='utf-8', errors='replace') as _f:
-                        for line in _f:
-                            if line.startswith('Version:'):
-                                ver = line.split(':', 1)[1].strip()
-                                if ver and ver != '0.1.0':
-                                    current = ver
-                                break
-                    if current:
-                        break
-            except Exception:
-                pass
+        current = _installed_frontend_version()
         try:
             with _ur.urlopen('https://pypi.org/pypi/comfyui-frontend-package/json', timeout=8) as r:
                 data = _json.loads(r.read())
@@ -4272,14 +3874,9 @@ class Api:
         return {'current': current, 'versions': versions, 'isNightly': bool(is_nightly)}
 
     def get_frontend_is_nightly(self):
-        import glob as _glob, re as _re
+        import glob as _glob
 
-        site_pkgs = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages')
-        pkg_dir   = os.path.join(site_pkgs, 'comfyui_frontend_package')
-        if not os.path.isdir(pkg_dir):
-            candidates = _glob.glob(os.path.join(site_pkgs, 'comfyui_frontend_package*'))
-            pkg_dir = next((c for c in candidates
-                            if os.path.isdir(c) and 'dist-info' not in c), None)
+        pkg_dir = _frontend_pkg_dir()
         if not pkg_dir:
             return None
 
@@ -4320,7 +3917,7 @@ class Api:
         return None
 
     def get_comfyui_required_frontend(self, tag):
-        import re as _re, urllib.request as _ur, base64 as _b64
+        import re as _re, urllib.request as _ur
         if not tag or tag == 'NIGHTLY':
             return None
 
@@ -4347,7 +3944,7 @@ class Api:
                     return result
                 return None
         except Exception:
-            pass
+            _log_error('get_comfyui_required_frontend')
 
         try:
             url = (f'https://raw.githubusercontent.com/Comfy-Org/ComfyUI'
@@ -4360,7 +3957,7 @@ class Api:
                 return result
             return None
         except Exception:
-            pass
+            _log_error('get_comfyui_required_frontend')
 
         try:
             current_tag = None
@@ -4377,7 +3974,7 @@ class Api:
                     with open(req_path, 'r', encoding='utf-8', errors='replace') as f:
                         return _find_in_lines(f)
         except Exception:
-            pass
+            _log_error('get_comfyui_required_frontend')
 
         return None
 
@@ -4403,7 +4000,7 @@ class Api:
                 current = r.stdout.strip().decode(errors='replace')
                 is_stable = True
         except Exception:
-            pass
+            _log_error('get_comfyui_versions')
 
         if not current:
             try:
@@ -4414,7 +4011,7 @@ class Api:
                 if r2.returncode == 0:
                     current = r2.stdout.strip().decode(errors='replace') or None
             except Exception:
-                pass
+                _log_error('get_comfyui_versions')
 
         local_tags = []
         try:
@@ -4424,7 +4021,7 @@ class Api:
             )
             local_tags = [t.strip() for t in r.stdout.decode(errors='replace').strip().splitlines() if t.strip()]
         except Exception:
-            pass
+            _log_error('get_comfyui_versions')
 
         remote_tags = []
         for page in (1, 2):
@@ -4452,36 +4049,7 @@ class Api:
             all_tags.insert(0, 'NIGHTLY')
             current = 'NIGHTLY'
 
-        stable_version = None
-        try:
-            req = _ur.Request(
-                'https://api.github.com/repos/Comfy-Org/ComfyUI/releases/latest',
-                headers={'User-Agent': 'ComfyUI-EZi'}
-            )
-            with _ur.urlopen(req, timeout=8) as resp:
-                rel_data = _json.loads(resp.read())
-            stable_version = rel_data.get('tag_name') or None
-            if stable_version:
-                try:
-                    _cached_data = {}
-                    if os.path.exists(SETTINGS_PATH):
-                        with open(SETTINGS_PATH, 'r', encoding='utf-8') as _sf:
-                            _cached_data = _json.loads(_sf.read())
-                    _cached_data['cached_comfy_stable_version'] = stable_version
-                    _tmp = SETTINGS_PATH + '.tmp'
-                    with open(_tmp, 'w', encoding='utf-8') as _sf:
-                        _json.dump(_cached_data, _sf, indent=2, ensure_ascii=False)
-                    os.replace(_tmp, SETTINGS_PATH)
-                except Exception:
-                    pass
-        except Exception:
-            try:
-                if os.path.exists(SETTINGS_PATH):
-                    with open(SETTINGS_PATH, 'r', encoding='utf-8') as _sf:
-                        _cached_data = _json.loads(_sf.read())
-                    stable_version = _cached_data.get('cached_comfy_stable_version') or None
-            except Exception:
-                pass
+        stable_version = self._stable_comfy_tag()
 
         return {'current': current, 'versions': all_tags, 'stableVersion': stable_version, 'isStable': bool(is_stable)}
 
@@ -4548,14 +4116,14 @@ class Api:
                                     fe_version = _m.group(1)
                                 break
                 except Exception:
-                    pass
+                    _log_error('_do_set_comfyui_version_then_frontend')
             if fe_version:
                 if not self._pip_install_frontend(fe_version):
-                    self._println(f"\033[91m=== Frontend install failed ===\033[0m")
+                    self._println("\033[91m=== Frontend install failed ===\033[0m")
                     return
                 self._println(f"\033[92m=== Installed frontend {fe_version}. Restarting ComfyUI... ===\033[0m")
             else:
-                self._println(f"\033[93m=== No matching frontend version found, skipping. Restarting ComfyUI... ===\033[0m")
+                self._println("\033[93m=== No matching frontend version found, skipping. Restarting ComfyUI... ===\033[0m")
             self._safe_eval("switchToConsole()")
             self._restart_comfy()
             self._updating = False
@@ -4576,14 +4144,14 @@ class Api:
         self._safe_eval("switchToConsole('Installing...')")
         try:
             if self._pip_install_frontend(version):
-                self._println(f"\033[92m=== Installed. Restarting ComfyUI... ===\033[0m")
+                self._println("\033[92m=== Installed. Restarting ComfyUI... ===\033[0m")
                 self._kill_running_proc()
                 time.sleep(1)
                 self._safe_eval("switchToConsole()")
                 self._restart_comfy()
                 self._updating = False
             else:
-                self._println(f"\033[91m=== Installation failed ===\033[0m")
+                self._println("\033[91m=== Installation failed ===\033[0m")
         except Exception as e:
             self._println(f"\033[91mError: {e}\033[0m")
 
@@ -4617,7 +4185,7 @@ class Api:
         rel_clean = rel_path.lstrip('./\\').replace('\\\\', '\\')
         bat = os.path.normpath(os.path.join(ROOT_DIR, rel_clean))
         if not os.path.exists(bat):
-            self._safe_eval(f"show_update_missing({json.dumps(os.path.dirname(bat))})")
+            self._safe_eval(f"show_update_missing({json.dumps(os.path.dirname(bat))}, {json.dumps(os.path.basename(bat))})")
             return
         if os.path.basename(bat) == 'Easy-Models-Linker.bat':
             self._start_operation(self._do_models_linker)
@@ -4634,6 +4202,11 @@ class Api:
             self._println('Bundle manager opened. ComfyUI remains running while you choose or prepare a bundle. Close EZi Desktop only when prompted to activate it.')
             return
         self._start_operation(self._do_run_bat, bat)
+
+    def download_pixaroma_workflows(self):
+        # Own console window: ComfyUI keeps running and lists the new workflows on refresh.
+        subprocess.Popen(['cmd.exe', '/c', os.path.join(ROOT_DIR, 'amd', 'pixaroma-workflows.bat')],
+                         cwd=ROOT_DIR, creationflags=subprocess.CREATE_NEW_CONSOLE)
 
     def _do_models_linker(self):
         try:
@@ -4658,11 +4231,16 @@ class Api:
 
     def _do_run_bat(self, bat, status_label=None, hide_update_notice=False):
         name = os.path.basename(bat)
+        is_ezi_update = name.lower() == "update easy-install.bat"
         label = status_label or f'Running {name}...'
         self._updating = True
         self._safe_eval(f"switchToConsole({json.dumps(label)})")
-        self._safe_eval("document.getElementById('update-notice').style.display='none';")
-        self._println(f"\033[93m=== Stopping ComfyUI ===\033[0m")
+        if is_ezi_update:
+            self._safe_eval("show_ezi_updating();")
+        else:
+            self._safe_eval("document.getElementById('update-notice').style.display='none';")
+        if self._proc is not None:
+            self._println("\033[93m=== Stopping ComfyUI ===\033[0m")
         self._kill_running_proc()
         self._println(f"\033[93m=== Running {name} ===\033[0m")
         result = 1
@@ -4688,14 +4266,15 @@ class Api:
             self._updating = False
             return
 
-        is_ezi_update = name.lower() == "update easy-install.bat"
-
         if is_ezi_update:
-            self._println(f"\033[92mRestarting ComfyUI-EZi...\033[0m")
+            if result:
+                self._ezi_update_failed()
+                return
+            self._println("\033[92mRestarting ComfyUI-EZi...\033[0m")
             time.sleep(1)
             self.restart_ezi()
         else:
-            self._println(f"\033[92mRestarting ComfyUI...\033[0m")
+            self._println("\033[92mRestarting ComfyUI...\033[0m")
             time.sleep(1)
             self._safe_eval("switchToConsole()")
             self._restart_comfy(check_update=not is_wtivo_group)
@@ -4730,27 +4309,14 @@ class Api:
 
     def _resolve_input_dir(self):
         try:
-            if os.path.exists(BAT_FILE):
-                with open(BAT_FILE, 'r', encoding='utf-8', errors='replace') as f:
-                    bat_content = f.read()
-                m_env = re.search(r'(?i)set\s+"?COMFY_INPUT_DIR=([^"\n]+)"?', bat_content)
-                if m_env:
-                    d = m_env.group(1).strip().strip('"')
+            bat_content = _read_bat()
+            if bat_content is not None:
+                d = (_bat_env(bat_content, 'COMFY_INPUT_DIR')
+                     or _bat_flag_value(_bat_args(bat_content), '--input-directory'))
+                if d:
                     if not os.path.isabs(d):
                         d = os.path.normpath(os.path.join(ROOT_DIR, d))
                     return d if os.path.isdir(d) else None
-                comfy_line = _find_bat_comfy_line(bat_content)
-                if comfy_line:
-                    m = re.search(r'python_embeded[/\\]python\.exe["\']?\s+(.*)',
-                                  comfy_line, re.IGNORECASE)
-                    if m:
-                        tokens = shlex.split(m.group(1).strip(), posix=False)
-                        for i, tok in enumerate(tokens):
-                            if tok == '--input-directory' and i + 1 < len(tokens):
-                                d = tokens[i + 1].strip('"\'')
-                                if not os.path.isabs(d):
-                                    d = os.path.normpath(os.path.join(ROOT_DIR, d))
-                                return d if os.path.isdir(d) else None
         except Exception:
             pass
         d = os.path.normpath(os.path.join(ROOT_DIR, 'ComfyUI', 'input'))
@@ -4802,7 +4368,7 @@ class Api:
                         return best
 
             except Exception:
-                pass
+                _log_error('_resolve_models_dir')
         d = os.path.normpath(os.path.join(ROOT_DIR, 'ComfyUI', 'models'))
         return d if os.path.isdir(d) else None
 
@@ -4927,18 +4493,10 @@ class Api:
 
     def get_startup_args(self):
         try:
-            if not os.path.exists(BAT_FILE):
+            bat_content = _read_bat()
+            if bat_content is None:
                 return ""
-            with open(BAT_FILE, 'r', encoding='utf-8', errors='replace') as f:
-                bat_content = f.read()
-            comfy_line = _find_bat_comfy_line(bat_content)
-            if not comfy_line:
-                return ""
-            m = re.search(r'python_embeded[/\\]python\.exe["\'"]?\s+(.*)',
-                          comfy_line, re.IGNORECASE)
-            if not m:
-                return ""
-            tokens = shlex.split(m.group(1).strip(), posix=False)
+            tokens = _bat_args(bat_content)
             
             MANAGED_WITH_VAL = {
                 '--input-directory', '--output-directory', '--user-directory',
@@ -4972,12 +4530,6 @@ class Api:
             return ""
 
     def set_startup_args(self, args_str):
-        bat_names = [
-            'Start ComfyUI.bat',
-            'Start ComfyUI SageAttention.bat',
-            'Start ComfyUI FlashAttention.bat',
-            'Start ComfyUI KitchenAttention.bat',
-        ]
         args_str = (args_str or '').strip()
 
         MANAGED_WITH_VAL = {
@@ -4985,7 +4537,7 @@ class Api:
         }
         MANAGED_FLAG = {'--windows-standalone-build'}
 
-        for bat_name in bat_names:
+        for bat_name in BAT_NAMES:
             bat_path = os.path.join(ROOT_DIR, bat_name)
             if not os.path.exists(bat_path):
                 continue
@@ -5112,18 +4664,10 @@ class Api:
     def get_custom_paths(self):
         paths = {'input': '', 'output': '', 'user': ''}
         try:
-            if not os.path.exists(BAT_FILE):
+            bat_content = _read_bat()
+            if bat_content is None:
                 return json.dumps(paths)
-            with open(BAT_FILE, 'r', encoding='utf-8', errors='replace') as f:
-                bat_content = f.read()
-            comfy_line = _find_bat_comfy_line(bat_content)
-            if not comfy_line:
-                return json.dumps(paths)
-            m = re.search(r'python_embeded[/\\]python\.exe["\']?\s+(.*)',
-                          comfy_line, re.IGNORECASE)
-            if not m:
-                return json.dumps(paths)
-            tokens = shlex.split(m.group(1).strip(), posix=False)
+            tokens = _bat_args(bat_content)
             param_map = {
                 '--input-directory':  'input',
                 '--output-directory': 'output',
@@ -5142,19 +4686,13 @@ class Api:
         return json.dumps(paths)
 
     def set_custom_paths(self, input_dir, output_dir, user_dir):
-        bat_names = [
-            'Start ComfyUI.bat',
-            'Start ComfyUI SageAttention.bat',
-            'Start ComfyUI FlashAttention.bat',
-            'Start ComfyUI KitchenAttention.bat',
-        ]
         new_vals = {
             '--input-directory':  input_dir.strip().strip('"'),
             '--output-directory': output_dir.strip().strip('"'),
             '--user-directory':   user_dir.strip().strip('"'),
         }
 
-        for bat_name in bat_names:
+        for bat_name in BAT_NAMES:
             bat_path = os.path.join(ROOT_DIR, bat_name)
             if not os.path.exists(bat_path):
                 continue
@@ -5316,7 +4854,7 @@ class Api:
                     data = json.load(f)
                 return json.dumps(data.get('pinned_packages') or [])
         except Exception:
-            pass
+            _log_error('get_pinned_packages')
         return json.dumps([])
 
     def set_pinned_packages(self, packages_json):
@@ -5330,7 +4868,7 @@ class Api:
                     with open(SETTINGS_PATH, 'r', encoding='utf-8') as f:
                         existing = json.load(f)
             except Exception:
-                pass
+                _log_error('set_pinned_packages')
             existing['pinned_packages'] = packages
             tmp = SETTINGS_PATH + '.tmp'
             with open(tmp, 'w', encoding='utf-8') as f:
@@ -5407,16 +4945,7 @@ class Api:
         if hasattr(self, '_rec_stop_event') and self._rec_stop_event:
             self._rec_stop_event.set()
 
-    def _capture_frame_gdi(self, hwnd, x, y, w, h):
-        ctx = self._make_gdi_capture_ctx(hwnd, x, y, w, h)
-        if ctx is None:
-            return None
-        try:
-            return ctx.capture()
-        finally:
-            ctx.release()
-
-    def _make_gdi_capture_ctx(self, hwnd, x, y, w, h):
+    def _make_gdi_capture_ctx(self, hwnd, x, y, w, h, even=True, cursor=True):
         import ctypes, ctypes.wintypes as wt
         gdi  = ctypes.windll.gdi32
         user = ctypes.windll.user32
@@ -5470,15 +4999,16 @@ class Api:
 
             phys_x = max(0, int(round(x * dpr)))
             phys_y = max(0, int(round(y * dpr)))
-            cap_w  = max(2, int(round(w * dpr)))
-            cap_h  = max(2, int(round(h * dpr)))
-            cap_w  = cap_w if cap_w % 2 == 0 else cap_w - 1
-            cap_h  = cap_h if cap_h % 2 == 0 else cap_h - 1
+            cap_w  = max(1, int(round(w * dpr)))
+            cap_h  = max(1, int(round(h * dpr)))
+            if even:
+                cap_w = max(2, cap_w - cap_w % 2)
+                cap_h = max(2, cap_h - cap_h % 2)
 
             pt = wt.POINT(0, 0)
             user.ClientToScreen(_vp(hwnd), ctypes.byref(pt))
             src_x = pt.x + phys_x
-            src_y = pt.y + phys_y
+            src_y = pt.y + (0 if self._is_maximized() else _EZI_TOP_RESIZE_GAP) + phys_y
 
             hdc_screen = user.GetDC(None)
             hdc_mem    = gdi.CreateCompatibleDC(hdc_screen)
@@ -5513,7 +5043,7 @@ class Api:
             class _Ctx:
                 __slots__ = ('_gdi','_user','_vp','_hdc_screen','_hdc_mem','_hbm','_old_bm',
                              '_bih','_buf','_ci','_ii','cap_w','cap_h','src_x','src_y','size',
-                             '_last_hcursor','_hotspot_x','_hotspot_y')
+                             '_last_hcursor','_hotspot_x','_hotspot_y','_cursor')
                 def __init__(self_):
                     self_._gdi = gdi; self_._user = user; self_._vp = _vp
                     self_._hdc_screen = hdc_screen; self_._hdc_mem = hdc_mem
@@ -5523,6 +5053,7 @@ class Api:
                     self_.cap_w = cap_w; self_.cap_h = cap_h
                     self_.src_x = src_x; self_.src_y = src_y
                     self_.size = (cap_w, cap_h)
+                    self_._cursor = cursor
                     self_._last_hcursor = None
                     self_._hotspot_x = 0
                     self_._hotspot_y = 0
@@ -5530,8 +5061,10 @@ class Api:
                 def capture(self_):
                     g = self_._gdi; u = self_._user; vp = self_._vp
 
-                    self_._ci.cbSize = ctypes.sizeof(CURSORINFO)
-                    cursor_visible = u.GetCursorInfo(ctypes.byref(self_._ci)) and self_._ci.flags == 1
+                    cursor_visible = False
+                    if self_._cursor:
+                        self_._ci.cbSize = ctypes.sizeof(CURSORINFO)
+                        cursor_visible = u.GetCursorInfo(ctypes.byref(self_._ci)) and self_._ci.flags == 1
                     cur_x = self_._ci.ptScreenPos.x - self_.src_x if cursor_visible else 0
                     cur_y = self_._ci.ptScreenPos.y - self_.src_y if cursor_visible else 0
                     h_cursor = vp(self_._ci.hCursor) if cursor_visible else None
@@ -5644,6 +5177,12 @@ class Api:
                 if os.path.isfile(candidate):
                     ffmpeg = candidate
                     break
+        if not ffmpeg:
+            import glob
+            bundled = glob.glob(os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages',
+                                             'imageio_ffmpeg', 'binaries', 'ffmpeg*.exe'))
+            if bundled:
+                ffmpeg = bundled[0]
 
         tmp_file = os.path.join(self._last_save_dir, f'_ezi_rec_tmp_{int(time.time())}.mp4')
 
@@ -5783,34 +5322,12 @@ class Api:
                 actual_fps = float(FPS)
             encode_fps = max(1, round(actual_fps))
 
-            written = False
+            tmp_file = tmp_file.replace('.mp4', '.avi')
             try:
-                import cv2
-                import numpy as np
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                out = cv2.VideoWriter(tmp_file, fourcc, encode_fps, (fw, fh))
-                for raw in frames:
-                    arr = np.frombuffer(raw, dtype=np.uint8).reshape((fh, fw, 3))
-                    out.write(cv2.cvtColor(arr, cv2.COLOR_RGB2BGR))
-                out.release()
-                written = True
-                self._println(f"[Record] Encoded with OpenCV ({encode_fps}fps actual).")
-            except ImportError:
-                pass
+                self._write_mjpeg_avi(tmp_file, frames, fw, fh, encode_fps)
+                self._println("[Record] Encoded as MJPEG AVI (ffmpeg not found; install ffmpeg or imageio-ffmpeg for much smaller files).")
             except Exception as e:
-                self._println(f"[Record] OpenCV error: {e}")
-
-            if not written:
-                try:
-                    tmp_file = tmp_file.replace('.mp4', '.avi')
-                    self._write_mjpeg_avi(tmp_file, frames, fw, fh, encode_fps)
-                    written = True
-                    self._println("[Record] Encoded as MJPEG AVI (ffmpeg not found).")
-                except Exception as e:
-                    self._println(f"[Record] AVI write error: {e}")
-
-            if not written:
-                self._println("[Record] Recording failed - install ffmpeg or opencv-python.")
+                self._println(f"[Record] Recording failed ({e}). Install ffmpeg for better results.")
                 self._safe_eval("stopRecording()")
                 return
 
@@ -5819,14 +5336,10 @@ class Api:
             self._hide_rec_overlay()
             self._safe_eval("stopRecording()")
 
-        self._println(f"[Record] Recording stopped. Saving...")
+        self._println("[Record] Recording stopped. Saving...")
 
-        default_name = os.path.basename(tmp_file).replace('_ezi_rec_tmp_', 'ComfyUI-EZi-recording-')
-        if not default_name.endswith('.mp4') and not default_name.endswith('.avi'):
-            default_name = f"ComfyUI-EZi-recording-{time.strftime('%Y%m%d_%H%M%S')}.mp4"
-        else:
-            ext = '.mp4' if tmp_file.endswith('.mp4') else '.avi'
-            default_name = f"ComfyUI-EZi-recording-{time.strftime('%Y%m%d_%H%M%S')}{ext}"
+        ext = '.mp4' if tmp_file.endswith('.mp4') else '.avi'
+        default_name = f"ComfyUI-EZi-recording-{time.strftime('%Y%m%d_%H%M%S')}{ext}"
 
         save_path = None
         if self._window and os.path.exists(tmp_file):
@@ -5844,7 +5357,7 @@ class Api:
                     self._settings["last_save_dir"] = self._last_save_dir
                     _save_settings(self._settings)
             except Exception:
-                pass
+                _log_error('_do_start_recording')
 
         if save_path and os.path.exists(tmp_file):
             import shutil as _sh
@@ -5863,9 +5376,9 @@ class Api:
 
         jpegs = []
         for raw in frames_raw:
-            img = Image.frombytes('RGB', (w, h), raw)
+            img = Image.frombytes('RGB', (w, h), raw, 'raw', 'BGRX')
             buf = io.BytesIO()
-            img.save(buf, 'JPEG', quality=85)
+            img.save(buf, 'JPEG', quality=65, optimize=True)
             jpegs.append(buf.getvalue())
 
         def dw(n):  return struct.pack('<I', n)
@@ -5888,7 +5401,7 @@ class Api:
         movi_size = len(movi_data) + 4
         idx1_size = len(idx1_data)
 
-        strh = (b'vids' + b'MJPG' + dw(0)*4 + dw(1) + dw(fps) +
+        strh = (b'vids' + b'MJPG' + dw(0)*3 + dw(1) + dw(fps) +
                 dw(0) + dw(n) + dw(0) + dw(int(w*h*3)) +
                 dw2(w) + dw2(h))
         strf = (dw(40) + dd(w) + dd(h) + dw2(1) + dw2(24) +
@@ -5919,96 +5432,19 @@ class Api:
                             "Run: python_embeded\\python.exe -m pip install Pillow")
                 return
 
-            import ctypes, ctypes.wintypes as wt
-            gdi  = ctypes.windll.gdi32
-            user = ctypes.windll.user32
-
-            _vp = ctypes.c_void_p
-            user.GetDC.argtypes    = [_vp];           user.GetDC.restype    = _vp
-            user.ReleaseDC.argtypes = [_vp, _vp]
-            user.ClientToScreen.argtypes = [_vp, ctypes.POINTER(wt.POINT)]
-            user.GetClientRect.argtypes  = [_vp, ctypes.c_void_p]
-            user.GetDpiForWindow.argtypes = [_vp]; user.GetDpiForWindow.restype = wt.UINT
-            gdi.CreateCompatibleDC.argtypes     = [_vp]; gdi.CreateCompatibleDC.restype     = _vp
-            gdi.CreateCompatibleBitmap.argtypes = [_vp, ctypes.c_int, ctypes.c_int]
-            gdi.CreateCompatibleBitmap.restype  = _vp
-            gdi.SelectObject.argtypes = [_vp, _vp]; gdi.SelectObject.restype = _vp
-            gdi.BitBlt.argtypes = [_vp,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,
-                                   _vp,ctypes.c_int,ctypes.c_int,wt.DWORD]
-            gdi.BitBlt.restype = wt.BOOL
-            gdi.GetDIBits.argtypes = [_vp,_vp,wt.UINT,wt.UINT,ctypes.c_void_p,ctypes.c_void_p,wt.UINT]
-            gdi.DeleteObject.argtypes = [_vp]
-            gdi.DeleteDC.argtypes     = [_vp]
-
             hwnd = _get_hwnd(self._window) if self._window else None
             if not hwnd:
                 self._println("[Screenshot] Error: No window handle found.")
                 return
 
-            prev_dpi_ctx = None
+            ctx = self._make_gdi_capture_ctx(hwnd, x, y, w, h, even=False, cursor=False)
+            if ctx is None:
+                return
             try:
-                user.SetThreadDpiAwarenessContext.argtypes = [_vp]
-                user.SetThreadDpiAwarenessContext.restype  = _vp
-                prev_dpi_ctx = user.SetThreadDpiAwarenessContext(_vp(-4))
-            except Exception:
-                pass
-
-            try:
-                dpr = 1.0
-                try:
-                    dpi = user.GetDpiForWindow(hwnd)
-                    dpr = dpi / 96.0
-                except Exception:
-                    dpr = 1.0
-
-                class RECT(ctypes.Structure):
-                    _fields_ = [("left",ctypes.c_long),("top",ctypes.c_long),
-                                 ("right",ctypes.c_long),("bottom",ctypes.c_long)]
-                rc = RECT()
-                user.GetClientRect(hwnd, ctypes.byref(rc))
-                cap_w = max(1, rc.right)
-                cap_h = max(1, rc.bottom)
-
-                pt = wt.POINT(0, 0)
-                user.ClientToScreen(hwnd, ctypes.byref(pt))
-
-                hdc_screen = user.GetDC(_vp(0))
-                hdc_mem    = gdi.CreateCompatibleDC(hdc_screen)
-                hbm        = gdi.CreateCompatibleBitmap(hdc_screen, cap_w, cap_h)
-                old_bm     = gdi.SelectObject(hdc_mem, hbm)
-
-                gdi.BitBlt(hdc_mem, 0, 0, cap_w, cap_h,
-                           hdc_screen, pt.x, pt.y, 0x00CC0020)
-
-                class BITMAPINFOHEADER(ctypes.Structure):
-                    _fields_ = [("biSize",wt.DWORD),("biWidth",wt.LONG),("biHeight",wt.LONG),
-                                ("biPlanes",wt.WORD),("biBitCount",wt.WORD),("biCompression",wt.DWORD),
-                                ("biSizeImage",wt.DWORD),("biXPelsPerMeter",wt.LONG),
-                                ("biYPelsPerMeter",wt.LONG),("biClrUsed",wt.DWORD),("biClrImportant",wt.DWORD)]
-
-                bih = BITMAPINFOHEADER(biSize=ctypes.sizeof(BITMAPINFOHEADER),
-                                       biWidth=cap_w, biHeight=-cap_h, biPlanes=1, biBitCount=32,
-                                       biCompression=0)
-                buf = (ctypes.c_char * (cap_w * cap_h * 4))()
-                gdi.GetDIBits(hdc_mem, hbm, 0, cap_h, buf, ctypes.byref(bih), 0)
-
-                gdi.SelectObject(hdc_mem, old_bm)
-                gdi.DeleteObject(hbm)
-                gdi.DeleteDC(hdc_mem)
-                user.ReleaseDC(_vp(0), hdc_screen)
-
-                full_img = Image.frombuffer("RGBA", (cap_w, cap_h), buf, "raw", "BGRA", 0, 1)
-
-                px = max(0, int(round(x * dpr)))
-                py = max(0, int(round(y * dpr)))
-                pw = max(1, int(round(w * dpr)))
-                ph = max(1, int(round(h * dpr)))
-                img = full_img.crop((px, py, px + pw, py + ph))
-
+                raw = ctx.capture()
             finally:
-                if prev_dpi_ctx is not None:
-                    try: user.SetThreadDpiAwarenessContext(prev_dpi_ctx)
-                    except Exception: pass
+                ctx.release()
+            img = Image.frombytes("RGB", ctx.size, raw, "raw", "BGRX")
 
             default_name = f"ComfyUI-EZi-screenshot-{time.strftime('%Y%m%d_%H%M%S')}.png"
             save_path = None
@@ -6028,46 +5464,8 @@ class Api:
                 except Exception:
                     save_path = None
 
-            if not save_path:
-                try:
-                    import ctypes.wintypes as wt
-                    ctypes.windll.ole32.CoInitializeEx(None, 0x2)
-                    class OPENFILENAME(ctypes.Structure):
-                        _fields_ = [
-                            ("lStructSize",wt.DWORD),("hwndOwner",wt.HWND),("hInstance",wt.HINSTANCE),
-                            ("lpstrFilter",wt.LPCWSTR),("lpstrCustomFilter",wt.LPWSTR),
-                            ("nMaxCustFilter",wt.DWORD),("nFilterIndex",wt.DWORD),
-                            ("lpstrFile",wt.LPWSTR),("nMaxFile",wt.DWORD),
-                            ("lpstrFileTitle",wt.LPWSTR),("nMaxFileTitle",wt.DWORD),
-                            ("lpstrInitialDir",wt.LPCWSTR),("lpstrTitle",wt.LPCWSTR),
-                            ("Flags",wt.DWORD),("nFileOffset",wt.WORD),("nFileExtension",wt.WORD),
-                            ("lpstrDefExt",wt.LPCWSTR),("lCustData",wt.LPARAM),
-                            ("lpfnHook",wt.LPVOID),("lpTemplateName",wt.LPCWSTR),
-                            ("pvReserved",wt.LPVOID),("dwReserved",wt.DWORD),("FlagsEx",wt.DWORD)
-                        ]
-                    buf_path = ctypes.create_unicode_buffer(default_name, 1024)
-                    ofn = OPENFILENAME()
-                    ofn.lStructSize = ctypes.sizeof(OPENFILENAME)
-                    ofn.hwndOwner   = hwnd if hwnd else None
-                    ofn.lpstrFilter = "PNG Image\0*.png\0All Files\0*.*\0"
-                    ofn.nFilterIndex = 1
-                    ofn.lpstrFile   = buf_path
-                    ofn.nMaxFile    = 1024
-                    ofn.lpstrInitialDir = self._last_save_dir
-                    ofn.lpstrTitle  = "Save Screenshot"
-                    ofn.lpstrDefExt = "png"
-                    ofn.Flags       = 0x00000002 | 0x00000800
-                    if ctypes.windll.comdlg32.GetSaveFileNameW(ctypes.byref(ofn)):
-                        save_path = buf_path.value
-                        self._last_save_dir = os.path.dirname(save_path)
-                        self._settings["last_save_dir"] = self._last_save_dir
-                        _save_settings(self._settings)
-                    ctypes.windll.ole32.CoUninitialize()
-                except Exception:
-                    pass
-
             if save_path:
-                img.convert("RGB").save(save_path, "PNG")
+                img.save(save_path, "PNG")
         except Exception as e:
             self._println(f"Screenshot error: {e}")
 
@@ -6123,27 +5521,25 @@ class Api:
                 self._settings["window_placement"] = saved_state
                 _save_settings(self._settings)
         except Exception:
-            pass
+            _log_error('save_window_state')
 
         if self._console_win is not None and self._console_hwnd:
             self._save_console_placement(self._console_hwnd)
 
-    def save_comfy_storage(self, storage_json):
+    def _store_comfy_storage(self, msg):
         try:
-            data = json.loads(storage_json)
-            if not data or (isinstance(data.get("ls"), dict) and not data["ls"] and isinstance(data.get("ss"), dict) and not data["ss"]):
-                return
-            MAX_STORAGE_BYTES = 20 * 1024 * 1024
-            try:
-                if len(json.dumps(data)) > MAX_STORAGE_BYTES:
-                    return
-            except Exception:
-                pass
-            self._settings["comfy_storage"] = data
-            self._storage_holder[0] = data
-            _save_settings(self._settings)
+            ls = msg.get("ls") or {}
+            if msg.get("settled") and ls:
+                size = sum(len(k) + len(str(v)) for k, v in ls.items())
+                if size <= 20 * 1024 * 1024:
+                    data = {"ls": ls}
+                    self._settings["comfy_storage"] = data
+                    self._storage_holder[0] = data
+                    _save_settings(self._settings)
         except Exception:
-            pass
+            _log_error('_store_comfy_storage')
+        finally:
+            self._storage_ack.set()
 
     def get_ui_settings(self):
         try:
@@ -6152,7 +5548,6 @@ class Api:
             theme = self._settings.get("theme", "dark")
             comfy_theme = _get_comfy_current_theme()
             comfy_theme_vars = _get_comfy_theme_css_vars()
-            comfy_settings_path = os.path.join(_get_comfy_user_dir(), 'comfy.settings.json')
             console_detached = self._settings.get("console_detached", False)
             custom_paths_json = self.get_custom_paths()
             custom_paths = json.loads(custom_paths_json) if custom_paths_json else {'input': '', 'output': '', 'user': ''}
@@ -6163,7 +5558,6 @@ class Api:
                 "theme": theme,
                 "comfyTheme": comfy_theme,
                 "comfyThemeVars": comfy_theme_vars,
-                "comfySettingsPath": comfy_settings_path,
                 "consoleDetached": console_detached,
                 "customPaths": custom_paths,
                 "recFps": self._settings.get("rec_fps", 15),
@@ -6213,10 +5607,7 @@ class Api:
                 self._settings_holder[0] = self._settings
             _save_settings(self._settings)
         except Exception:
-            pass
-
-    def get_comfy_storage(self):
-        return self._settings.get("comfy_storage", None)
+            _log_error('save_ui_settings')
 
     def send_to_comfy(self, message_json):
         try:
@@ -6243,9 +5634,15 @@ class Api:
                   width=900, height=500, min_size=(420, 220), resizable=True,
                   hidden=True, frameless=False, background_color='#1e1e1e')
         try:
-            return webview.create_window(self._console_title(), user_agent=CHROME_UA, **kw)
+            win = webview.create_window(self._console_title(), user_agent=CHROME_UA, **kw)
         except TypeError:
-            return webview.create_window(self._console_title(), **kw)
+            win = webview.create_window(self._console_title(), **kw)
+        if win is not None:
+            try:
+                _ezi_hook_core_ready(win)
+            except Exception:
+                pass
+        return win
 
     def _console_hwnd_of(self, win):
         try:
@@ -6286,7 +5683,7 @@ class Api:
                         break
             except Exception:
                 pass
-            _set_window_icon(hwnd)
+            _set_window_icon(hwnd, ICO_CMD_PATH)
         except Exception:
             pass
         return want_max
@@ -6371,7 +5768,7 @@ class Api:
             try:
                 state = win.evaluate_js("tExport()")
             except Exception:
-                pass
+                _log_error('_do_attach')
             if self._console_hwnd:
                 self._save_console_placement(self._console_hwnd)
             if state and self._window is not None:
@@ -6482,14 +5879,17 @@ class Api:
                 self._settings["console_placement"] = placement
                 _save_settings(self._settings)
         except Exception:
-            pass
+            _log_error('_save_console_placement')
 
     def stop(self):
         try:
             self.save_window_state()
         except Exception:
-            pass
-        self._destroy_console_window()
+            _log_error('stop')
+        try:
+            self._destroy_console_window()
+        except Exception:
+            _log_error('stop')
         self._window = None
         self._kill_running_proc()
 
@@ -6519,10 +5919,8 @@ class Api:
             if not os.path.exists(BAT_FILE):
                 bat_name = os.path.basename(BAT_FILE)
                 self._safe_eval(f"show_bat_missing({json.dumps(bat_name)})")
-            if os.path.exists(BAT_FILE):
-                with open(BAT_FILE, 'r', encoding='utf-8', errors='replace') as f:
-                    bat_content = f.read()
-
+            bat_content = _read_bat()
+            if bat_content is not None:
                 ENV_TO_ARG = {
                     'COMFY_INPUT_DIR':  '--input-directory',
                     'COMFY_OUTPUT_DIR': '--output-directory',
@@ -6530,18 +5928,12 @@ class Api:
                 }
                 env_dirs = {}
                 for env_name, arg_name in ENV_TO_ARG.items():
-                    m_env = re.search(
-                        r'(?i)set\s+"?' + re.escape(env_name) + r'=([^"\n]+)"?',
-                        bat_content
-                    )
-                    if m_env:
-                        env_dirs[arg_name] = m_env.group(1).strip().strip('"')
+                    env_val = _bat_env(bat_content, env_name)
+                    if env_val is not None:
+                        env_dirs[arg_name] = env_val
 
-                m = re.search(r'python_embeded[/\\]python\.exe["\']?\s+(.*)',
-                              _find_bat_comfy_line(bat_content) or '', re.IGNORECASE)
-                if m:
-                    raw_str = m.group(1).strip()
-                    parsed = shlex.split(raw_str, posix=False)
+                parsed = _bat_args(bat_content)
+                if parsed:
 
                     script_idx = None
                     for idx, token in enumerate(parsed):
@@ -6655,8 +6047,6 @@ class Api:
                 return
 
             _cols = self._get_columns()
-            cmd_display = os.path.relpath(self.PY_EXE, ROOT_DIR) + ' ' + ' '.join(final_args)
-            self._println('\033[2m' + cmd_display + '\033[0m\n')
             my_run_id = self._run_id
             run_env = os.environ.copy()
             for _k in ("CUDA_PATH", "CUDA_HOME", "CUDA_BIN_PATH", "CUDNN_PATH", "CUDNN_HOME",
@@ -6665,23 +6055,14 @@ class Api:
             for _k in [k for k in run_env if k.upper().startswith("CUDA_PATH_V")]:
                 run_env.pop(_k, None)
             run_env |= {"PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8", "TQDM_NCOLS": str(_cols)}
-            import sys as _sys
-            _sys.path.insert(0, os.path.join(ROOT_DIR, 'amd'))
+            # AMD: ROCm environment and the GPU's startup flags (amd/runtime.py, shared with the .bat launchers).
+            if os.path.join(ROOT_DIR, 'amd') not in sys.path:
+                sys.path.insert(0, os.path.join(ROOT_DIR, 'amd'))
             from runtime import configure, startup_args
             run_env, gpu_arch = configure(ROOT_DIR, run_env)
-            extra_args = startup_args(gpu_arch, extra_args)
-            _comfy_args = repr([main_path] + extra_args + ["--disable-auto-launch"])
-            _bootstrap = (
-                "import sys, runpy, logging\n"
-                "sys.stderr = sys.stdout\n"
-                "_oe = logging.StreamHandler.emit\n"
-                "def _pe(self, r):\n"
-                "    self.stream = sys.stdout\n"
-                "    _oe(self, r)\n"
-                "logging.StreamHandler.emit = _pe\n"
-                f"sys.argv = {_comfy_args}\n"
-                f"runpy.run_path({main_path!r}, run_name='__main__')\n"
-            )
+            final_args = py_flags + [main_path] + startup_args(gpu_arch, extra_args) + ["--disable-auto-launch"]
+            cmd_display = os.path.relpath(self.PY_EXE, ROOT_DIR) + ' ' + ' '.join(final_args)
+            self._println('\033[2m' + cmd_display + '\033[0m\n')
             try:
                 _pinned = self._settings.get('pinned_packages') or []
                 if not _pinned:
@@ -6690,7 +6071,7 @@ class Api:
                             with open(SETTINGS_PATH, 'r', encoding='utf-8') as _sf:
                                 _pinned = json.load(_sf).get('pinned_packages') or []
                     except Exception:
-                        pass
+                        _log_error('_run')
                 for _entry in _pinned:
                     _entry = _entry.strip()
                     if not _entry or '==' not in _entry:
@@ -6715,17 +6096,17 @@ class Api:
                         else:
                             self._println(f'\033[91m[Pinned] Failed to restore {_entry}.\033[0m')
             except Exception:
-                pass
+                _log_error('_run')
 
             self._proc = subprocess.Popen(
-                [self.PY_EXE] + py_flags + ['-c', _bootstrap],
+                [self.PY_EXE] + final_args,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 cwd=ROOT_DIR, env=run_env,
                 creationflags=0x08000000|0x00000200
             )
             proc = self._proc
             self._comfy_exit_code = None
-            _assign_to_kill_on_close_job(proc)
+            self._job_attach(proc)
             dec = codecs.getincrementaldecoder('utf-8')(errors='replace')
             fd = self._proc.stdout.fileno()
             url_tail = ''
@@ -6916,10 +6297,10 @@ class Api:
                 break
             if not chunk:
                 break
-            text = dec.decode(chunk)
+            text = _PRESS_KEY_RE.sub('', dec.decode(chunk))
             if text:
                 self._print(text)
-        tail = dec.decode(b'', final=True)
+        tail = _PRESS_KEY_RE.sub('', dec.decode(b'', final=True))
         if tail:
             self._print(tail)
 
@@ -6944,7 +6325,7 @@ class Api:
                             break
                         if isinstance(chunk, bytes):
                             chunk = chunk.decode('utf-8', errors='replace')
-                        self._print(chunk)
+                        self._print(_PRESS_KEY_RE.sub('', chunk))
                 finally:
                     try:
                         pty.wait()
@@ -7173,6 +6554,21 @@ if __name__ == '__main__':
                 pass
         with socket.socket() as s: s.bind(('', 0)); return s.getsockname()[1]
 
+    _wait_pid = os.environ.pop('EZI_WAIT_PID', '')
+    if _wait_pid.isdigit():
+        try:
+            _k32 = ctypes.WinDLL('kernel32')
+            _k32.OpenProcess.restype = ctypes.c_void_p
+            _k32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+            _k32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+            _k32.CloseHandle.argtypes = [ctypes.c_void_p]
+            _h = _k32.OpenProcess(0x00100000, False, int(_wait_pid))
+            if _h:
+                _k32.WaitForSingleObject(_h, 15000)
+                _k32.CloseHandle(_h)
+        except Exception:
+            _log_error('wait_old_instance')
+
     _autorun_bat = os.path.normpath(os.path.join(CURRENT_SCRIPT_DIR, "..", "AutoRun.bat"))
     try:
         if os.path.isfile(_autorun_bat):
@@ -7259,6 +6655,7 @@ if __name__ == '__main__':
         )
     api.set_window(window)
     _EZI_WINDOW_REF["window"] = window
+    window.events.before_show += _ezi_setup_main_window
     window.events.loaded += api.on_loaded
     window.events.closed  += api.stop
 
@@ -7426,7 +6823,7 @@ if __name__ == '__main__':
                     except Exception:
                         pass
         except Exception:
-            pass
+            _log_error('_restore_on_shown')
 
     window.events.shown += _restore_on_shown
 
