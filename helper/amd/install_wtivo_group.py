@@ -13,6 +13,22 @@ import install_lock
 import prebuilt_nodes
 
 
+def local_changes(path):
+    """Tracked files changed in a node checkout, ignoring Python bytecode caches.
+
+    Some repositories commit __pycache__/*.pyc; Python rewrites those on import, so they
+    always look modified. They are put back to the committed version (Python regenerates
+    them) and are not reported as local changes.
+    """
+    listed = subprocess.run(['git','-C',str(path),'diff','--name-only','-z','HEAD','--'],
+                            capture_output=True,text=True,check=True).stdout
+    changed = [name for name in listed.split('\0') if name]
+    caches = [name for name in changed if name.endswith(('.pyc','.pyo')) or '__pycache__/' in name]
+    if caches:
+        subprocess.run(['git','-C',str(path),'checkout','HEAD','--',*caches],check=True)
+    return [name for name in changed if name not in caches]
+
+
 def update_node(root, path, url):
     if not path.exists():
         subprocess.run(['git','clone','--depth','1',url,str(path)],check=True)
@@ -20,8 +36,7 @@ def update_node(root, path, url):
     if not (path/'__init__.py').is_file():
         raise RuntimeError('Existing folder is not a recognized node; preserving it: '+str(path))
     if (path/'.git').exists():
-        changed = subprocess.run(['git','-C',str(path),'diff','--quiet','HEAD','--']).returncode
-        if changed:
+        if local_changes(path):
             raise RuntimeError('Local source changes found in '+path.name+'. Preserving them; update stopped.')
         print('Updating node:',path.name,flush=True)
         subprocess.run(['git','-C',str(path),'fetch',url,'HEAD'],check=True)

@@ -9,7 +9,7 @@ import sys
 from bundles import AITER, FLASH, SAGE, SAGE_RDNA4, TRITON, pip, constraints
 from runtime import architecture
 from node_requirements import install_requirements
-from install_wtivo_group import node_installer
+from install_wtivo_group import local_changes, node_installer
 from offline_preview import install as install_offline_preview
 
 
@@ -30,7 +30,7 @@ def update_nodes(custom_nodes):
         if node.name in prebuilt:
             print('Prebuilt node, update it with WTiVo AMD Download (EZi Settings, WTiVo AMD tab):', node.name, flush=True)
             continue
-        if subprocess.run(['git','diff','--quiet','HEAD','--'],cwd=node).returncode:
+        if local_changes(node):
             print('Local source changes found; preserving and skipping', node.name, flush=True)
             skipped.append(node.name)
             continue
