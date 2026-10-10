@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.22-amd"
+APP_VERSION = "0.1.23-amd"
 
 import sys
 import os
@@ -4206,7 +4206,8 @@ class Api:
     def install_wtivo_amd_nodes(self):
         addons = os.path.join(ROOT_DIR, 'Add-Ons')
         self._start_operation(self._do_run_bat, os.path.join(addons, 'BoomerCyb WTiVo AMD Nodes.bat'), None, False,
-                              (os.path.join(addons, 'MostAadTech WTiVo Nodes.bat'),))
+                              (os.path.join(addons, 'MostAadTech WTiVo Nodes.bat'),
+                               os.path.join(addons, 'PixelArtistry Watertight Workflows.bat')))
 
     def download_pixaroma_workflows(self):
         # Own console window: ComfyUI keeps running and lists the new workflows on refresh.
