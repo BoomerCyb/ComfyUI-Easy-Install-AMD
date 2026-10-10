@@ -1,7 +1,6 @@
 {
   "boomercyb": {
     "label": "BoomerCyb WTiVo AMD Nodes",
-    "button": "boomercyb wtivo amd nodes.bat",
     "owner": "BoomerCyb",
     "nodes": [
       "ComfyUI-WTiVo-WatertightVoxel-AMD",
@@ -13,7 +12,6 @@
   },
   "mostaadtech": {
     "label": "MostAadTech WTiVo Nodes",
-    "button": "mostaadtech wtivo nodes.bat",
     "owner": "Mstafa-awad",
     "nodes": [
       "ComfyUI_LODsmith_Merge_Watertight",

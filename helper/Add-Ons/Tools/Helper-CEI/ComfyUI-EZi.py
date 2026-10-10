@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.22-amd"
+APP_VERSION = "0.1.23-amd"
 
 import sys
 import os
@@ -2628,8 +2628,6 @@ class Api:
         except OSError:
             models_linked = False
         status = {
-            'pixelartistry watertight workflows.bat': (Path(ROOT_DIR) / 'amd/pixelartistry-workflows.json').is_file() and
-                any((comfy / 'user/default/workflows/PixelArtistry').rglob('*.json')),
             # Keys are the add-on file names in lower case (the Add-Ons tab matches on them).
             'flashattention amd.bat': 'flash-attn' in packages and bool({'aiter','amd-aiter'} & packages),
             'insightface.bat': {'insightface', 'facexlib', 'onnxruntime'}.issubset(packages),
@@ -2637,17 +2635,6 @@ class Api:
                                              ('__init__.py', 'nunchaku_amd.py', 'packed_kernel.py')),
             'sageattention amd.bat': 'sageattention' in packages,
         }
-        group_file = Path(ROOT_DIR) / 'amd/wtivo-node-groups.json'
-        if group_file.is_file():
-            for group in json.loads(group_file.read_text(encoding='utf-8')).values():
-                status[group['button']] = all((comfy / 'custom_nodes' / name / '__init__.py').is_file()
-                                              for name in group['nodes'])
-                if group['button'] == 'boomercyb wtivo amd nodes.bat':
-                    try:
-                        report = json.loads((Path(ROOT_DIR)/'amd/wtivo-boomercyb-installed.json').read_text())
-                        status[group['button']] &= report.get('complete') is True and report.get('native_verified') is True
-                    except (OSError, ValueError):
-                        status[group['button']] = False
         return status
 
     def restart_ezi(self):
@@ -4204,9 +4191,7 @@ class Api:
         self._start_operation(self._do_run_bat, bat)
 
     def install_wtivo_amd_nodes(self):
-        addons = os.path.join(ROOT_DIR, 'Add-Ons')
-        self._start_operation(self._do_run_bat, os.path.join(addons, 'BoomerCyb WTiVo AMD Nodes.bat'), None, False,
-                              (os.path.join(addons, 'MostAadTech WTiVo Nodes.bat'),))
+        self._start_operation(self._do_run_bat, os.path.join(ROOT_DIR, 'Add-Ons', 'WTiVo AMD.bat'))
 
     def download_pixaroma_workflows(self):
         # Own console window: ComfyUI keeps running and lists the new workflows on refresh.
@@ -4234,7 +4219,7 @@ class Api:
         finally:
             self._updating = False
 
-    def _do_run_bat(self, bat, status_label=None, hide_update_notice=False, then=()):
+    def _do_run_bat(self, bat, status_label=None, hide_update_notice=False):
         name = os.path.basename(bat)
         is_ezi_update = name.lower() == "update easy-install.bat"
         label = status_label or f'Running {name}...'
@@ -4264,16 +4249,12 @@ class Api:
         if hide_update_notice:
             self._safe_eval("document.getElementById('update-notice').style.display='none';")
 
-        is_wtivo_group = name.lower() in ('boomercyb wtivo amd nodes.bat','mostaadtech wtivo nodes.bat')
+        is_wtivo_group = name.lower() == 'wtivo amd.bat'
         if is_wtivo_group and result:
             self._println('ComfyUI remains stopped. Rerun the node add-on after resolving the error; restart follows a successful complete installation.')
             self._safe_eval("switchToConsole('Node installation failed — ComfyUI stopped')")
             self._updating = False
             return
-
-        if then and not result:
-            # Next add-on of a group; ComfyUI restarts once, after the last one.
-            return self._do_run_bat(then[0], then=then[1:])
 
         if is_ezi_update:
             if result:

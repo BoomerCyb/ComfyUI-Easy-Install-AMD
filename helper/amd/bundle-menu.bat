@@ -21,7 +21,7 @@ exit /b 0
 :rebuild_failed
 echo.
 echo The bundle was switched, but the compiled AMD nodes did not rebuild.
-echo Fix the build error above, then reinstall "BoomerCyb WTiVo AMD Nodes" from the launcher.
+echo Fix the build error above, then reinstall the nodes with WTiVo AMD Download (EZi Settings, WTiVo AMD tab).
 pause
 exit /b 1
 :failed

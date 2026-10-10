@@ -1316,7 +1316,7 @@ function show_settings() {
       <button id="stabtn-advanced" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M20 6h0M4 12h4M14 12h6M4 18h12M20 18h0"/><circle cx="17" cy="6" r="2"/><circle cx="11" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="cs-lbl">Advanced</span></button>
       <div class="cs-spacer"></div>
       <button id="stabtn-pixaroma" class="stab-btn" title="Free workflow files for every episode of the Pixaroma ComfyUI course."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M10 6.5h4a3.5 3.5 0 0 1 3.5 3.5v4"/></svg><span class="cs-lbl">Pixaroma Workflows</span></button>
-      <button id="stabtn-wtivo" class="stab-btn" title="Watertight 3D AI models: the PixelArtistry workflow with the WTiVo nodes on AMD."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg><span class="cs-lbl">WTiVo AMD</span></button>
+      <button id="stabtn-wtivo" class="stab-btn" title="Watertight 3D AI models: the PixelArtistry workflow with the WTiVo nodes on AMD."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7Z"/></svg><span class="cs-lbl">WTiVo AMD</span></button>
       <div class="cs-sep"></div>
       <button id="stabtn-about" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span class="cs-lbl">About EZi</span></button>
     </nav>
@@ -1364,9 +1364,6 @@ function show_settings() {
     ${_batBtn('Easy-Models-Linker', '.\\\\Add-Ons\\\\Easy-Models-Linker.bat', 'Link existing MODELS folder via extra_model_paths.yaml')}
     ${_batBtn('InsightFace', '.\\\\Add-Ons\\\\InsightFace.bat', 'Installs InsightFace')}
     ${_batBtn('Nunchaku - RX 9070 XT', '.\\\\Add-Ons\\\\Nunchaku - RX 9070 XT.bat', 'Installs Qwen, FLUX.1, FLUX.2, Z-Image, SDXL, SANA, T5 and LTX2 workflows; choose model downloads')}
-    ${_batBtn('PixelArtistry Watertight Workflows', '.\\\\Add-Ons\\\\PixelArtistry Watertight Workflows.bat', 'Download PixelArtistry watertight workflows; existing files are preserved')}
-    ${_batBtn('BoomerCyb WTiVo AMD Nodes', '.\\\\Add-Ons\\\\BoomerCyb WTiVo AMD Nodes.bat', 'Install the five BoomerCyb AMD nodes for ComfyUI: prebuilt native modules when available for your GPU (seconds), otherwise built for it (several minutes)')}
-    ${_batBtn('MostAadTech WTiVo Nodes', '.\\\\Add-Ons\\\\MostAadTech WTiVo Nodes.bat', 'Install four MostAadTech utilities: Blender mesh repair and trimming, CPU welding, and memory cleanup; Blender installed separately')}
   </div>`;
 
   const tabTorch = `<div id="stab-torch" style="display:none">
@@ -2116,7 +2113,7 @@ function show_settings() {
         <div class="px-eyebrow">Watertight 3D AI Models</div>
         <h2 class="px-lead">PixelArtistry, Mostafa, and BoomerCyb<br>brought you this setup.</h2>
         <div class="px-sub">PixelArtistry created the amazing YouTube tutorial and workflow. Mostafa develops the nodes. BoomerCyb ported the nodes to AMD.</div>
-        <div class="px-actions"><button class="px-btn px-orange" onclick="pywebview.api.open_url('https://www.youtube.com/watch?v=dmDrktqyT5o&amp;t=790s')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="M10 9.5 15 12l-5 2.5z"/></svg><span>WTiVo Tutorial</span><svg class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button><button class="px-btn px-orange" onclick="document.getElementById('modal-overlay').classList.remove('active');pywebview.api.install_wtivo_amd_nodes()" title="Install BoomerCyb WTiVo AMD Nodes and MostAadTech WTiVo Nodes, then restart ComfyUI"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg><span>WTiVo AMD Download</span></button></div>
+        <div class="px-actions"><button class="px-btn px-orange" onclick="pywebview.api.open_url('https://www.youtube.com/watch?v=dmDrktqyT5o&amp;t=790s')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="M10 9.5 15 12l-5 2.5z"/></svg><span>WTiVo Tutorial</span><svg class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button><button class="px-btn px-orange" onclick="document.getElementById('modal-overlay').classList.remove('active');pywebview.api.install_wtivo_amd_nodes()" title="Install BoomerCyb WTiVo AMD Nodes, MostAadTech WTiVo Nodes and the PixelArtistry Watertight Workflows, then restart ComfyUI"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg><span>WTiVo AMD Download</span></button></div>
       </div>
       <svg class="px-flow-art" viewBox="0 0 200 180" fill="none" aria-hidden="true">
       <path d="M56 40h34q14 0 14 14v63h27M56 140h20q14 0 14-14V75q0-14 14-14h27" stroke="#f66744" stroke-width="1.5" opacity=".45"/>
@@ -2192,17 +2189,9 @@ function show_settings() {
       tab.querySelectorAll('[data-bat]').forEach(function(button) {
         const label = button.querySelector('.bat-label');
         if (!label) return;
-        if (!label.dataset.originalLabel) label.dataset.originalLabel = label.textContent;
-        if (!button.dataset.originalTitle) button.dataset.originalTitle = button.title;
         const file = button.dataset.bat.split(/[\\/]+/).pop().toLowerCase();
-        // Installed add-ons are hidden, except those whose button is also the way to update.
-        const updater = {
-          'boomercyb wtivo amd nodes.bat': [' - Update', 'Update the five BoomerCyb AMD nodes to the tested version with matching native modules'],
-        }[file];
-        const installed = !!status[file];
-        button.style.display = installed && !updater ? 'none' : '';
-        label.textContent = label.dataset.originalLabel + (installed && updater ? updater[0] : '');
-        button.title = installed && updater ? updater[1] : button.dataset.originalTitle;
+        // Installed add-ons are hidden.
+        button.style.display = status[file] ? 'none' : '';
       });
     }).catch(function() {});
   }
