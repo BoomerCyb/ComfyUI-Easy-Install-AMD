@@ -181,6 +181,25 @@ def apply(root, entries, write, keep):
     return backup if replaced else None
 
 
+BUNDLED_EXTENSIONS = 'preset-files/ComfyUI/custom_nodes'
+
+
+def sync_bundled_extensions(root):
+    """Copy the frontend extensions Easy Install ships (ComfyUI-Shape, ComfyUI-RunBar-AMD) into
+    ComfyUI/custom_nodes, so an update reaches ComfyUI without running Update ComfyUI first."""
+    source, target = root / BUNDLED_EXTENSIONS, root / 'ComfyUI/custom_nodes'
+    if not source.is_dir() or not target.is_dir():
+        return []
+    synced = []
+    for extension in sorted(p for p in source.iterdir() if p.is_dir()):
+        try:
+            shutil.copytree(extension, target / extension.name, dirs_exist_ok=True)
+            synced.append(extension.name)
+        except OSError as error:
+            print(f'Could not refresh {extension.name}: {error}', flush=True)
+    return synced
+
+
 HELPERS = ('amd/self_update.py', 'amd/launcher_args.py')
 
 
@@ -216,7 +235,10 @@ def update(root=ROOT, force=False, release_zip=None, tag=None, handoff=True):
         return run_new_updater(root, entries, release_zip)
     write, keep, current, merged = plan(root, entries, old_manifest)
     backup = apply(root, {**entries, **merged}, write, keep)
+    synced = sync_bundled_extensions(root)
     print(f'Updated {len(write)} file(s); {len(current)} already current.')
+    if synced:
+        print('Bundled ComfyUI extensions refreshed:', ', '.join(synced))
     if backup:
         print('Previous versions of replaced files:', backup)
     if merged:

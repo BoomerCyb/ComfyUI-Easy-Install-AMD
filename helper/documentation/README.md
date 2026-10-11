@@ -177,6 +177,10 @@ The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
 
+### Run Bar Monitor - 2026-10-11
+
+A run timer, a memory readout and three memory buttons now sit in ComfyUI's top bar, next to **Run**, in every workflow: the run time (live, then the last run), VRAM used / total with the peak of the current run, RAM and CPU, plus **Free VRAM** (unload models and clear the node cache), **Unload** (unload models, keep the cache) and **Reset Peak**. It reads the Pixaroma monitor feed when ComfyUI-Pixaroma is installed and ComfyUI's own system stats otherwise. Fresh installs include it, and Update Easy-Install now also refreshes the bundled extensions (Run Bar Monitor, ComfyUI Shape) in `ComfyUI/custom_nodes`; restart ComfyUI and reload the browser afterward. To hide it, search Settings for **Run Bar**.
+
 ### Offline 3D previews - 2026-10-04
 
 Setup and Update ComfyUI install a small local extension that allows browser-local `blob:` texture loading in offline mode. Embedded GLB textures display in core and custom preview nodes while external connections remain blocked. ComfyUI source files remain unchanged, so updates preserve this fix. Restart ComfyUI after updating.
