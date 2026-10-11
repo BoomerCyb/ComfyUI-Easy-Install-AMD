@@ -80,9 +80,11 @@ def main(action):
             raise RuntimeError('ComfyUI origin is not official Comfy-Org/ComfyUI; use a fresh installation folder')
         subprocess.run(['git', 'pull', '--ff-only', 'origin', 'master'], cwd=comfy, check=True)
         install_offline_preview(comfy)
-        shape = root / 'preset-files/ComfyUI/custom_nodes/ComfyUI-Shape'
-        if shape.is_dir():
-            shutil.copytree(shape, comfy / 'custom_nodes/ComfyUI-Shape', dirs_exist_ok=True)
+        bundled = root / 'preset-files/ComfyUI/custom_nodes'
+        if bundled.is_dir():
+            for extension in bundled.iterdir():
+                if extension.is_dir():
+                    shutil.copytree(extension, comfy / 'custom_nodes' / extension.name, dirs_exist_ok=True)
         pip(Path(sys.executable), 'install', '-r', str(comfy / 'requirements.txt'))
         if action == 'update-nodes':
             update_nodes(comfy / 'custom_nodes')
