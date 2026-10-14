@@ -36,6 +36,28 @@ def write_constraints(base, target, lock):
     return len(extra)
 
 
+def connect_history(path, remote='origin', ref=None):
+    """Make a shallow clone able to fast-forward: fetch the remote ref with enough history to reach HEAD.
+
+    Installs are --depth 1 clones (and the tested-commit checkout fetches one commit), so git
+    cannot see that HEAD is part of the remote's history and `pull --ff-only` refuses. Fetch
+    back to just before HEAD's date; if that still does not connect, fetch the full history.
+    Returns the fetched ref to fast-forward to (FETCH_HEAD), or None for a full clone.
+    """
+    run = lambda *args, **kw: subprocess.run(['git', *args], cwd=path, capture_output=True, text=True, **kw)
+    if run('rev-parse', '--is-shallow-repository').stdout.strip() != 'true':
+        return None
+    if ref is None:  # the branch HEAD tracks, as `git pull` would use
+        upstream = run('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}').stdout.strip()
+        remote, _, ref = upstream.partition('/') if upstream else (remote, '', 'HEAD')
+    when = int(run('log', '-1', '--format=%ct', 'HEAD').stdout.strip() or 0) - 7 * 86400
+    run('fetch', '--quiet', f'--shallow-since={when}', remote, ref)
+    if run('merge-base', '--is-ancestor', 'HEAD', 'FETCH_HEAD').returncode:
+        print(f'{Path(path).name}: fetching the full history so the update can fast-forward', flush=True)
+        subprocess.run(['git', 'fetch', '--quiet', '--unshallow', remote, ref], cwd=path, check=True)
+    return 'FETCH_HEAD'
+
+
 def checkout(path, commit):
     """Move a fresh shallow clone to the tested commit, keeping its branch so later updates fast-forward."""
     if not commit:

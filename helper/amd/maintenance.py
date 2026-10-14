@@ -11,6 +11,7 @@ from runtime import architecture
 from node_requirements import install_requirements
 from install_wtivo_group import local_changes, node_installer
 from offline_preview import install as install_offline_preview
+from install_lock import connect_history
 
 
 def update_nodes(custom_nodes):
@@ -35,7 +36,10 @@ def update_nodes(custom_nodes):
             skipped.append(node.name)
             continue
         try:
-            subprocess.run(['git', 'pull', '--ff-only'], cwd=node, check=True)
+            if connect_history(node):  # shallow install: fast-forward to what was just fetched
+                subprocess.run(['git', 'merge', '--ff-only', 'FETCH_HEAD'], cwd=node, check=True)
+            else:
+                subprocess.run(['git', 'pull', '--ff-only'], cwd=node, check=True)
             for filename in ('requirements-runtime.txt','requirements.txt'):
                 if (node / filename).is_file():
                     install_requirements(Path(sys.executable), node / filename)
@@ -78,7 +82,10 @@ def main(action):
         origin = subprocess.check_output(['git', 'remote', 'get-url', 'origin'], cwd=comfy, text=True).strip().removesuffix('.git').rstrip('/')
         if origin != 'https://github.com/Comfy-Org/ComfyUI':
             raise RuntimeError('ComfyUI origin is not official Comfy-Org/ComfyUI; use a fresh installation folder')
-        subprocess.run(['git', 'pull', '--ff-only', 'origin', 'master'], cwd=comfy, check=True)
+        if connect_history(comfy, 'origin', 'master'):  # shallow install: fast-forward to what was just fetched
+            subprocess.run(['git', 'merge', '--ff-only', 'FETCH_HEAD'], cwd=comfy, check=True)
+        else:
+            subprocess.run(['git', 'pull', '--ff-only', 'origin', 'master'], cwd=comfy, check=True)
         install_offline_preview(comfy)
         bundled = root / 'preset-files/ComfyUI/custom_nodes'
         if bundled.is_dir():
