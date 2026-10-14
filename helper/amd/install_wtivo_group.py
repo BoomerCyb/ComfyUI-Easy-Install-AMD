@@ -39,7 +39,8 @@ def update_node(root, path, url):
         if local_changes(path):
             raise RuntimeError('Local source changes found in '+path.name+'. Preserving them; update stopped.')
         print('Updating node:',path.name,flush=True)
-        subprocess.run(['git','-C',str(path),'fetch',url,'HEAD'],check=True)
+        if not install_lock.connect_history(path,url,'HEAD'):  # a shallow clone fetches enough history to fast-forward
+            subprocess.run(['git','-C',str(path),'fetch',url,'HEAD'],check=True)
         subprocess.run(['git','-C',str(path),'merge','--ff-only','FETCH_HEAD'],check=True)
         return
     # ZIP installs have no Git metadata. Keep the entire old copy outside
