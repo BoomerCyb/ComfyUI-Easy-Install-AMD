@@ -177,6 +177,10 @@ The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
 
+### Updates work on every install - 2026-10-14
+
+Update ComfyUI, Update ComfyUI and Nodes and the WTiVo node updates could stop with "Not possible to fast-forward". Installs download only the newest commit of ComfyUI and each node (and new installs then step back to the tested commit), so Git could not see that the installed version leads to the new one. Updates now first fetch just enough history to connect the two (the full history only if that is not enough), then fast-forward as before. Your files and local changes are not touched.
+
 ### Run Bar Monitor - 2026-10-11
 
 A run timer, a memory readout and three memory buttons now sit in ComfyUI's top bar, next to **Run**, in every workflow: the run time (live, then the last run), VRAM used / total with the peak of the current run, RAM and CPU, plus **Free VRAM** (unload models and clear the node cache), **Unload** (unload models, keep the cache) and **Reset Peak**. It reads the Pixaroma monitor feed when ComfyUI-Pixaroma is installed and ComfyUI's own system stats otherwise. Fresh installs include it, and Update Easy-Install now also refreshes the bundled extensions (Run Bar Monitor, ComfyUI Shape) in `ComfyUI/custom_nodes`; restart ComfyUI and reload the browser afterward. To hide it, search Settings for **Run Bar**.
