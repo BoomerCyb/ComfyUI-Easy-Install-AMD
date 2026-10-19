@@ -178,7 +178,7 @@ retain their own licenses. This AMD edition is independent of the upstream autho
 
 ### AMD Red icons - 2026-10-19
 
-Every AMD arrow in the icons is now AMD Red. The launcher and EZi Desktop icons have black dots, and RADEON is white on the EZi, Sage, Flash and Kitchen shortcut icons.
+Every AMD arrow in the icons is now AMD Red. The launcher and EZi Desktop icons have black dots, and RADEON is white on the EZi, Sage, Flash and Kitchen shortcut icons. The WTiVo AMD tab in EZi's settings uses AMD colours, and the notice for Ivo's new releases follows the theme. Installs from before 0.1.27 keep their saved EZi theme; pick **AMD** in Settings > Appearance to switch.
 
 ### EZi 3.24.0, AMD theme and logo - 2026-10-19
 
