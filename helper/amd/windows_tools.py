@@ -47,7 +47,7 @@ def browser_version():
                 return f'{hi >> 16}.{hi & 65535}.{lo >> 16}.{lo & 65535}'
             except (OSError, win32api.error):
                 continue
-    return '148.0.0.0'
+    return '154.0.0.0'
 
 
 def pagefile():

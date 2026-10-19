@@ -13,6 +13,43 @@ from install_wtivo_group import local_changes, node_installer
 from offline_preview import install as install_offline_preview
 from install_lock import connect_history
 
+# Nodes whose GitHub account was deleted: anyone could take the name over, so updates
+# stop pulling from it (the remote is removed; the installed node keeps working).
+DEAD_NODES = {'ComfyUI-Krea2T-Enhancer': 'capitan01R'}
+
+
+def disable_dead_nodes(custom_nodes):
+    for name, account in DEAD_NODES.items():
+        config = Path(custom_nodes) / name / '.git/config'
+        try:
+            if account.lower() not in config.read_text(encoding='utf-8', errors='replace').lower():
+                continue
+        except OSError:
+            continue
+        result = subprocess.run(['git', 'remote', 'remove', 'origin'], cwd=config.parents[1])
+        if result.returncode:
+            print('Could not remove the remote of', name, flush=True)
+        else:
+            print('Updates for', name, 'were disabled: its repository was deleted and the name could be taken over '
+                  'by someone else. The node itself was left in place and keeps working.', flush=True)
+
+
+def patch_rgthree(custom_nodes):
+    """rgthree-comfy's recursive-execution patch breaks loading on recent ComfyUI: keep it off."""
+    folder = Path(custom_nodes) / 'rgthree-comfy'
+    if not folder.is_dir():
+        return
+    config = folder / 'rgthree_config.json'
+    try:
+        data = json.loads(config.read_text(encoding='utf-8'))
+        if not isinstance(data, dict):
+            data = {}
+    except (OSError, ValueError):
+        data = {}
+    if data.get('patch_recursive_execution') is not False:
+        data['patch_recursive_execution'] = False
+        config.write_text(json.dumps(data, indent=2), encoding='utf-8')
+
 
 def update_nodes(custom_nodes):
     """Update every Git node in custom_nodes; skip nodes with local changes, report failures."""
@@ -25,8 +62,11 @@ def update_nodes(custom_nodes):
         prebuilt = set(data['nodes']) if data.get('prebuilt') else set()
     except (OSError, ValueError, KeyError):
         prebuilt = set()
+    disable_dead_nodes(custom_nodes)
     for node in sorted(Path(custom_nodes).iterdir()):
         if not (node / '.git').exists():
+            continue
+        if node.name in DEAD_NODES:
             continue
         if node.name in prebuilt:
             print('Prebuilt node, update it with WTiVo AMD Download (EZi Settings, WTiVo AMD tab):', node.name, flush=True)
@@ -95,6 +135,7 @@ def main(action):
         pip(Path(sys.executable), 'install', '-r', str(comfy / 'requirements.txt'))
         if action == 'update-nodes':
             update_nodes(comfy / 'custom_nodes')
+        patch_rgthree(comfy / 'custom_nodes')
     elif action == 'diagnostics':
         print('GPU architecture:', architecture(root))
         subprocess.run([sys.executable, '-c', "import torch; print('PyTorch:',torch.__version__); print('ROCm/HIP:',torch.version.hip); print('GPU available:',torch.cuda.is_available())"], check=True)

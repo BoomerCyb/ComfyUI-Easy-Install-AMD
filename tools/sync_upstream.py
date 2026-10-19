@@ -160,6 +160,10 @@ def main() -> int:
         return 1 if conflicts else 0
     state["synced_tag"] = target
     STATE.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    # EZi shows a notice when upstream is ahead of the release it is built on.
+    ezi = HELPER / "Add-Ons/Tools/Helper-CEI/ComfyUI-EZi.py"
+    ezi.write_bytes(re.sub(rb'^UPSTREAM_VERSION = "[^"]*"', b'UPSTREAM_VERSION = "' + target.encode() + b'"',
+                           ezi.read_bytes(), count=1, flags=re.M))
     if conflicts:
         print("\nResolve the conflicts, then run: python tools/build_release.py")
         return 1
