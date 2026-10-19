@@ -1,4 +1,4 @@
-VERSION = '0.1.28-amd'
+VERSION = '0.1.29-amd'
 
 import glob
 import os
