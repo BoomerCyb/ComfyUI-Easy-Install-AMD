@@ -605,16 +605,24 @@
   }
   #settings-btn:hover { background: var(--accent-bg); border-color: var(--accent-hover); color: #fff; }
   #reload-btn {
-    display: inline-flex; align-items: center;
-    padding: 0 8px; font-family: inherit; font-size: 14px; font-weight: bold;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0 8px; font-family: inherit; font-size: 11px; font-weight: bold;
     border: 1px solid var(--accent); border-radius: 4px; background: var(--btn-bg); color: var(--text3);
     cursor: pointer; transition: all .2s; line-height: 1; box-sizing: border-box; height: 22px;
   }
   #reload-btn:hover { background: var(--accent-bg); border-color: var(--accent-hover); color: #fff; }
   #reload-btn:hover span { display: inline-block; transition: transform 0.3s ease; transform: rotate(90deg); }
-  #reload-btn span { display: inline-block; transition: transform 0.3s ease; }
+  #reload-btn span { display: inline-block; transition: transform 0.3s ease; font-size: 14px; }
   #reload-btn.spinning span { animation: reloadSpin 0.5s ease; }
   @keyframes reloadSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  #restart-btn {
+    display: inline-flex; align-items: center; gap: 5px; margin-left: 6px;
+    padding: 0 8px; font-family: inherit; font-size: 11px; font-weight: bold;
+    border: 1px solid var(--accent); border-radius: 4px; background: var(--btn-bg); color: var(--text3);
+    cursor: pointer; transition: all .2s; line-height: 1; box-sizing: border-box; height: 22px;
+  }
+  #restart-btn:hover { background: var(--accent-bg); border-color: var(--accent-hover); color: #fff; }
+  #restart-btn span { font-size: 13px; }
   .settings-row {
     display: flex; align-items: center; gap: 10px;
     padding: 8px 0; border-bottom: 1px solid var(--border);
@@ -1268,7 +1276,8 @@
       b.classList.add('spinning');
       try { pywebview.api.reload_comfy_view(); } catch(e) {}
       setTimeout(function(){ b.classList.remove('spinning'); }, 500);
-    })(this)"><span>⟳</span></button>
+    })(this)"><span>⟳</span>Reload</button><button id="restart-btn" title="Restart ComfyUI (stops anything running and clears the queue)"
+    onclick="confirmRestartComfy()"><span>⏻</span>Restart</button>
   <div id="titlebar-drag" class="titlebar-drag"></div>
   <div style="display:flex;align-items:center;gap:8px;height:32px;">
     <div id="out-btn-wrap"><button id="out-btn" onclick="toggleOutDropdown(event)" title="Folders"><svg class="btn-icon"
@@ -4434,6 +4443,16 @@ function show_close_confirm(busy) {
     [
       { label: 'Cancel', cls: '', action: () => pywebview.api.modal_response(false, 'close') },
       { label: 'Close', cls: 'danger', action: () => pywebview.api.modal_response(true, 'close') },
+    ]
+  );
+}
+
+function confirmRestartComfy() {
+  showModal('⏻', 'Restart ComfyUI',
+    'ComfyUI will be stopped and started again.<br><br>Anything running stops and the queue is cleared.',
+    [
+      { label: 'Cancel', cls: '', action: function() {} },
+      { label: 'Restart', cls: 'primary', action: function() { pywebview.api.restart_comfy(); } },
     ]
   );
 }

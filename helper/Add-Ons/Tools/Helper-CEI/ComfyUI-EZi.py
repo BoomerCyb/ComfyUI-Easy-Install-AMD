@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.28-amd"
+APP_VERSION = "0.1.29-amd"
 
 import sys
 import os
@@ -3108,6 +3108,12 @@ class Api:
             'sageattention amd.bat': 'sageattention' in packages,
         }
         return status
+
+    def restart_comfy(self):
+        """The Restart button: stop ComfyUI and start it again (EZi itself keeps running)."""
+        self._println("\n[EZi] Restarting ComfyUI...\n")
+        self._safe_eval("switchToConsole('Restarting...'); _showRestartNotice('\u27f3 ComfyUI is restarting...');")
+        self._restart_comfy(check_update=False)
 
     def restart_ezi(self):
         self.save_window_state()
