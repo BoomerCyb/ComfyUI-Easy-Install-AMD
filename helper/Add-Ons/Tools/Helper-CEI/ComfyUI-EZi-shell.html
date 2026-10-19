@@ -407,6 +407,27 @@
     --text-on-accent: #edf3ff;
   }
 
+  :root.theme-amd {
+    --bg:        #000000;
+    --bar-bg:    #121212;
+    --border:    #262626;
+    --border2:   #333333;
+    --border3:   #404040;
+    --btn-bg:    #1a1a1a;
+    --btn-bg2:   #262626;
+    --input-bg:  #000000;
+    --modal-bg:  #0d0d0d;
+    --hover-row: #1c1c1c;
+    --text:      #e6e6e6;
+    --text2:     #a6a6a6;
+    --text3:     #ffffff;
+    --accent:         #ed1c24;
+    --accent-hover:   #ff4d53;
+    --accent-bg:      #5c0b0e;
+    --accent-bg-hover:#7a0f13;
+    --text-on-accent: #ffffff;
+  }
+
   :root.theme-light {
     --bg:        #f0f2f5;
     --bar-bg:    #dde1e7;
@@ -1406,6 +1427,7 @@ let uiLoaded = false, showingUI = false, _toggling = false;
 const EZI_THEME_LIST = [
   { value: 'dark', label: 'EZi Dark' },
   { value: 'aurora', label: 'EZi Aurora' },
+  { value: 'amd', label: 'AMD' },
   { value: 'pixaroma', label: 'Pixaroma' },
   { value: 'light', label: 'EZi Light' },
   { value: 'comfyui', label: 'ComfyUI' }
@@ -1433,9 +1455,10 @@ function saveEziSettings() {
   try { return pywebview.api.save_ui_settings(JSON.stringify(eziSettings)); } catch(e) {}
 }
 function applyTheme(theme) {
-  document.documentElement.classList.remove('theme-pixaroma', 'theme-light', 'theme-comfyui', 'theme-aurora');
+  document.documentElement.classList.remove('theme-pixaroma', 'theme-light', 'theme-comfyui', 'theme-aurora', 'theme-amd');
   if (theme === 'pixaroma') document.documentElement.classList.add('theme-pixaroma');
   else if (theme === 'aurora') document.documentElement.classList.add('theme-aurora');
+  else if (theme === 'amd') document.documentElement.classList.add('theme-amd');
   else if (theme === 'light') document.documentElement.classList.add('theme-light');
   else if (theme === 'comfyui') {
     var vars = (eziSettings.comfyThemeVars && typeof eziSettings.comfyThemeVars === 'object')

@@ -884,6 +884,12 @@ THEMES = {
         'hover-row': '#203649', 'text': '#edf3ff', 'text2': '#a1b3cc', 'text3': '#edf3ff',
         'accent': '#82dfcd', 'accent-hover': '#9be9d9', 'accent-bg': '#224c56', 'accent-bg-hover': '#2b616c',
     },
+    'amd': {
+        'bg': '#000000', 'bar-bg': '#121212', 'border': '#262626', 'border2': '#333333', 'border3': '#404040',
+        'btn-bg': '#1a1a1a', 'btn-bg2': '#262626', 'input-bg': '#000000', 'modal-bg': '#0d0d0d',
+        'hover-row': '#1c1c1c', 'text': '#e6e6e6', 'text2': '#a6a6a6', 'text3': '#ffffff',
+        'accent': '#ed1c24', 'accent-hover': '#ff4d53', 'accent-bg': '#5c0b0e', 'accent-bg-hover': '#7a0f13',
+    },
     'light': {
         'bg': '#f0f2f5', 'bar-bg': '#dde1e7', 'border': '#c8cdd5', 'border2': '#b0b7c0', 'border3': '#8a9199',
         'btn-bg': '#e2e6eb', 'btn-bg2': '#d0d5dc', 'input-bg': '#ffffff', 'modal-bg': '#ffffff',
@@ -896,6 +902,12 @@ AURORA_EXACT = {
     'row_border': '#334d61', 'icon_bg': '#293e54', 'install': '#192d40', 'dark': '#09232d',
     'secondary': '#224c56', 'p1': '#94e4d3', 'p2': '#70d2c3', 'p_hover': '#9be9d9',
     'disabled': '#65768b', 'hover_stroke': '#7b9bb6', 'focus': '#e3f8f4', 'g1': '#153b4b', 'g2': '#45426b',
+}
+
+# AMD Red #ED1C24 on Black, with White text and Dark Gray #404040
+AMD_EXACT = {
+    'p1': '#ed1c24', 'p2': '#b5141a', 'p_hover': '#ff3d44', 'dark': '#ffffff', 'secondary': '#ffd6d7',
+    'focus': '#ffffff', 'g1': '#3b0709', 'g2': '#1a1a1a', 'icon_bg': '#262626', 'row_border': '#333333',
 }
 
 def _hex_ok(value):
@@ -1009,6 +1021,7 @@ def _derive_theme(name, v):
         'g1': _mix(v['bg'], acc, .18), 'g2': _mix(v['bg'], v['border3'], .45),
     }
     if name == 'aurora': t.update(AURORA_EXACT)
+    if name == 'amd': t.update(AMD_EXACT)
     return t
 
 def _tint_png(data, hexcolor):

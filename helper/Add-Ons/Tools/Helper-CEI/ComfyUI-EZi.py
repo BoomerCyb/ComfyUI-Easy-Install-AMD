@@ -2171,7 +2171,7 @@ def _parse_theme_names():
             return names
     except (AttributeError, IndexError):
         pass
-    return ("dark", "aurora", "pixaroma", "light", "comfyui")
+    return ("dark", "aurora", "amd", "pixaroma", "light", "comfyui")
 
 EZI_THEME_NAMES = _parse_theme_names()
 LAUNCHER_THEME_NAMES = EZI_THEME_NAMES + ("follow",)
@@ -2335,9 +2335,10 @@ window.__eziZoomKind = 'detached';
 __EMU__
 function applyTheme(theme, vars) {
   var root = document.documentElement;
-  root.classList.remove('theme-pixaroma', 'theme-light', 'theme-comfyui', 'theme-aurora');
+  root.classList.remove('theme-pixaroma', 'theme-light', 'theme-comfyui', 'theme-aurora', 'theme-amd');
   if (theme === 'pixaroma') root.classList.add('theme-pixaroma');
   else if (theme === 'aurora') root.classList.add('theme-aurora');
+  else if (theme === 'amd') root.classList.add('theme-amd');
   else if (theme === 'light') root.classList.add('theme-light');
   else if (theme === 'comfyui') {
     if (!vars && typeof eziSettings !== 'undefined') vars = eziSettings.comfyThemeVars;
