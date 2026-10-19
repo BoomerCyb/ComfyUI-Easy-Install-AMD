@@ -604,25 +604,6 @@
     cursor: pointer; transition: all .2s; line-height: 1; box-sizing: border-box; height: 22px;
   }
   #settings-btn:hover { background: var(--accent-bg); border-color: var(--accent-hover); color: #fff; }
-  #reload-btn {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 0 8px; font-family: inherit; font-size: 11px; font-weight: bold;
-    border: 1px solid var(--accent); border-radius: 4px; background: var(--btn-bg); color: var(--text3);
-    cursor: pointer; transition: all .2s; line-height: 1; box-sizing: border-box; height: 22px;
-  }
-  #reload-btn:hover { background: var(--accent-bg); border-color: var(--accent-hover); color: #fff; }
-  #reload-btn:hover span { display: inline-block; transition: transform 0.3s ease; transform: rotate(90deg); }
-  #reload-btn span { display: inline-block; transition: transform 0.3s ease; font-size: 14px; }
-  #reload-btn.spinning span { animation: reloadSpin 0.5s ease; }
-  @keyframes reloadSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  #restart-btn {
-    display: inline-flex; align-items: center; gap: 5px; margin-left: 6px;
-    padding: 0 8px; font-family: inherit; font-size: 11px; font-weight: bold;
-    border: 1px solid var(--accent); border-radius: 4px; background: var(--btn-bg); color: var(--text3);
-    cursor: pointer; transition: all .2s; line-height: 1; box-sizing: border-box; height: 22px;
-  }
-  #restart-btn:hover { background: var(--accent-bg); border-color: var(--accent-hover); color: #fff; }
-  #restart-btn span { font-size: 13px; }
   .settings-row {
     display: flex; align-items: center; gap: 10px;
     padding: 8px 0; border-bottom: 1px solid var(--border);
@@ -697,6 +678,29 @@
     cursor: pointer; transition: all .15s; box-sizing: border-box; line-height: 1;
   }
   #detach-btn { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  /* Reload and Restart sit in the same group, after detach: console | detach | reload | restart */
+  #detach-btn { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: -9px; }
+  #reload-btn, #restart-btn {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 28px; height: 22px; padding: 0; order: -1;
+    border: 1px solid var(--border2); background: var(--btn-bg); color: var(--text3);
+    cursor: pointer; transition: all .15s; box-sizing: border-box; line-height: 1; border-radius: 0;
+  }
+  #reload-btn { margin-right: -9px; }
+  #restart-btn { margin-right: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+  #reload-btn:hover, #restart-btn:hover { border-color: var(--accent); background: var(--accent-bg); color: #fff; }
+  #btn.active ~ #reload-btn, #btn.active ~ #restart-btn {
+    border-color: var(--accent); border-left-color: rgba(255,255,255,0.3); background: var(--accent-bg); color: #fff;
+  }
+  #btn.active ~ #reload-btn:hover, #btn.active ~ #restart-btn:hover {
+    border-color: var(--accent-hover); border-left-color: rgba(255,255,255,0.3); background: var(--accent-bg-hover);
+  }
+  #reload-btn:focus, #restart-btn:focus { outline: none; }
+  #reload-btn svg, #restart-btn svg { width: 14px; height: 14px; pointer-events: none; }
+  #reload-btn svg { transition: transform 0.3s ease; }
+  #reload-btn:hover svg { transform: rotate(90deg); }
+  #reload-btn.spinning svg { animation: reloadSpin 0.5s ease; }
+  @keyframes reloadSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   #btn.active + #detach-btn { border-color: var(--accent); border-left-color: rgba(255,255,255,0.3); background: var(--accent-bg); color: #fff; }
   #btn.active + #detach-btn:hover { border-color: var(--accent-hover); border-left-color: rgba(255,255,255,0.3); background: var(--accent-bg-hover); }
   #btn.active ~ #menu-wrap #menu-btn,
@@ -1242,7 +1246,15 @@
     stroke-linejoin="round" aria-hidden="true" focusable="false">
     <path d="M11 21h-6a2 2 0 0 1-2-2v-14a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6"/>
     <path d="M14 15a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1z"/><path d="M6.5 7.5l5 5"/>
-    <path d="M7.5 12.5h4v-4"/></svg></button><div id="menu-wrap"><button id="menu-btn" tabindex="-1" data-tip="Console options"
+    <path d="M7.5 12.5h4v-4"/></svg></button><button id="reload-btn" tabindex="-1" data-tip="Reload ComfyUI" style="display:none"
+    onmousedown="event.preventDefault()"
+    onclick="(function(b){
+      b.classList.add('spinning');
+      try { pywebview.api.reload_comfy_view(); } catch(e) {}
+      setTimeout(function(){ b.classList.remove('spinning'); }, 500);
+    })(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button><button id="restart-btn" tabindex="-1"
+    data-tip="Restart ComfyUI (stops anything running and clears the queue)" onmousedown="event.preventDefault()"
+    onclick="confirmRestartComfy()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg></button><div id="menu-wrap"><button id="menu-btn" tabindex="-1" data-tip="Console options"
     onmousedown="event.preventDefault()" onclick="toggleSelMenu(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3"
     width="18" height="18" rx="2.5"/><path d="M12 7.5v9"/><path d="M9.5 7.5h5"/>
@@ -1270,14 +1282,7 @@
     data-tip="Current text size">100%</span><button type="button" class="sm-zb" data-tip="Increase text size (Ctrl and +)"
     onmousedown="event.preventDefault()" onclick="__eziStepTermFont(1)">+</button><button type="button" class="sm-zb sm-zreset"
     data-tip="Reset text size to 100% (Ctrl and 0)" onmousedown="event.preventDefault()"
-    onclick="__eziResetTermFont()">Reset</button></div></div></div><button id="reload-btn" title="Reload ComfyUI"
-    style="display:none"
-    onclick="(function(b){
-      b.classList.add('spinning');
-      try { pywebview.api.reload_comfy_view(); } catch(e) {}
-      setTimeout(function(){ b.classList.remove('spinning'); }, 500);
-    })(this)"><span>⟳</span>Reload</button><button id="restart-btn" title="Restart ComfyUI (stops anything running and clears the queue)"
-    onclick="confirmRestartComfy()"><span>⏻</span>Restart</button>
+    onclick="__eziResetTermFont()">Reset</button></div></div></div>
   <div id="titlebar-drag" class="titlebar-drag"></div>
   <div style="display:flex;align-items:center;gap:8px;height:32px;">
     <div id="out-btn-wrap"><button id="out-btn" onclick="toggleOutDropdown(event)" title="Folders"><svg class="btn-icon"
@@ -4567,6 +4572,8 @@ window.__eziSelPopSync = function(o) {
 };
 eziLazyTip(document.getElementById('detach-btn'));
 eziLazyTip(document.getElementById('menu-btn'));
+eziLazyTip(document.getElementById('reload-btn'));
+eziLazyTip(document.getElementById('restart-btn'));
 function updateDetachBtn() {
   var b = document.getElementById('detach-btn');
   if (b) b.style.display = !window.__consoleDetached ? 'inline-flex' : 'none';
