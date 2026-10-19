@@ -178,7 +178,7 @@ retain their own licenses. This AMD edition is independent of the upstream autho
 
 ### Restart button in EZi - 2026-10-19
 
-EZi's top bar has a **Restart** button next to **Reload**: it asks first, then stops ComfyUI and starts it again (anything running stops and the queue is cleared). The Reload button, which reloads the ComfyUI page, now says Reload next to its icon.
+EZi's top bar has a **Restart** button: it asks first, then stops ComfyUI and starts it again (anything running stops and the queue is cleared). Reload and Restart sit in one button group with the console toggle and Detach, as icons: console, detach, reload, restart. Reload shows in the ComfyUI view, as before.
 
 ### AMD Red icons - 2026-10-19
 
