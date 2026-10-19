@@ -176,6 +176,10 @@ The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
 
+### Restart button in EZi - 2026-10-19
+
+EZi's top bar has a **Restart** button next to **Reload**: it asks first, then stops ComfyUI and starts it again (anything running stops and the queue is cleared). The Reload button, which reloads the ComfyUI page, now says Reload next to its icon.
+
 ### AMD Red icons - 2026-10-19
 
 Every AMD arrow in the icons is now AMD Red. The launcher and EZi Desktop icons have black dots, and RADEON is white on the EZi, Sage, Flash and Kitchen shortcut icons. The WTiVo AMD tab in EZi's settings uses AMD colours, and the notice for Ivo's new releases follows the theme. Installs from before 0.1.27 keep their saved EZi theme; pick **AMD** in Settings > Appearance to switch.
