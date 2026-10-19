@@ -1440,14 +1440,14 @@ function eziThemeOptions(current, isLauncher) {
   let html = EZI_THEME_LIST.map(function(t) {
     let label = t.label;
     if (t.value === 'comfyui' && eziSettings.comfyTheme) label += ' (' + eziSettings.comfyTheme + ')';
-    if (isLauncher && t.value === 'aurora') label += ' (default)';
+    if (t.value === 'amd') label += ' (default)';
     return opt(t.value, label, t.value === 'comfyui' && noComfy);
   }).join('');
   if (isLauncher) html += opt('follow', 'Follow EZi theme', false);
   return html;
 }
 const settingsDefaults = {
-  showTooltips: true, customFileBrowser: '', theme: 'dark', launcherTheme: 'aurora', selCopy: true, selGoogle: true,
+  showTooltips: true, customFileBrowser: '', theme: 'amd', launcherTheme: 'amd', selCopy: true, selGoogle: true,
   selChatgpt: true, selClaude: false, selSave: true, selLang: 'en'
 };
 let eziSettings = Object.assign({}, settingsDefaults);
@@ -1484,7 +1484,7 @@ function show_settings() {
         var fresh = JSON.parse(s);
         eziSettings.comfyTheme     = fresh.comfyTheme;
         eziSettings.comfyThemeVars = fresh.comfyThemeVars;
-        if ((eziSettings.theme || 'dark') === 'comfyui') {
+        if ((eziSettings.theme || 'amd') === 'comfyui') {
           applyTheme('comfyui');
         }
         var hasVars = fresh.comfyThemeVars && Object.keys(fresh.comfyThemeVars).length > 0;
@@ -1714,11 +1714,11 @@ function show_settings() {
         </div>
         <div class="settings-row">
           <label for="set-theme" style="cursor:default">EZi Theme</label>
-          <select id="set-theme" style="max-width:180px">${eziThemeOptions(eziSettings.theme||'dark', false)}</select>
+          <select id="set-theme" style="max-width:180px">${eziThemeOptions(eziSettings.theme||'amd', false)}</select>
         </div>
         <div class="settings-row">
           <label for="set-launcher-theme" style="cursor:default">Launcher Theme</label>
-          <select id="set-launcher-theme" style="max-width:180px">${eziThemeOptions(eziSettings.launcherTheme||'aurora', true)}</select>
+          <select id="set-launcher-theme" style="max-width:180px">${eziThemeOptions(eziSettings.launcherTheme||'amd', true)}</select>
         </div>
         <div class="settings-row" style="gap:6px">
           <label style="cursor:default;flex:none;white-space:nowrap">Output Folder Browser</label>
@@ -2055,8 +2055,8 @@ function show_settings() {
 
   let _initialShowTooltips = eziSettings.showTooltips !== false;
   let _initialFileBrowser = eziSettings.customFileBrowser || '';
-  let _initialTheme = eziSettings.theme || 'dark';
-  let _initialLauncherTheme = eziSettings.launcherTheme || 'aurora';
+  let _initialTheme = eziSettings.theme || 'amd';
+  let _initialLauncherTheme = eziSettings.launcherTheme || 'amd';
   let _initialCpInput  = _cp.input  || '';
   let _initialCpOutput = _cp.output || '';
   let _initialCpUser   = _cp.user   || '';
@@ -4625,7 +4625,7 @@ window.addEventListener('resize', send_columns);
         try {
           var loaded = JSON.parse(s);
           Object.assign(eziSettings, loaded);
-          applyTheme(eziSettings.theme || 'dark');
+          applyTheme(eziSettings.theme || 'amd');
           applyTooltips(eziSettings.showTooltips !== false);
           window.__eziSelMenuSync({
             copy: eziSettings.selCopy, google: eziSettings.selGoogle, chatgpt: eziSettings.selChatgpt,

@@ -2054,7 +2054,7 @@ def _load_settings():
         "window_maximized": False,
         "window_placement": None,
         "show_tooltips": True,
-        "launcher_theme": "aurora",
+        "launcher_theme": "amd",
         "console_detached": False,
         "console_placement": None,
         "rec_fps": 30,
@@ -2596,7 +2596,7 @@ def _get_console_html(settings=None):
     a = html.index('const T = {')
     b = html.index('\n})();', html.index('window.applyTooltips = function')) + len('\n})();')
     emu = html[a:b]
-    theme = (settings or {}).get("theme", "dark")
+    theme = (settings or {}).get("theme", "amd")
     try:
         theme_vars = _get_comfy_theme_css_vars() if theme == "comfyui" else {}
     except Exception:
@@ -6077,7 +6077,7 @@ class Api:
     def get_ui_settings(self):
         try:
             fb = self._settings.get("custom_file_browser", "")
-            theme = self._settings.get("theme", "dark")
+            theme = self._settings.get("theme", "amd")
             comfy_theme = _get_comfy_current_theme()
             comfy_theme_vars = _get_comfy_theme_css_vars()
             console_detached = self._settings.get("console_detached", False)
@@ -6090,7 +6090,7 @@ class Api:
                 "showTooltips": bool(self._settings.get("show_tooltips", True)),
                 "customFileBrowser": fb,
                 "theme": theme,
-                "launcherTheme": self._settings.get("launcher_theme", "aurora") if self._settings.get("launcher_theme", "aurora") in LAUNCHER_THEME_NAMES else "aurora",
+                "launcherTheme": self._settings.get("launcher_theme", "amd") if self._settings.get("launcher_theme", "amd") in LAUNCHER_THEME_NAMES else "amd",
                 "comfyTheme": comfy_theme,
                 "comfyThemeVars": comfy_theme_vars,
                 "consoleDetached": console_detached,
@@ -6234,7 +6234,7 @@ class Api:
                 elif _is_rect_on_active_monitor(x, y, x + cx, y + cy):
                     user32.MoveWindow(hwnd, x, y, cx, cy, True)
             try:
-                dark = ctypes.c_int(0 if self._settings.get("theme", "dark") == "light" else 1)
+                dark = ctypes.c_int(0 if self._settings.get("theme", "amd") == "light" else 1)
                 for attr in (20, 19):
                     if ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(dark), ctypes.sizeof(dark)) == 0:
                         break
@@ -6371,7 +6371,7 @@ class Api:
         if win is None:
             return
         try:
-            theme = self._settings.get("theme", "dark")
+            theme = self._settings.get("theme", "amd")
             vars_ = _get_comfy_theme_css_vars() if theme == "comfyui" else {}
             win.evaluate_js(f"applyTheme({json.dumps(theme)}, {json.dumps(vars_)})")
         except Exception:

@@ -988,18 +988,18 @@ def _comfy_theme_fallback():
         return {}
 
 def _load_theme():
-    name, extra = 'aurora', {}
+    name, extra = 'amd', {}
     try:
         with open(_settings_path(), encoding='utf-8') as f: data = json.load(f)
-        name = data.get('theme', 'dark')
-        lt = data.get('launcher_theme', 'aurora')
+        name = data.get('theme', 'amd')
+        lt = data.get('launcher_theme', 'amd')
         if lt != 'follow':
-            name = lt if lt in THEMES or lt == 'comfyui' else 'aurora'
+            name = lt if lt in THEMES or lt == 'comfyui' else 'amd'
         if name == 'comfyui':
             saved = data.get('comfy_theme_vars') or data.get('comfyThemeVars')
             extra = saved if isinstance(saved, dict) and saved else _comfy_theme_fallback()
     except (OSError, ValueError, AttributeError): pass
-    v = dict(THEMES.get(name, THEMES['aurora']))
+    v = dict(THEMES.get(name, THEMES['amd']))
     for k, val in extra.items():
         h = _hex_ok(val)
         if h: v[str(k).lstrip('-')] = h
