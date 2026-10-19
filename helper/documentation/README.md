@@ -176,6 +176,10 @@ The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
 
+### AMD Red icons - 2026-10-19
+
+Every AMD arrow in the icons is now AMD Red. The launcher and EZi Desktop icons have black dots, and RADEON is white on the EZi, Sage, Flash and Kitchen shortcut icons. The WTiVo AMD tab in EZi's settings uses AMD colours, and the notice for Ivo's new releases follows the theme. Installs from before 0.1.27 keep their saved EZi theme; pick **AMD** in Settings > Appearance to switch.
+
 ### EZi 3.24.0, AMD theme and logo - 2026-10-19
 
 The AMD edition now includes Ivo's ComfyUI-Easy-Install 3.21.0 to 3.24.0: the redesigned launcher with Desktop, Browser and HYBRID modes, the console's text-selection popup (Copy, Save, Google, Ask ChatGPT, Ask Claude) and options menu, themes shared by EZi and the launcher, an optional package cache (EZi > Easy menu > System Info), and the Console Filter node, which hides harmless console noise. The rgthree-comfy load error on recent ComfyUI is fixed, and ComfyUI-Krea2T-Enhancer is no longer installed because its GitHub account was deleted (Update ComfyUI and Nodes disconnects an installed copy from it; the node keeps working).
