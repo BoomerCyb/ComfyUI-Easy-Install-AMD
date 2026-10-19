@@ -68,7 +68,6 @@ ComfyUI/frontend versions, UV/PIP caches, and GGUF conversion** from one place.
 | [RMBG](https://github.com/1038lab/ComfyUI-RMBG) | | | [iTools](https://github.com/MohammadAboulEla/ComfyUI-iTools) | |
 | [Easy-Sam3](https://github.com/yolain/ComfyUI-Easy-Sam3) | | | [ControlAltAI Nodes](https://github.com/gseth/ControlAltAI-Nodes) | |
 | [SCAIL-Pose](https://github.com/kijai/ComfyUI-SCAIL-Pose) | | | ✨[Pixaroma](https://github.com/pixaroma/ComfyUI-Pixaroma) | |
-| | | | [Krea2T-Enhancer](https://github.com/capitan01R/ComfyUI-Krea2T-Enhancer) | |
 | | | | [Krea2Edit](https://github.com/lbouaraba/comfyui-krea2edit) | |
 
 </details>
@@ -176,6 +175,12 @@ Modified setup and launcher source is included inside `Helper-CEI.zip`.
 The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
+
+### EZi 3.24.0, AMD theme and logo - 2026-10-19
+
+The AMD edition now includes Ivo's ComfyUI-Easy-Install 3.21.0 to 3.24.0: the redesigned launcher with Desktop, Browser and HYBRID modes, the console's text-selection popup (Copy, Save, Google, Ask ChatGPT, Ask Claude) and options menu, themes shared by EZi and the launcher, an optional package cache (EZi > Easy menu > System Info), and the Console Filter node, which hides harmless console noise. The rgthree-comfy load error on recent ComfyUI is fixed, and ComfyUI-Krea2T-Enhancer is no longer installed because its GitHub account was deleted (Update ComfyUI and Nodes disconnects an installed copy from it; the node keeps working).
+
+A new **AMD** theme (AMD Red on black) is the default for new installs; existing installs can pick it in Settings > Appearance. The icons and the launcher logo show the AMD arrow in Ivo's frame, the Triton toggle sits in the launcher's title bar, and EZi shows a notice when Ivo releases a newer ComfyUI-Easy-Install than the one this edition is built on.
 
 ### Updates work on every install - 2026-10-14
 
