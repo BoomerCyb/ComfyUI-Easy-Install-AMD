@@ -386,6 +386,48 @@
     --accent-bg-hover:#8a3000;
   }
 
+  :root.theme-aurora {
+    --bg:        #0b1926;
+    --bar-bg:    #102638;
+    --border:    #304659;
+    --border2:   #3b566f;
+    --border3:   #49758a;
+    --btn-bg:    #22374b;
+    --btn-bg2:   #304b63;
+    --input-bg:  #09232d;
+    --modal-bg:  #122438;
+    --hover-row: #203649;
+    --text:      #edf3ff;
+    --text2:     #a1b3cc;
+    --text3:     #edf3ff;
+    --accent:         #82dfcd;
+    --accent-hover:   #9be9d9;
+    --accent-bg:      #224c56;
+    --accent-bg-hover:#2b616c;
+    --text-on-accent: #edf3ff;
+  }
+
+  :root.theme-amd {
+    --bg:        #000000;
+    --bar-bg:    #121212;
+    --border:    #262626;
+    --border2:   #333333;
+    --border3:   #404040;
+    --btn-bg:    #1a1a1a;
+    --btn-bg2:   #262626;
+    --input-bg:  #000000;
+    --modal-bg:  #0d0d0d;
+    --hover-row: #1c1c1c;
+    --text:      #e6e6e6;
+    --text2:     #a6a6a6;
+    --text3:     #ffffff;
+    --accent:         #ed1c24;
+    --accent-hover:   #ff4d53;
+    --accent-bg:      #5c0b0e;
+    --accent-bg-hover:#7a0f13;
+    --text-on-accent: #ffffff;
+  }
+
   :root.theme-light {
     --bg:        #f0f2f5;
     --bar-bg:    #dde1e7;
@@ -412,6 +454,11 @@
     font-size: 12px; color: var(--text); height: 100vh; display: flex;
     flex-direction: column; overflow: hidden;
   }
+  #ezi-top-grip {
+    position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 2147483647;
+    app-region: no-drag; -webkit-app-region: no-drag;
+  }
+  html.ezi-max #ezi-top-grip { display: none; }
   #bar {
     display: flex; align-items: center; background: var(--bar-bg);
     border-bottom: 1px solid var(--border); padding: 0 10px; height: 32px;
@@ -442,7 +489,8 @@
     display: inline-flex; align-items: center;
     padding: 0 14px; font-family: inherit; font-size: 11px; font-weight: bold;
     border: 1px solid var(--border2); border-radius: 4px; background: var(--btn-bg); color: var(--text2);
-    cursor: default; transition: all .2s; order: -1; margin-right: 4px;
+    cursor: default; transition: all .2s; order: -1; margin-right: -9px;
+    border-top-right-radius: 0; border-bottom-right-radius: 0;
     line-height: 1; pointer-events: none; box-sizing: border-box; height: 22px;
   }
   #btn.active {
@@ -640,6 +688,17 @@
     border: 1px solid var(--border2); border-radius: 4px; background: var(--btn-bg); color: var(--text3);
     cursor: pointer; transition: all .15s; box-sizing: border-box; line-height: 1;
   }
+  #detach-btn { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  #btn.active + #detach-btn { border-color: var(--accent); border-left-color: rgba(255,255,255,0.3); background: var(--accent-bg); color: #fff; }
+  #btn.active + #detach-btn:hover { border-color: var(--accent-hover); border-left-color: rgba(255,255,255,0.3); background: var(--accent-bg-hover); }
+  #btn.active ~ #menu-wrap #menu-btn,
+  #attach-btn, #attach-btn ~ #menu-wrap #menu-btn {
+    border-color: var(--accent); background: var(--accent-bg); color: #fff;
+  }
+  #btn.active ~ #menu-wrap #menu-btn:hover, #btn.active ~ #menu-wrap #menu-btn.open,
+  #attach-btn:hover, #attach-btn ~ #menu-wrap #menu-btn:hover, #attach-btn ~ #menu-wrap #menu-btn.open {
+    border-color: var(--accent-hover); background: var(--accent-bg-hover); color: #fff;
+  }
   #detach-btn:focus, #attach-btn:focus, #term-panel:focus { outline: none; }
   #detach-btn:hover, #attach-btn:hover { border-color: var(--accent); background: var(--accent-bg); color: #fff; }
   #detach-btn svg, #attach-btn svg { width: 14px; height: 14px; pointer-events: none; }
@@ -655,6 +714,76 @@
   }
   #term-detached-note button:hover { background: var(--accent-bg); color: var(--accent-hover); }
   html.console-detached #term-detached-note { display: flex; }
+  #sel-pop {
+    display: none; position: fixed; z-index: 100002; align-items: stretch;
+    background: var(--modal-bg); border: 1px solid var(--accent); border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.55); overflow: hidden; user-select: none;
+  }
+  #sel-pop.show { display: flex; }
+  #sel-pop button {
+    padding: 5px 11px; font-family: inherit; font-size: 11px; font-weight: bold;
+    background: transparent; border: none; border-right: 1px solid var(--accent);
+    border-right-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    color: var(--text3); cursor: pointer; line-height: 1.2; white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  #sel-pop button:last-child { border-right: none; }
+  #sel-pop button:hover { background: var(--accent-bg); color: #fff; }
+  #menu-wrap { position: relative; display: inline-flex; align-items: center; flex-shrink: 0; order: -1; }
+  #menu-btn {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 28px; height: 22px; padding: 0;
+    border: 1px solid var(--border2); border-radius: 4px; background: var(--btn-bg); color: var(--text3);
+    cursor: pointer; transition: all .15s; box-sizing: border-box; line-height: 1;
+  }
+  #menu-btn:focus { outline: none; }
+  #menu-btn:hover, #menu-btn.open { border-color: var(--accent); background: var(--accent-bg); color: #fff; }
+  #menu-btn svg { width: 14px; height: 14px; pointer-events: none; }
+  #sel-menu {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; padding: 6px;
+    background: var(--modal-bg); border: 1px solid var(--accent); border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.55); z-index: 100003; user-select: none;
+  }
+  #sel-menu.open { display: block; }
+  #sel-menu .sm-head { padding: 2px 6px 6px; font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--text2); }
+  #sel-menu .sm-sep {
+    margin: 4px 0 0; padding: 8px 6px 4px; border-top: 1px solid var(--border2); font-size: 10px; letter-spacing: .5px;
+    text-transform: uppercase; color: var(--text2);
+  }
+  #sel-menu .sm-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 6px; border-radius: 4px; cursor: pointer; color: var(--text3); font-size: 12px;
+  }
+  #sel-menu .sm-row:hover { background: var(--hover-row); }
+  #sel-menu .sm-row > svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--text2); pointer-events: none; }
+  #sel-menu .sm-zoom { display: flex; align-items: center; gap: 6px; padding: 4px 6px 2px; }
+  #sel-menu .sm-zb {
+    min-width: 26px; height: 22px; padding: 0 8px; border: 1px solid var(--border2); border-radius: 4px;
+    background: var(--btn-bg); color: var(--text3); cursor: pointer; font-family: inherit;
+    font-size: 13px; font-weight: bold; line-height: 1; transition: all .15s;
+  }
+  #sel-menu .sm-zb:hover { border-color: var(--accent); background: var(--accent-bg); color: #fff; }
+  #sel-menu .sm-zreset { font-size: 11px; }
+  #sel-menu .sm-lang { padding: 2px 6px 4px; }
+  #sel-menu .sm-lang select {
+    width: 100%; background: var(--input-bg); color: var(--text); border: 1px solid var(--border2); border-radius: 4px;
+    font-family: inherit; font-size: 12px; padding: 4px 6px; cursor: pointer;
+  }
+  #sel-menu .sm-lang select:focus { outline: none; border-color: var(--accent); }
+  #zoom-val { flex: 1; min-width: 44px; text-align: center; font-size: 12px; color: var(--text3); }
+  #sel-menu .sm-row:hover > svg { color: var(--text3); }
+  .ezi-sw { position: relative; width: 30px; height: 16px; flex-shrink: 0; }
+  .ezi-sw input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; }
+  .ezi-sw i {
+    position: absolute; inset: 0; border-radius: 8px; background: var(--btn-bg2);
+    border: 1px solid var(--border2); transition: background .15s, border-color .15s; pointer-events: none;
+  }
+  .ezi-sw i::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--text2); transition: transform .15s, background .15s;
+  }
+  .ezi-sw input:checked + i { background: var(--accent-bg); border-color: var(--accent); }
+  .ezi-sw input:checked + i::after { transform: translateX(14px); background: #fff; }
   body.ezi-overlay { background: transparent; }
   #modal-overlay {
     display: none; position: fixed; inset: 0; z-index: 99999;
@@ -733,7 +862,10 @@
     padding: 12px 10px; gap: 10px; min-height: 0;
   }
   .cs-search { position: relative; flex-shrink: 0; }
-  .cs-search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text2); pointer-events: none; }
+  .cs-search svg {
+    position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text2);
+    pointer-events: none;
+  }
   .cs-search input {
     width: 100%; background: var(--modal-bg); color: var(--text); border: 1px solid var(--border2);
     border-radius: 6px; font-family: inherit; font-size: 12px; padding: 7px 8px 7px 29px; outline: none;
@@ -748,7 +880,10 @@
   .cs-nav .stab-btn svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--text2); transition: color .15s; }
   .cs-nav .stab-btn:hover { background: var(--hover-row, var(--btn-bg)); border-color: transparent; color: var(--text3); }
   .cs-nav .stab-btn:hover svg { color: var(--text3); }
-  .cs-nav .stab-btn.active { background: var(--btn-bg2, var(--btn-bg)); border-color: var(--border2); color: var(--text3); font-weight: bold; box-shadow: inset 3px 0 0 var(--accent); }
+  .cs-nav .stab-btn.active {
+    background: var(--btn-bg2, var(--btn-bg)); border-color: var(--border2); color: var(--text3); font-weight: bold;
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
   .cs-nav .stab-btn.active svg { color: var(--accent); }
   .cs-spacer { flex: 1; min-height: 8px; }
   .cs-sep { height: 1px; background: var(--border2); margin: 4px 2px; flex-shrink: 0; }
@@ -848,9 +983,15 @@
     background: radial-gradient(ellipse at 100% 0%, #f667441c, transparent 65%), #1d1d1d;
   }
   #stab-pixaroma .px-hero-copy { position: relative; z-index: 1; max-width: calc(100% - 190px); }
-  #stab-pixaroma .px-eyebrow { display: flex; align-items: center; gap: 8px; color: #ff967c; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  #stab-pixaroma .px-eyebrow {
+    display: flex; align-items: center; gap: 8px; color: #ff967c; font-size: 10px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase;
+  }
   #stab-pixaroma .px-eyebrow::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--px-coral); }
-  #stab-pixaroma .px-lead { margin: 8px 0; max-width: 390px; font-size: clamp(24px, 3.6cqi, 26px); font-weight: 700; letter-spacing: -.035em; line-height: 1.15; color: #fff5f1; }
+  #stab-pixaroma .px-lead {
+    margin: 8px 0; max-width: 390px; font-size: clamp(24px, 3.6cqi, 26px); font-weight: 700; letter-spacing: -.035em;
+    line-height: 1.15; color: #fff5f1;
+  }
   #stab-pixaroma .px-sub { max-width: 360px; color: #bdb6b2; font-size: 14px; line-height: 1.55; }
   #stab-pixaroma .px-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
   #modal-box.ezi-settings .cs-content #stab-pixaroma .px-btn {
@@ -864,12 +1005,23 @@
   #stab-pixaroma .px-orange { background: var(--px-coral); box-shadow: 0 4px 16px #f667441a; }
   #stab-pixaroma .px-orange:hover { background: #e95735; transform: translateY(-1px); }
   #stab-pixaroma .px-btn:active { transform: translateY(0); }
-  #stab-pixaroma .px-btn:focus-visible, #stab-pixaroma .px-link:focus-visible, #stab-pixaroma .px-badge-link:focus-visible { outline: 2px solid #ff967c; outline-offset: 4px; }
+  #stab-pixaroma .px-btn:focus-visible, #stab-pixaroma .px-link:focus-visible, #stab-pixaroma .px-badge-link:focus-visible {
+    outline: 2px solid #ff967c; outline-offset: 4px;
+  }
   #stab-pixaroma .px-cadence { display: flex; align-items: center; gap: 7px; margin-top: 10px; color: #aaa19c; font-size: 12px; }
   #stab-pixaroma .px-cadence svg { color: #d78670; }
-  #stab-pixaroma .px-flow-art { position: absolute; right: 16px; top: 50%; width: 200px; height: 180px; transform: translateY(-50%); opacity: .85; pointer-events: none; }
-  #stab-pixaroma .px-community { display: flex; align-items: center; gap: 16px; margin-top: 12px; padding: 16px; border: 1px solid #3b3633; border-radius: 12px; background: #2a2a2a; }
-  #stab-pixaroma .px-community-icon { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: #f6674414; color: #ff967c; }
+  #stab-pixaroma .px-flow-art {
+    position: absolute; right: 16px; top: 50%; width: 200px; height: 180px; transform: translateY(-50%); opacity: .85;
+    pointer-events: none;
+  }
+  #stab-pixaroma .px-community {
+    display: flex; align-items: center; gap: 16px; margin-top: 12px; padding: 16px; border: 1px solid #3b3633;
+    border-radius: 12px; background: #2a2a2a;
+  }
+  #stab-pixaroma .px-community-icon {
+    display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: #f6674414;
+    color: #ff967c;
+  }
   #stab-pixaroma .px-community-copy { flex: 1; min-width: 0; }
   #stab-pixaroma .px-community-title { font-size: 15px; font-weight: 650; line-height: 1.4; }
   #stab-pixaroma .px-community-sub { margin-top: 3px; color: #bdb6b2; font-size: 12px; line-height: 1.5; }
@@ -878,7 +1030,9 @@
   #stab-pixaroma .px-badge-link { display: inline-flex; margin-top: 10px; border-radius: 4px; }
   #stab-pixaroma .px-badge { display: block; height: 20px; max-width: 100%; border-radius: 4px; }
   #stab-pixaroma .px-resources { margin-top: 16px; }
-  #stab-pixaroma .px-resource-head { margin: 0 0 12px; color: #bdb6b2; font-size: 11px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; }
+  #stab-pixaroma .px-resource-head {
+    margin: 0 0 12px; color: #bdb6b2; font-size: 11px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase;
+  }
   #stab-pixaroma .px-resource-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   #modal-box.ezi-settings .cs-content #stab-pixaroma .px-link {
     display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; padding: 14px 16px; text-align: left;
@@ -886,7 +1040,10 @@
     color: #f5f3f1; font-size: 14px !important; cursor: pointer; transition: border-color .16s, background .16s;
   }
   #stab-pixaroma .px-link:hover { background: #2a2522; border-color: #875344; }
-  #stab-pixaroma .px-link-icon { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; color: #ff967c; background: #f6674410; border-radius: 9px; }
+  #stab-pixaroma .px-link-icon {
+    display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; color: #ff967c; background: #f6674410;
+    border-radius: 9px;
+  }
   #stab-pixaroma .px-link-copy { flex: 1; min-width: 0; }
   #stab-pixaroma .px-link-name { display: block; font-size: 14px; font-weight: 650; }
   #stab-pixaroma .px-link-desc { display: block; margin-top: 3px; color: #bdb6b2; font-size: 12px; line-height: 1.4; }
@@ -981,55 +1138,67 @@
   .cs-nav #stabtn-about svg { color: var(--accent); }
   .cs-nav #stabtn-about:hover svg, .cs-nav #stabtn-about.active svg { color: var(--accent-hover, var(--accent)); }
   /* About EZi: follows the selected application theme. */
-  #stab-about { --ab-green: #50fa7b; text-align: left; container-type: inline-size; }
-  :root.theme-light #stab-about { --ab-green: #218739; }
+  #stab-about { text-align: left; container-type: inline-size; }
   #stab-about * { box-sizing: border-box; }
-  #stab-about .ab-card { margin-top: 14px; padding: 20px; border: 1px solid var(--border2); border-radius: 16px; background: radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 75%), var(--input-bg); }
-  #stab-about .ab-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  #stab-about .ab-identity { display: flex; align-items: center; gap: 12px; }
-  #stab-about .ab-mark { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid color-mix(in srgb, var(--ab-green) 50%, var(--border2)); border-radius: 13px; background: color-mix(in srgb, var(--ab-green) 12%, var(--input-bg)); color: var(--ab-green); }
-  #stab-about .ab-brand { color: var(--text3); font-size: 21px; font-weight: 750; letter-spacing: -.04em; line-height: 1.2; }
-  #stab-about .ab-kicker { color: var(--text2); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
-  #stab-about .ab-ver { padding: 4px 10px; color: var(--accent-hover); font-size: 11px; font-weight: 600; border: 1px solid var(--border2); background: var(--btn-bg); border-radius: 999px; white-space: nowrap; }
-  #stab-about .ab-lead { margin: 14px 0 8px; color: var(--text3); font-size: clamp(24px, 4cqi, 28px); font-weight: 700; letter-spacing: -.03em; line-height: 1.2; }
-  #stab-about .ab-sub { color: var(--text2); font-size: 14px; line-height: 1.6; max-width: 480px; }
-  #stab-about .ab-features { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  #stab-about .ab-feature { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border: 1px solid var(--border2); border-radius: 6px; font-size: 11px; color: var(--text); background: var(--modal-bg); }
-  #stab-about .ab-feature svg { color: var(--accent); }
-  #stab-about .ab-feature:nth-child(2) svg { color: var(--ab-green); }
-  #stab-about .ab-by { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border2); color: var(--text); font-size: 12px; }
-  #stab-about .ab-avatar { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: var(--accent-hover); font-size: 13px; font-weight: 700; background: color-mix(in srgb, var(--accent) 12%, var(--btn-bg)); }
-  #stab-about .ab-by b { color: var(--text3); }
-  #stab-about .ab-link { color: var(--accent-hover); font-weight: 600; text-decoration: none; }
-  #stab-about .ab-link:hover { text-decoration: underline; }
-  #stab-about .ab-project-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-  #modal-box.ezi-settings .cs-content #stab-about .ab-btn {
-    display: flex; align-items: center; gap: 12px; min-width: 0; padding: 15px; text-align: left; cursor: pointer;
-    border: 1px solid var(--border2); border-radius: 12px; background: var(--input-bg); color: var(--text3);
-    font-size: 13px !important; font-weight: 600; line-height: 1.4; transition: background .15s, border-color .15s;
+  #stab-about .ab-card, #stab-about .ab-feature, #stab-about .ab-actions, #stab-about .ab-support { border: 1px solid var(--border2); border-radius: 12px; background: var(--input-bg); }
+  #stab-about .ab-card { margin-top: 10px; padding: 17.8px 22px; background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 20%, var(--input-bg)), var(--input-bg) 80%); }
+  #stab-about .ab-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #stab-about .ab-identity { display: flex; align-items: center; gap: 18px; }
+  #stab-about .ab-mark { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 60px; height: 60px; border-radius: 16px; border: 1px solid var(--border2); background: var(--modal-bg); color: var(--text3); font-size: 30px; font-weight: 800; letter-spacing: -2px; }
+  #stab-about .ab-mark img { display: block; width: 48px; height: 48px; object-fit: contain; }
+  #stab-about .ab-brand { color: var(--text3); font-size: 25px; font-weight: 750; line-height: 1.2; }
+  #stab-about .ab-kicker { color: var(--text2); font-size: 13.65px; margin-top: 5px; }
+  #stab-about .ab-ver { border: 1px solid var(--border2); padding: 4px 10px; border-radius: 999px; color: var(--text2); font-size: 11px; white-space: nowrap; }
+  #stab-about .ab-lead { margin: 8px 0 8px; color: var(--accent); font-size: clamp(24px, 3.8cqi, 30px); line-height: 1.2; letter-spacing: -.025em; }
+  #stab-about .ab-sub { color: var(--text2); font-size: 14px; line-height: 1.6; }
+  #stab-about .ab-platforms { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border2); color: var(--text2); font-size: 11px; }
+  #modal-box.ezi-settings .cs-content #stab-about .ab-platform-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 1 1 auto; gap: 10px; padding: 5px 14px; min-height: 34px; border: 1px solid var(--accent); border-radius: 9px; background: color-mix(in srgb, var(--accent) 20%, var(--input-bg)); color: var(--text3); font-family: inherit; font-size: inherit; cursor: pointer; }
+  #stab-about .ab-platforms > .ab-platform-btn svg { position: static; transform: none; flex-shrink: 0; }
+  #stab-about .ab-platform-btn:hover { filter: brightness(1.15); }
+  #stab-about .ab-platform-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  #stab-about .ab-platforms > span { position: relative; padding-left: 34px; }
+  #stab-about .ab-platforms > span + span { border-left: 1px solid var(--border2); padding-left: 52px; }
+  #stab-about .ab-platforms svg { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; }
+  #stab-about .ab-platforms > span + span svg { left: 18px; }
+  #stab-about .ab-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+  #stab-about .ab-feature { display: flex; gap: 10px; padding: 15px 12px; }
+  #stab-about .ab-feature svg { width: 26px; height: 26px; color: var(--accent); flex-shrink: 0; }
+  #stab-about .ab-feature strong { display: block; color: var(--text3); font-size: 13px; margin: 2px 0 5px; }
+  #stab-about .ab-feature small { display: block; color: var(--text2); font-size: 11px; line-height: 1.6; }
+  #stab-about .ab-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; margin-top: 12px; }
+  #stab-about .ab-by { display: flex; align-items: center; gap: 12px; flex: 1 1 230px; color: var(--text); font-size: 12px; line-height: 1.6; }
+  #stab-about .ab-author-logo { display: block; width: 32px; height: 32px; flex-shrink: 0; }
+  #stab-about .ab-by b { font-weight: 700; }
+  #stab-about .ab-link { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  #stab-about .ab-project-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1 1 300px; }
+  #modal-box.ezi-settings .cs-content #stab-about .ab-btn { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 46px; padding: 11px 12px; border: 1px solid var(--accent); border-radius: 9px; background: color-mix(in srgb, var(--accent) 20%, var(--input-bg)); color: var(--text3); font-size: 13px !important; font-weight: 700; cursor: pointer; box-shadow: 0 2px 4px #0002; transition: filter .15s, transform .15s; }
+  #modal-box.ezi-settings .cs-content #stab-about .ab-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  #modal-box.ezi-settings .cs-content #stab-about .ab-btn:active { transform: translateY(0); }
+  #stab-about .ab-btn-icon, #stab-about .ab-ext { flex-shrink: 0; color: currentColor; }
+  #stab-about .ab-btn-copy { white-space: nowrap; }
+  #stab-about .ab-ext { width: 12px; height: 12px; }
+  #stab-about .ab-btn:focus-visible, #stab-about .ab-link:focus-visible, #stab-about .ab-support-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  #stab-about .ab-support { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 14px; padding: 16px; margin-top: 12px; }
+  #stab-about .ab-support-head { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text3); font-size: 13px; font-weight: 600; }
+  #stab-about .ab-support-head svg { color: #ef92ce; width: 26px; height: 26px; flex-shrink: 0; margin-block: -5px; }
+  #stab-about .ab-support-sub { color: var(--text2); font-size: 11px; line-height: 1.5; margin-top: 5px; grid-column: 1; }
+  #stab-about .ab-support-grid { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; grid-column: 2; grid-row: 1 / 3; }
+  #stab-about .ab-support-badge { display: inline-flex; line-height: 0; border-radius: 6px; overflow: hidden; }
+  #stab-about .ab-support-badge img { display: block; height: 28px; max-width: 100%; border-radius: 6px; }
+  @container (max-width: 650px) {
+    #stab-about .ab-support { grid-template-columns: 1fr; }
+    #stab-about .ab-support-grid { grid-column: 1; grid-row: auto; margin-top: 12px; }
   }
-  #stab-about .ab-btn:hover { background: var(--hover-row); border-color: var(--accent); }
-  #stab-about .ab-btn-icon { color: var(--accent); flex-shrink: 0; }
-  #stab-about .ab-btn-copy { flex: 1; min-width: 0; }
-  #stab-about .ab-btn-copy small { display: block; color: var(--text2); font-size: 11px; font-weight: 400; margin-top: 2px; }
-  #stab-about .ab-ext { color: var(--text2); flex-shrink: 0; }
-  #stab-about .ab-btn:focus-visible, #stab-about .ab-link:focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 3px; }
-  #stab-about .ab-support { margin-top: 16px; }
-  #stab-about .ab-support-head { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text3); font-size: 14px; font-weight: 600; }
-  #stab-about .ab-support-head svg, #stab-about .ab-support-btn:last-child svg { color: #ff5555; fill: #ff55551a; }
-  #stab-about .ab-support-sub { margin: 4px 0 12px; color: var(--text2); font-size: 12px; }
-  #stab-about .ab-support-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  #modal-box.ezi-settings .cs-content #stab-about .ab-support-btn { justify-content: center; gap: 8px; padding: 11px 8px; font-size: 12px !important; }
   @container (max-width: 450px) {
-    #stab-about .ab-card { padding: 20px; }
+    #stab-about .ab-card { padding: 18px; }
     #stab-about .ab-top { flex-wrap: wrap; }
+    #stab-about .ab-features { grid-template-columns: 1fr; }
+    #stab-about .ab-platforms > span { position: relative; padding-left: 34px; }
+  #stab-about .ab-platforms > span + span { border: 0; padding-left: 34px; }
+    #stab-about .ab-platforms > span + span svg { left: 0; }
     #stab-about .ab-project-links { grid-template-columns: 1fr; }
-    #stab-about .ab-support-grid { grid-template-columns: 1fr; }
-    #modal-box.ezi-settings .cs-content #stab-about .ab-support-btn { justify-content: flex-start; padding-left: 15px; }
   }
-  @media (prefers-reduced-motion: reduce) { #stab-about .ab-btn { transition: none !important; } }
-
-  @media (max-width: 700px) {
+  @media (prefers-reduced-motion: reduce) { #stab-about .ab-btn { transition: none !important; transform: none !important; } }  @media (max-width: 700px) {
     .cs-nav { width: 56px; padding: 10px 6px; }
     .cs-nav .cs-lbl, .cs-search { display: none; }
     .cs-nav .stab-btn { justify-content: center; padding: 9px 0; }
@@ -1038,12 +1207,14 @@
 </style>
 </head>
 <body>
+<div id="ezi-top-grip"></div>
 <div id="bar">
   <div id="dot"></div><span id="status">Starting...</span>
   <div id="update-notice" style="display:none;align-items:center;gap:16px;">
     <div id="ezi-update-notice" style="display:none;align-items:center;gap:8px;"><span id="ezi-update-msg"
         style="color:#bd93f9;font-size:11px;font-weight:bold;">&#x2B06; EZi update available</span><button id="ezi-update-btn" onclick="doEziUpdate()"
-        style="padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid #bd93f9;border-radius:4px;background:#3a1a6e;color:#bd93f9;cursor:pointer;transition:all .2s;line-height:1;letter-spacing:0.5px;"
+        style="padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid #bd93f9;border-radius:4px;
+          background:#3a1a6e;color:#bd93f9;cursor:pointer;transition:all .2s;line-height:1;letter-spacing:0.5px;"
         onmouseover="this.style.background='#5a2a9e'" onmouseout="this.style.background='#3a1a6e'">Update</button><button id="ezi-whatsnew-btn"
         onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest')"
         style="padding:3px 10px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid #6272a4;border-radius:4px;background:#1e2233;color:#8be9fd;cursor:pointer;transition:all .2s;line-height:1;letter-spacing:0.5px;"
@@ -1053,8 +1224,51 @@
     <div id="comfy-update-notice" style="display:none;align-items:center;gap:8px;"><span id="update-msg"
         style="color:#f1fa8c;font-size:11px;font-weight:bold;">&#x2B06; ComfyUI update available</span><button id="update-btn"
         onclick="doUpdate()">Update</button></div>
-  </div><button id="btn" onclick="toggle()">ComfyUI ▶</button><button id="detach-btn" tabindex="-1" data-tip="Detach console to its own window" onmousedown="event.preventDefault()" onclick="detachConsole()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 19h-6a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v4"/><path d="M14 15a1 1 0 0 1 1 -1h5a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1l0 -3"/><path d="M7 9l4 4"/><path d="M8 13h3v-3"/></svg></button><button id="reload-btn" title="Reload ComfyUI" style="display:none"
-    onclick="(function(b){ b.classList.add('spinning'); try { pywebview.api.reload_comfy_view(); } catch(e) {} setTimeout(function(){ b.classList.remove('spinning'); }, 500); })(this)"><span>⟳</span></button>
+  </div><div id="upstream-notice" style="display:none;align-items:center;gap:8px;margin:0 8px;"><span id="upstream-msg"
+      style="color:#ffb86c;font-size:11px;font-weight:bold;"></span><button id="upstream-notes-btn"
+      style="padding:3px 10px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid #6272a4;border-radius:4px;background:#1e2233;color:#ffb86c;cursor:pointer;transition:all .2s;line-height:1;letter-spacing:0.5px;"
+      onmouseover="this.style.background='#2a3050';this.style.borderColor='#ffb86c'"
+      onmouseout="this.style.background='#1e2233';this.style.borderColor='#6272a4'">Release Notes</button></div><button id="btn" onclick="toggle()">ComfyUI ▶</button><button id="detach-btn" tabindex="-1"
+    data-tip="Detach console to its own window" onmousedown="event.preventDefault()"
+    onclick="detachConsole()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+    stroke-linejoin="round" aria-hidden="true" focusable="false">
+    <path d="M11 21h-6a2 2 0 0 1-2-2v-14a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6"/>
+    <path d="M14 15a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1z"/><path d="M6.5 7.5l5 5"/>
+    <path d="M7.5 12.5h4v-4"/></svg></button><div id="menu-wrap"><button id="menu-btn" tabindex="-1" data-tip="Console options"
+    onmousedown="event.preventDefault()" onclick="toggleSelMenu(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3"
+    width="18" height="18" rx="2.5"/><path d="M12 7.5v9"/><path d="M9.5 7.5h5"/>
+    <path d="M9.5 16.5h5"/></svg></button><div id="sel-menu"><div class="sm-row"
+    data-tip="Save the entire console log as a .txt file"
+    onclick="saveLog()"><span>Save log as .txt</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    <path d="M6 4h10l4 4v10a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2v-12a2 2 0 0 1 2-2"/><circle cx="12" cy="14" r="2"/>
+    <path d="M14 4v4h-6v-4"/></svg></div><div class="sm-sep">Selection popup</div><label class="sm-row"
+    data-tip="Show a Copy button when text is selected in the console"><span>Copy</span><span class="ezi-sw"><input
+    type="checkbox" data-k="copy"><i></i></span></label><label class="sm-row"
+    data-tip="Show a button that saves the selected text to a .txt file"><span>Save selection</span><span class="ezi-sw"><input
+    type="checkbox" data-k="save"><i></i></span></label><label class="sm-row"
+    data-tip="Show a button that searches the selected text on Google"><span>Google</span><span class="ezi-sw"><input
+    type="checkbox" data-k="google"><i></i></span></label><div class="sm-sep">Account required</div><label class="sm-row"
+    data-tip="Show a button that asks ChatGPT about the selected text (needs a ChatGPT account)"><span>Ask ChatGPT</span><span
+    class="ezi-sw"><input type="checkbox" data-k="chatgpt"><i></i></span></label><label class="sm-row"
+    data-tip="Show a button that asks Claude about the selected text (needs a Claude account)"><span>Ask Claude</span><span
+    class="ezi-sw"><input type="checkbox"
+    data-k="claude"><i></i></span></label><div class="sm-sep">AI answer language</div><div class="sm-lang"
+    data-tip="Language in which ChatGPT and Claude should answer"><select id="sel-lang"></select></div><div
+    class="sm-sep">Text size</div><div class="sm-zoom"><button type="button" class="sm-zb"
+    data-tip="Decrease text size (Ctrl and -)" onmousedown="event.preventDefault()"
+    onclick="__eziStepTermFont(-1)">&minus;</button><span id="zoom-val"
+    data-tip="Current text size">100%</span><button type="button" class="sm-zb" data-tip="Increase text size (Ctrl and +)"
+    onmousedown="event.preventDefault()" onclick="__eziStepTermFont(1)">+</button><button type="button" class="sm-zb sm-zreset"
+    data-tip="Reset text size to 100% (Ctrl and 0)" onmousedown="event.preventDefault()"
+    onclick="__eziResetTermFont()">Reset</button></div></div></div><button id="reload-btn" title="Reload ComfyUI"
+    style="display:none"
+    onclick="(function(b){
+      b.classList.add('spinning');
+      try { pywebview.api.reload_comfy_view(); } catch(e) {}
+      setTimeout(function(){ b.classList.remove('spinning'); }, 500);
+    })(this)"><span>⟳</span></button>
   <div id="titlebar-drag" class="titlebar-drag"></div>
   <div style="display:flex;align-items:center;gap:8px;height:32px;">
     <div id="out-btn-wrap"><button id="out-btn" onclick="toggleOutDropdown(event)" title="Folders"><svg class="btn-icon"
@@ -1076,7 +1290,8 @@
     <div id="scr-btn-wrap"><button id="scr-btn" onclick="toggleScrDropdown(event)" title="Capture"><svg class="btn-icon"
           viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-          <path d="M14 4h-4L8 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-4Z"/><circle cx="12" cy="13" r="4"/></svg> Capture <span
+          <path d="M14 4h-4L8 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-4Z"/><circle cx="12" cy="13"
+            r="4"/></svg> Capture <span
           class="out-chevron">&#x25BE;</span></button>
       <div id="scr-dropdown">
         <div class="scr-drop-item" onclick="closeAllDropdowns();startCrop('screenshot')"><img class="btn-icon"
@@ -1104,7 +1319,8 @@
   <div id="crop-shade-r"></div>
   <div id="crop-sel"></div>
   <div id="crop-hint">Click for full window &nbsp;|&nbsp; Drag to select area &nbsp;<button id="crop-cancel-btn" class="btn-danger"
-      style="margin-left:8px;padding:0 10px;height:22px;font-family:inherit;font-size:11px;font-weight:bold;border-radius:4px;cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;gap:4px;box-sizing:border-box;">✕
+      style="margin-left:8px;padding:0 10px;height:22px;font-family:inherit;font-size:11px;font-weight:bold;border-radius:4px;
+        cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;gap:4px;box-sizing:border-box;">✕
       Cancel</button></div>
 </div>
 <div id="rec-outline"><button id="rec-stop-btn" onclick="stopRecording()">&#x23F9; Stop REC</button></div>
@@ -1186,14 +1402,63 @@ icoBg.addEventListener('animationend', function() {
 });
 let uiLoaded = false, showingUI = false, _toggling = false;
 
-const settingsDefaults = { showTooltips: true, hideDeprecationWarnings: true, customFileBrowser: '', theme: 'dark' };
+(function() {
+  const grip = document.getElementById('ezi-top-grip');
+  if (!grip) return;
+  const zoneAt = function(x) { return x < 10 ? 13 : (x >= window.innerWidth - 10 ? 14 : 12); };
+  const cursors = { 12: 'ns-resize', 13: 'nwse-resize', 14: 'nesw-resize' };
+  grip.addEventListener('mousemove', function(e) { grip.style.cursor = cursors[zoneAt(e.clientX)]; });
+  grip.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    try { pywebview.api.start_top_resize(zoneAt(e.clientX)); } catch (err) {}
+  });
+  const sync = function() {
+    try {
+      pywebview.api.is_window_maximized().then(function(v) {
+        document.documentElement.classList.toggle('ezi-max', !!v);
+      });
+    } catch (err) {}
+  };
+  window.addEventListener('pywebviewready', sync);
+  window.addEventListener('resize', sync);
+})();
+
+const EZI_THEME_LIST = [
+  { value: 'dark', label: 'EZi Dark' },
+  { value: 'aurora', label: 'EZi Aurora' },
+  { value: 'amd', label: 'AMD' },
+  { value: 'pixaroma', label: 'Pixaroma' },
+  { value: 'light', label: 'EZi Light' },
+  { value: 'comfyui', label: 'ComfyUI' }
+];
+function eziThemeOptions(current, isLauncher) {
+  const noComfy = !eziSettings.comfyTheme || !eziSettings.comfyThemeVars
+    || !Object.keys(eziSettings.comfyThemeVars || {}).length;
+  const opt = (value, label, disabled) =>
+    '<option value="' + value + '"' + (value === current ? ' selected' : '') + (disabled ? ' disabled' : '') + '>' + label + '</option>';
+  let html = EZI_THEME_LIST.map(function(t) {
+    let label = t.label;
+    if (t.value === 'comfyui' && eziSettings.comfyTheme) label += ' (' + eziSettings.comfyTheme + ')';
+    if (t.value === 'amd') label += ' (default)';
+    return opt(t.value, label, t.value === 'comfyui' && noComfy);
+  }).join('');
+  if (isLauncher) html += opt('follow', 'Follow EZi theme', false);
+  return html;
+}
+const settingsDefaults = {
+  showTooltips: true, customFileBrowser: '', theme: 'amd', launcherTheme: 'amd', selCopy: true, selGoogle: true,
+  selChatgpt: true, selClaude: false, selSave: true, selLang: 'en'
+};
 let eziSettings = Object.assign({}, settingsDefaults);
 function saveEziSettings() {
-  try { pywebview.api.save_ui_settings(JSON.stringify(eziSettings)); } catch(e) {}
+  try { return pywebview.api.save_ui_settings(JSON.stringify(eziSettings)); } catch(e) {}
 }
 function applyTheme(theme) {
-  document.documentElement.classList.remove('theme-pixaroma', 'theme-light', 'theme-comfyui');
+  document.documentElement.classList.remove('theme-pixaroma', 'theme-light', 'theme-comfyui', 'theme-aurora', 'theme-amd');
   if (theme === 'pixaroma') document.documentElement.classList.add('theme-pixaroma');
+  else if (theme === 'aurora') document.documentElement.classList.add('theme-aurora');
+  else if (theme === 'amd') document.documentElement.classList.add('theme-amd');
   else if (theme === 'light') document.documentElement.classList.add('theme-light');
   else if (theme === 'comfyui') {
     var vars = (eziSettings.comfyThemeVars && typeof eziSettings.comfyThemeVars === 'object')
@@ -1219,7 +1484,7 @@ function show_settings() {
         var fresh = JSON.parse(s);
         eziSettings.comfyTheme     = fresh.comfyTheme;
         eziSettings.comfyThemeVars = fresh.comfyThemeVars;
-        if ((eziSettings.theme || 'dark') === 'comfyui') {
+        if ((eziSettings.theme || 'amd') === 'comfyui') {
           applyTheme('comfyui');
         }
         var hasVars = fresh.comfyThemeVars && Object.keys(fresh.comfyThemeVars).length > 0;
@@ -1227,6 +1492,11 @@ function show_settings() {
         if (opt) {
           opt.textContent = 'ComfyUI' + (fresh.comfyTheme ? ' (' + fresh.comfyTheme + ')' : '');
           opt.disabled = !(fresh.comfyTheme && hasVars);
+        }
+        var lopt = document.querySelector('#set-launcher-theme option[value="comfyui"]');
+        if (lopt) {
+          lopt.textContent = 'ComfyUI' + (fresh.comfyTheme ? ' (' + fresh.comfyTheme + ')' : '');
+          lopt.disabled = !(fresh.comfyTheme && hasVars);
         }
       } catch(e) {}
     }).catch(function(){});
@@ -1318,20 +1588,25 @@ function show_settings() {
       <button id="stabtn-pixaroma" class="stab-btn" title="Free workflow files for every episode of the Pixaroma ComfyUI course."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M10 6.5h4a3.5 3.5 0 0 1 3.5 3.5v4"/></svg><span class="cs-lbl">Pixaroma Workflows</span></button>
       <button id="stabtn-wtivo" class="stab-btn" title="Watertight 3D AI models: the PixelArtistry workflow with the WTiVo nodes on AMD."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7Z"/></svg><span class="cs-lbl">WTiVo AMD</span></button>
       <div class="cs-sep"></div>
-      <button id="stabtn-about" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span class="cs-lbl">About EZi</span></button>
+      <button id="stabtn-about" class="stab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/>
+        <path d="M12 11v5M12 8h.01"/></svg><span class="cs-lbl">About EZi</span></button>
     </nav>
   </aside>`;
 
   const tabGeneral = `<div id="stab-general">
     <div style="margin-bottom:10px">
-      <span id="sysinfo-loading" style="font-size:11px;font-weight:bold;color:#f1fa8c;animation:sysinfo-pulse 0.9s ease-in-out infinite">Loading...</span>
+      <span id="sysinfo-loading"
+        style="font-size:11px;font-weight:bold;color:#f1fa8c;animation:sysinfo-pulse 0.9s ease-in-out infinite">Loading...</span>
       <style>@keyframes sysinfo-pulse{0%,100%{opacity:1;text-shadow:0 0 8px #f1fa8c}50%{opacity:0.25;text-shadow:none}}</style>
       <div id="sysinfo-table"></div>
     </div>
     <div class="cs-section">
       <div class="cs-sec-head">Package Cache</div>
       <div class="cs-sec-body" style="gap:6px">
-        <div id="cache-warning" style="display:none;align-items:center;gap:6px;padding:5px 8px;border-radius:4px;background:rgba(64,156,255,0.08);border:1px solid rgba(64,156,255,0.30)">
+        <div id="cache-warning"
+          style="display:none;align-items:center;gap:6px;padding:5px 8px;border-radius:4px;background:rgba(64,156,255,0.08);
+            border:1px solid rgba(64,156,255,0.30)">
           <span style="font-size:13px;line-height:1">💡️</span>
           <span style="font-size:10px;color:#4da3ff;line-height:1.4">This will clear pip and uv cache files to free disk space.</span>
         </div>
@@ -1341,7 +1616,9 @@ function show_settings() {
             <span style="color:var(--text2);font-style:italic">measuring…</span>
           </span>
           <button id="pip-cache-clear-btn" disabled
-            style="padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid var(--border);border-radius:4px;background:var(--btn-bg);color:var(--text2);cursor:default;transition:all .15s;line-height:1.4;flex:none;opacity:0.35">Clear</button>
+            style="padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid var(--border);
+              border-radius:4px;background:var(--btn-bg);color:var(--text2);cursor:default;transition:all .15s;line-height:1.4;
+              flex:none;opacity:0.35">Clear</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;font-size:11px">
           <span style="color:var(--text2);flex:none;width:28px;font-weight:bold">uv</span>
@@ -1349,7 +1626,14 @@ function show_settings() {
             <span style="color:var(--text2);font-style:italic">measuring…</span>
           </span>
           <button id="uv-cache-clear-btn" disabled
-            style="padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid var(--border);border-radius:4px;background:var(--btn-bg);color:var(--text2);cursor:default;transition:all .15s;line-height:1.4;flex:none;opacity:0.35">Clear</button>
+            style="padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid var(--border);
+              border-radius:4px;background:var(--btn-bg);color:var(--text2);cursor:default;transition:all .15s;line-height:1.4;
+              flex:none;opacity:0.35">Clear</button>
+        </div>
+        <div class="settings-row"
+             title="Keeps downloaded Python packages on your disk, so installs and updates are faster and use less internet.&#10;This works for ComfyUI and for the .bat files too. It uses more disk space.">
+          <input type="checkbox" id="set-keep-cache">
+          <label for="set-keep-cache">Keep package cache when installing</label>
         </div>
       </div>
     </div>
@@ -1400,7 +1684,9 @@ function show_settings() {
   const _cpUseBase = !!_cpDetectedBase;
 
   function _cpBrowseBtn(id) {
-    return `<button id="${id}" class="cs-folder-btn" title="Browse" aria-label="Browse"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 6.5A2.5 2.5 0 0 1 4.5 4H9l2 2.2h8.5A2.5 2.5 0 0 1 22 8.7V10H2z" fill="#E0A800"/><path d="M2 9h20v8.5a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 17.5z" fill="#FFCA28"/></svg></button>`;
+    return `<button id="${id}" class="cs-folder-btn" title="Browse" aria-label="Browse"><svg viewBox="0 0 24 24" width="18"
+      height="18" aria-hidden="true"><path d="M2 6.5A2.5 2.5 0 0 1 4.5 4H9l2 2.2h8.5A2.5 2.5 0 0 1 22 8.7V10H2z" fill="#E0A800"/>
+      <path d="M2 9h20v8.5a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 17.5z" fill="#FFCA28"/></svg></button>`;
   }
 
   function _cpClearBtn(id) {
@@ -1413,7 +1699,8 @@ function show_settings() {
   function _cpInput(id, val, placeholder) {
     return `<input type="text" id="${id}" value="${(val||'').replace(/"/g,'&quot;')}"
       placeholder="${placeholder}"
-      style="flex:1;min-width:0;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;outline:none;"
+      style="flex:1;min-width:0;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;
+        font-family:inherit;font-size:11px;padding:3px 6px;outline:none;"
       onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">`;
   }
 
@@ -1426,13 +1713,12 @@ function show_settings() {
           <label for="set-show-tooltips">Show Tooltips</label>
         </div>
         <div class="settings-row">
-          <label for="set-theme" style="cursor:default">Theme</label>
-          <select id="set-theme" style="max-width:180px">
-            <option value="dark"     ${(eziSettings.theme||'dark')==='dark'     ?'selected':''}>EZi Dark</option>
-            <option value="pixaroma" ${(eziSettings.theme||'dark')==='pixaroma' ?'selected':''}>Pixaroma</option>
-            <option value="light"    ${(eziSettings.theme||'dark')==='light'    ?'selected':''}>EZi Light</option>
-            <option value="comfyui"  ${(eziSettings.theme||'dark')==='comfyui'  ?'selected':''}${(!eziSettings.comfyTheme||!eziSettings.comfyThemeVars||!Object.keys(eziSettings.comfyThemeVars||{}).length)?'disabled':''}>ComfyUI${eziSettings.comfyTheme?' ('+eziSettings.comfyTheme+')':''}</option>
-          </select>
+          <label for="set-theme" style="cursor:default">EZi Theme</label>
+          <select id="set-theme" style="max-width:180px">${eziThemeOptions(eziSettings.theme||'amd', false)}</select>
+        </div>
+        <div class="settings-row">
+          <label for="set-launcher-theme" style="cursor:default">Launcher Theme</label>
+          <select id="set-launcher-theme" style="max-width:180px">${eziThemeOptions(eziSettings.launcherTheme||'amd', true)}</select>
         </div>
         <div class="settings-row" style="gap:6px">
           <label style="cursor:default;flex:none;white-space:nowrap">Output Folder Browser</label>
@@ -1446,15 +1732,40 @@ function show_settings() {
       <div class="cs-sec-head">Console</div>
       <div class="cs-sec-body">
         <div class="settings-row">
-          <input type="checkbox" id="set-hide-deprecation" ${eziSettings.hideDeprecationWarnings ? 'checked' : ''}>
-          <label for="set-hide-deprecation">Hide Deprecation Warnings In Console</label>
+          <input type="checkbox" id="set-sel-copy" ${eziSettings.selCopy !== false ? 'checked' : ''}>
+          <label for="set-sel-copy">Selection popup: Copy</label>
+        </div>
+        <div class="settings-row">
+          <input type="checkbox" id="set-sel-save" ${eziSettings.selSave !== false ? 'checked' : ''}>
+          <label for="set-sel-save">Selection popup: Save</label>
+        </div>
+        <div class="settings-row">
+          <input type="checkbox" id="set-sel-google" ${eziSettings.selGoogle !== false ? 'checked' : ''}>
+          <label for="set-sel-google">Selection popup: Google</label>
+        </div>
+        <div class="settings-row">
+          <input type="checkbox" id="set-sel-chatgpt" ${eziSettings.selChatgpt !== false ? 'checked' : ''}>
+          <label for="set-sel-chatgpt">Selection popup: Ask ChatGPT</label>
+        </div>
+        <div class="settings-row">
+          <input type="checkbox" id="set-sel-claude" ${eziSettings.selClaude === true ? 'checked' : ''}>
+          <label for="set-sel-claude">Selection popup: Ask Claude</label>
+        </div>
+        <div
+          style="padding:2px 0 6px 25px;font-size:11px;color:var(--text2)">Ask ChatGPT and Ask Claude require an account on the respective site.</div>
+        <div class="settings-row">
+          <label for="set-sel-lang" style="cursor:default">AI answer language</label>
+          <select id="set-sel-lang" style="max-width:180px">${window.__eziAiLangOptions(eziSettings.selLang)}</select>
         </div>
         <div class="settings-row" style="gap:6px;align-items:center">
           <label style="cursor:default;flex:none;white-space:nowrap">Console BG</label>
           ${_cpInput('set-con-bg', eziSettings.consoleBgImage||'', 'None (use icon)')}
           ${_cpClearBtn('set-con-bg-clear')}
           ${_cpBrowseBtn('set-con-bg-btn')}
-          <select id="set-con-bg-fit" style="flex-shrink:0;width:76px;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:11px;padding:2px 4px;cursor:pointer" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+          <select id="set-con-bg-fit"
+            style="flex-shrink:0;width:76px;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);
+              border-radius:4px;font-family:inherit;font-size:11px;padding:2px 4px;cursor:pointer"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
             <option value="fit"     ${(eziSettings.consoleBgFit||'fit')==='fit'     ?'selected':''}>Fit</option>
             <option value="stretch" ${(eziSettings.consoleBgFit||'fit')==='stretch' ?'selected':''}>Stretch</option>
             <option value="tile"    ${(eziSettings.consoleBgFit||'fit')==='tile'    ?'selected':''}>Tile</option>
@@ -1465,7 +1776,8 @@ function show_settings() {
             value="${Math.round((+(eziSettings.consoleBgOpacity||0.12))*100)}"
             style="flex-shrink:0;width:68px;accent-color:var(--accent);cursor:pointer"
             title="Opacity">
-          <span id="set-con-bg-opacity-val" style="flex-shrink:0;font-size:10px;color:var(--text2);min-width:28px;text-align:right">${Math.round((+(eziSettings.consoleBgOpacity||0.12))*100)}%</span>
+          <span id="set-con-bg-opacity-val"
+            style="flex-shrink:0;font-size:10px;color:var(--text2);min-width:28px;text-align:right">${Math.round((+(eziSettings.consoleBgOpacity||0.12))*100)}%</span>
         </div>
         <div class="settings-row">
           <input type="checkbox" id="set-con-bg-anim" ${eziSettings.consoleBgAnimate !== false ? 'checked' : ''}>
@@ -1493,10 +1805,14 @@ function show_settings() {
             style="flex-shrink:0;width:20px;height:20px;border-radius:50%;border:1px solid var(--accent);background:var(--btn-bg);color:var(--accent);font-size:11px;font-weight:bold;cursor:pointer;line-height:1;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s,color .15s;"
             onmouseover="this.style.background='var(--accent-bg)';this.style.borderColor='var(--accent-hover)';this.style.color='var(--accent-hover)';"
             onmouseout="this.style.background='var(--btn-bg)';this.style.borderColor='var(--accent)';this.style.color='var(--accent)';">i</button>
-          <div id="sec-info-tooltip" style="display:none;position:absolute;z-index:300000;background:var(--modal-bg);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--text);line-height:1.6;max-width:320px;box-shadow:0 4px 16px rgba(0,0,0,0.5);white-space:normal;">
+          <div id="sec-info-tooltip"
+            style="display:none;position:absolute;z-index:300000;background:var(--modal-bg);border:1px solid var(--border2);
+              border-radius:6px;padding:10px 12px;font-size:11px;color:var(--text);line-height:1.6;max-width:320px;
+              box-shadow:0 4px 16px rgba(0,0,0,0.5);white-space:normal;">
             <b style="color:var(--accent)">strong</b> - blocks high and middle risk features<br>
             <b style="color:var(--accent)">normal</b> - blocks only high risk features<br>
-            <b style="color:var(--accent)">normal-</b> - blocks high risk features only when <code style="color:#f1fa8c">--listen</code> is set outside 127.x<br>
+            <b style="color:var(--accent)">normal-</b> - blocks high risk features only when <code
+              style="color:#f1fa8c">--listen</code> is set outside 127.x<br>
             <b style="color:var(--accent)">weak</b> - all features are available
           </div>
         </div>
@@ -1509,12 +1825,17 @@ function show_settings() {
         <div id="pinned-list" style="display:flex;flex-direction:column;gap:3px"></div>
         <div style="display:flex;gap:6px;margin-top:2px">
           <input type="text" id="pinned-new-input" placeholder="e.g. numpy==1.26.4"
-            style="flex:1;min-width:0;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;outline:none;"
+            style="flex:1;min-width:0;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);
+              border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;outline:none;"
             onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'"
             onkeydown="if(event.key==='Enter'){document.getElementById('pinned-add-btn').click();}">
           <button id="pinned-add-btn"
-            style="flex-shrink:0;padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid var(--accent);border-radius:4px;background:var(--btn-bg);color:var(--accent);cursor:pointer;transition:all .15s;line-height:1.4;"
-            onmouseover="this.style.background='var(--accent-bg)';this.style.borderColor='var(--accent-hover)';this.style.color='var(--accent-hover)';"
+            style="flex-shrink:0;padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;
+              border:1px solid var(--accent);border-radius:4px;background:var(--btn-bg);color:var(--accent);cursor:pointer;
+              transition:all .15s;line-height:1.4;"
+            onmouseover="this.style.background='var(--accent-bg)';
+                         this.style.borderColor='var(--accent-hover)';
+                         this.style.color='var(--accent-hover)';"
             onmouseout="this.style.background='var(--btn-bg)';this.style.borderColor='var(--accent)';this.style.color='var(--accent)';">Add</button>
         </div>
       </div>
@@ -1572,14 +1893,20 @@ function show_settings() {
           <input type="text" id="set-startup-args"
             value="${(eziSettings.startupArgs||'').replace(/"/g,'&quot;')}"
             placeholder="e.g. --port 8601 --max-upload-size 4000"
-            style="flex:1;min-width:0;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;outline:none;"
+            style="flex:1;min-width:0;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);
+              border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;outline:none;"
             onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
           <button id="startup-args-clear-btn" title="Clear"
-            style="flex-shrink:0;padding:3px 7px;font-family:inherit;font-size:12px;font-weight:bold;border:1px solid var(--border3);border-radius:4px;background:var(--btn-bg);color:var(--text2);cursor:pointer;transition:all .15s;line-height:1.4;"
+            style="flex-shrink:0;padding:3px 7px;font-family:inherit;font-size:12px;font-weight:bold;
+              border:1px solid var(--border3);border-radius:4px;background:var(--btn-bg);color:var(--text2);cursor:pointer;
+              transition:all .15s;line-height:1.4;"
             onmouseover="this.style.borderColor='#ff5555';this.style.color='#ff5555';"
             onmouseout="this.style.borderColor='var(--border3)';this.style.color='var(--text2)';"> &#x2715;</button>
         </div>
-        <div id="startup-args-info-panel" style="display:none;margin-top:4px;background:var(--input-bg);border:1px solid var(--border2);border-radius:4px;padding:8px 10px;font-size:10px;color:var(--text2);line-height:1.7;max-height:260px;overflow-y:auto;white-space:pre-wrap;font-family:'Consolas',monospace">
+        <div id="startup-args-info-panel"
+          style="display:none;margin-top:4px;background:var(--input-bg);border:1px solid var(--border2);border-radius:4px;
+            padding:8px 10px;font-size:10px;color:var(--text2);line-height:1.7;max-height:260px;overflow-y:auto;
+            white-space:pre-wrap;font-family:'Consolas',monospace">
 <b style="color:var(--accent)">Network &amp; Server</b>
   --listen [IP]                   Listen IP (default: 127.0.0.1); bare flag = 0.0.0.0,::
   --port PORT                     Listen port (default: 8188)
@@ -1727,9 +2054,9 @@ function show_settings() {
   </div>`;
 
   let _initialShowTooltips = eziSettings.showTooltips !== false;
-  let _initialHideDeprecation = eziSettings.hideDeprecationWarnings;
   let _initialFileBrowser = eziSettings.customFileBrowser || '';
-  let _initialTheme = eziSettings.theme || 'dark';
+  let _initialTheme = eziSettings.theme || 'amd';
+  let _initialLauncherTheme = eziSettings.launcherTheme || 'amd';
   let _initialCpInput  = _cp.input  || '';
   let _initialCpOutput = _cp.output || '';
   let _initialCpUser   = _cp.user   || '';
@@ -1737,6 +2064,12 @@ function show_settings() {
   let _initialConBgFit     = eziSettings.consoleBgFit     || 'fit';
   let _initialConBgOpacity = Math.round((+(eziSettings.consoleBgOpacity||0.12))*100);
   let _initialConBgAnimate = eziSettings.consoleBgAnimate !== false;
+  let _initialSelCopy = eziSettings.selCopy !== false;
+  let _initialSelSave = eziSettings.selSave !== false;
+  let _initialSelGoogle = eziSettings.selGoogle !== false;
+  let _initialSelChatgpt = eziSettings.selChatgpt !== false;
+  let _initialSelClaude = eziSettings.selClaude === true;
+  let _initialSelLang = eziSettings.selLang || 'en';
   let _initialSecurityLevel = '';
   let _initialStartupArgs = null;
   let _initialPinned = null;
@@ -1911,11 +2244,12 @@ function show_settings() {
 
   function _checkChanges() {
     const tipsChanged = document.getElementById('set-show-tooltips').checked !== _initialShowTooltips;
-    const hideDepChanged = document.getElementById('set-hide-deprecation').checked !== _initialHideDeprecation;
     const fbInput = document.getElementById('set-file-browser');
     const fbChanged = fbInput && (fbInput.value.trim() !== _initialFileBrowser);
     const selTheme = document.getElementById('set-theme');
     const themeChanged = selTheme && selTheme.value !== _initialTheme;
+    const selLauncherTheme = document.getElementById('set-launcher-theme');
+    const launcherThemeChanged = selLauncherTheme && selLauncherTheme.value !== _initialLauncherTheme;
     const selComfy = document.getElementById('set-comfy-ver');
     const comfyChanged = selComfy && !selComfy.disabled && selComfy.dataset.current !== selComfy.value;
     const selFe = document.getElementById('set-frontend-ver');
@@ -1930,6 +2264,19 @@ function show_settings() {
                          (conBgOpaEl  && parseInt(conBgOpaEl.value)  !== _initialConBgOpacity) ||
                          (conBgAnimEl && conBgAnimEl.checked          !== _initialConBgAnimate);
 
+    const selCopyEl = document.getElementById('set-sel-copy');
+    const selGoogleEl = document.getElementById('set-sel-google');
+    const selChatgptEl = document.getElementById('set-sel-chatgpt');
+    const selClaudeEl = document.getElementById('set-sel-claude');
+    const selSaveEl = document.getElementById('set-sel-save');
+    const selLangEl = document.getElementById('set-sel-lang');
+    const selChanged = (selCopyEl && selCopyEl.checked !== _initialSelCopy) ||
+                       (selGoogleEl && selGoogleEl.checked !== _initialSelGoogle) ||
+                       (selChatgptEl && selChatgptEl.checked !== _initialSelChatgpt) ||
+                       (selClaudeEl && selClaudeEl.checked !== _initialSelClaude) ||
+                       (selSaveEl && selSaveEl.checked !== _initialSelSave) ||
+                       (selLangEl && selLangEl.value !== _initialSelLang);
+
     const secSel = document.getElementById('set-security-level');
     const secChanged = secSel && _initialSecurityLevel && secSel.value !== _initialSecurityLevel;
 
@@ -1940,7 +2287,8 @@ function show_settings() {
 
     const applyBtn = Array.from(document.querySelectorAll('#modal-btns .modal-btn')).find(b => b.textContent.trim() === 'Apply');
     if (applyBtn) {
-      const hasChanges = tipsChanged || hideDepChanged || fbChanged || themeChanged || comfyChanged || feChanged || cpChanged || conBgChanged || secChanged || startupArgsChanged || pinnedChanged;
+          const hasChanges = tipsChanged || fbChanged || themeChanged || launcherThemeChanged || comfyChanged || feChanged ||
+          cpChanged || conBgChanged || selChanged || secChanged || startupArgsChanged || pinnedChanged;
       applyBtn.disabled = !hasChanges;
       if (hasChanges) {
         applyBtn.classList.add('primary');
@@ -1967,8 +2315,6 @@ function show_settings() {
     const tipsChanged = tipsChecked !== _initialShowTooltips;
     eziSettings.showTooltips = tipsChecked;
     if (tipsChanged) applyTooltips(tipsChecked);
-    const hideDepChanged = document.getElementById('set-hide-deprecation').checked !== _initialHideDeprecation;
-    eziSettings.hideDeprecationWarnings = document.getElementById('set-hide-deprecation').checked;
     const fbInput = document.getElementById('set-file-browser');
     const fbVal = fbInput ? fbInput.value.trim() : '';
     const fbChanged = fbVal !== _initialFileBrowser;
@@ -1976,6 +2322,32 @@ function show_settings() {
     const selTheme = document.getElementById('set-theme');
     const themeChanged = selTheme && selTheme.value !== _initialTheme;
     if (themeChanged) { eziSettings.theme = selTheme.value; applyTheme(selTheme.value); }
+    const selLauncherTheme = document.getElementById('set-launcher-theme');
+    const launcherThemeChanged = selLauncherTheme && selLauncherTheme.value !== _initialLauncherTheme;
+    if (launcherThemeChanged) { eziSettings.launcherTheme = selLauncherTheme.value; _initialLauncherTheme = selLauncherTheme.value; }
+    const selCopyEl = document.getElementById('set-sel-copy');
+    const selGoogleEl = document.getElementById('set-sel-google');
+    const selChatgptEl = document.getElementById('set-sel-chatgpt');
+    const selClaudeEl = document.getElementById('set-sel-claude');
+    const selSaveEl = document.getElementById('set-sel-save');
+    const selLangEl = document.getElementById('set-sel-lang');
+    if (selCopyEl && selGoogleEl && selChatgptEl && selClaudeEl && selSaveEl) {
+      if (selLangEl) { eziSettings.selLang = selLangEl.value; _initialSelLang = selLangEl.value; }
+      eziSettings.selSave = selSaveEl.checked;
+      _initialSelSave = selSaveEl.checked;
+      eziSettings.selCopy = selCopyEl.checked;
+      eziSettings.selGoogle = selGoogleEl.checked;
+      eziSettings.selChatgpt = selChatgptEl.checked;
+      eziSettings.selClaude = selClaudeEl.checked;
+      _initialSelClaude = selClaudeEl.checked;
+      _initialSelCopy = selCopyEl.checked;
+      _initialSelGoogle = selGoogleEl.checked;
+      _initialSelChatgpt = selChatgptEl.checked;
+      window.__eziSelMenuSync({
+        copy: eziSettings.selCopy, google: eziSettings.selGoogle, chatgpt: eziSettings.selChatgpt, claude: eziSettings.selClaude,
+        save: eziSettings.selSave, lang: eziSettings.selLang
+      });
+    }
     const cpChanged = _cpPathsChanged();
     const conBgImgEl  = document.getElementById('set-con-bg');
     const conBgFitEl  = document.getElementById('set-con-bg-fit');
@@ -2028,9 +2400,11 @@ function show_settings() {
       return;
     }
 
-    saveEziSettings();
+    var _savePromise = saveEziSettings();
     if (conBgChanged) {
-      try { pywebview.api.apply_console_bg(); } catch(e) {}
+      var _applyBg = function() { try { pywebview.api.apply_console_bg(); } catch(e) {} };
+      if (_savePromise && _savePromise.then) _savePromise.then(_applyBg, _applyBg);
+      else _applyBg();
     }
     const secSel2 = document.getElementById('set-security-level');
     const secChanged2 = secSel2 && _initialSecurityLevel && secSel2.value !== _initialSecurityLevel;
@@ -2060,7 +2434,8 @@ function show_settings() {
       return;
     }
 
-    if (tipsChanged || hideDepChanged || fbChanged || themeChanged || comfyChanged || feChanged || cpChanged || conBgChanged || secChanged2 || startupArgsChanged2 || pinnedPending) {
+        if (tipsChanged || fbChanged || themeChanged || launcherThemeChanged || comfyChanged || feChanged || cpChanged ||
+        conBgChanged || secChanged2 || startupArgsChanged2 || pinnedPending) {
       document.getElementById('modal-overlay').classList.remove('active');
     }
   }
@@ -2076,33 +2451,82 @@ function show_settings() {
       </div>
       <svg class="px-flow-art" viewBox="0 0 200 180" fill="none" aria-hidden="true">
       <path d="M56 40h34q14 0 14 14v63h27M56 140h20q14 0 14-14V75q0-14 14-14h27" stroke="#f66744" stroke-width="1.5" opacity=".45"/>
-      <rect x="4" y="16" width="52" height="48" rx="9" fill="#2a2a2a" stroke="#705044"/><rect x="4" y="16" width="52" height="12" rx="6" fill="#f66744" opacity=".45"/>
+      <rect x="4" y="16" width="52" height="48" rx="9" fill="#2a2a2a" stroke="#705044"/><rect x="4" y="16" width="52" height="12"
+        rx="6" fill="#f66744" opacity=".45"/>
       <path d="M15 39h29M15 47h18" stroke="#84716a" stroke-width="3" stroke-linecap="round"/>
-      <rect x="4" y="116" width="52" height="48" rx="9" fill="#2a2a2a" stroke="#705044"/><rect x="4" y="116" width="52" height="12" rx="6" fill="#f66744" opacity=".45"/>
+      <rect x="4" y="116" width="52" height="48" rx="9" fill="#2a2a2a" stroke="#705044"/><rect x="4" y="116" width="52"
+        height="12" rx="6" fill="#f66744" opacity=".45"/>
       <path d="M15 139h29M15 147h18" stroke="#84716a" stroke-width="3" stroke-linecap="round"/>
       <rect x="131" y="40" width="65" height="98" rx="10" fill="#2a2a2a" stroke="#b56750"/>
       <rect x="131" y="40" width="65" height="14" rx="7" fill="#f66744" opacity=".8"/>
       <rect x="143" y="66" width="41" height="39" rx="5" fill="#3b302b"/>
       <path d="m150 97 10-15 7 9 5-6 7 12" stroke="#f66744" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M143 118h32M143 126h21" stroke="#84716a" stroke-width="3" stroke-linecap="round"/>
-      <circle cx="56" cy="40" r="3" fill="#f66744"/><circle cx="56" cy="140" r="3" fill="#f66744"/><circle cx="131" cy="61" r="3" fill="#f66744"/><circle cx="131" cy="117" r="3" fill="#f66744"/>
+      <circle cx="56" cy="40" r="3" fill="#f66744"/><circle cx="56" cy="140" r="3" fill="#f66744"/><circle cx="131" cy="61" r="3"
+        fill="#f66744"/><circle cx="131" cy="117" r="3" fill="#f66744"/>
     </svg>
     </div>
     <div class="px-community">
-      <div class="px-community-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/></svg></div>
+      <div class="px-community-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+        <path
+        d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083
+          1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0
+          00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076
+          4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0
+          00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0
+          01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614
+          0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0
+          01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067
+          3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0
+          00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757
+          1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419
+          0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/></svg></div>
       <div class="px-community-copy">
         <div class="px-community-title">Create together.</div>
         <div class="px-community-sub">Join the Pixaroma Discord community.</div>
-        <a class="px-badge-link" href="https://discord.com/invite/gggpkVgBf3" onclick="pywebview.api.open_url(this.href);return false" aria-label="Join Pixaroma Discord"><img class="px-badge" alt="Join Pixaroma Discord" title="Join Pixaroma Discord" loading="lazy"
-           src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FgggpkVgBf3%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&logo=discord&logoColor=white&labelColor=3b3633&label=Community&color=f66744&suffix=%20users" onerror="this.parentElement.style.display='none'"></a>
+        <a class="px-badge-link" href="https://discord.com/invite/gggpkVgBf3"
+          onclick="pywebview.api.open_url(this.href);return false" aria-label="Join Pixaroma Discord"><img class="px-badge"
+          alt="Join Pixaroma Discord" title="Join Pixaroma Discord" loading="lazy"
+           src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FgggpkVgBf3%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&logo=discord&logoColor=white&labelColor=3b3633&label=Community&color=f66744&suffix=%20users"
+             onerror="this.parentElement.style.display='none'"></a>
       </div>
-      <button class="px-btn px-discord" onclick="pywebview.api.open_url('https://discord.com/invite/gggpkVgBf3')"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/></svg><span>Join Discord</span><svg class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
+      <button class="px-btn px-discord"
+        onclick="pywebview.api.open_url('https://discord.com/invite/gggpkVgBf3')"><svg viewBox="0 0 24 24" width="20" height="20"
+        fill="currentColor" aria-hidden="true">
+        <path
+        d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083
+          1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0
+          00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076
+          4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0
+          00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0
+          01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614
+          0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0
+          01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067
+          3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0
+          00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757
+          1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419
+          0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/></svg><span>Join Discord</span><svg
+        class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
     </div>
     <div class="px-resources">
       <h3 class="px-resource-head">Keep exploring</h3>
       <div class="px-resource-grid">
-        <button class="px-link" onclick="pywebview.api.open_url('https://workflows.pixaroma.com/help/')"><span class="px-link-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1.1 1-1.1 1.8M12 17h.01"/></svg></span><span class="px-link-copy"><span class="px-link-name">Help</span><span class="px-link-desc">Guides &amp; troubleshooting</span><span class="px-link-url">workflows.pixaroma.com/help</span></span><svg class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
-        <button class="px-link" onclick="pywebview.api.open_url('https://www.youtube.com/@pixaroma')"><span class="px-link-icon"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="1.5" y="4.5" width="21" height="15" rx="4.5" fill="#FF0000"/><path d="M10 9l5.2 3-5.2 3z" fill="#fff"/></svg></span><span class="px-link-copy"><span class="px-link-name">YouTube</span><span class="px-link-desc">Watch the ComfyUI course</span><span class="px-link-url">@pixaroma</span></span><svg class="px-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
+        <button class="px-link" onclick="pywebview.api.open_url('https://workflows.pixaroma.com/help/')"><span
+          class="px-link-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/>
+          <path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1.1 1-1.1 1.8M12 17h.01"/></svg></span><span class="px-link-copy"><span
+          class="px-link-name">Help</span><span class="px-link-desc">Guides &amp; troubleshooting</span><span
+          class="px-link-url">workflows.pixaroma.com/help</span></span><svg class="px-ext" viewBox="0 0 24 24" width="14"
+          height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
+        <button class="px-link" onclick="pywebview.api.open_url('https://www.youtube.com/@pixaroma')"><span
+          class="px-link-icon"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="1.5" y="4.5" width="21"
+          height="15" rx="4.5" fill="#FF0000"/><path d="M10 9l5.2 3-5.2 3z"
+          fill="#fff"/></svg></span><span class="px-link-copy"><span class="px-link-name">YouTube</span><span
+          class="px-link-desc">Watch the ComfyUI course</span><span class="px-link-url">@pixaroma</span></span><svg class="px-ext"
+          viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></button>
       </div>
     </div>
   </div>`;
@@ -2150,26 +2574,60 @@ function show_settings() {
   const tabAbout = `<div id="stab-about" style="display:none">
     <div class="ab-card">
       <div class="ab-top">
-        <div class="ab-identity"><div class="ab-mark"><svg class="" viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="3"/><path d="M8 21h8M12 18v3m-5-12 3 3-3 3M13 12h4"/></svg></div><div><div class="ab-brand">EZi Desktop</div><div class="ab-kicker">ComfyUI Easy Install</div></div></div>
-        <span class="ab-ver">v{EZI_VERSION}</span>
+        <div class="ab-identity"><div class="ab-mark" aria-hidden="true"><img src="data:image/png;base64,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" alt=""></div><div><div class="ab-brand">EZi Desktop</div><div
+          class="ab-kicker">ComfyUI Easy Install</div></div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="ab-ver">v{EZI_VERSION}</span><a href="https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases" onclick="pywebview.api.open_url(this.href);return false" style="display:none;align-items:center" aria-label="Downloads"><img src="https://img.shields.io/github/downloads/BoomerCyb/ComfyUI-Easy-Install-AMD/total?style=for-the-badge&amp;label=Downloads" alt="Downloads" onload="this.parentElement.style.display='inline-flex'" onerror="this.parentElement.style.display='none'"></a></div>
       </div>
-      <h2 class="ab-lead">Portable ComfyUI.<br>One place to manage it.</h2>
+      <h2 class="ab-lead">Your ComfyUI, simplified.</h2>
       <div class="ab-sub">A dashboard for your packages, environments, and configuration.</div>
-      <div class="ab-features"><span class="ab-feature"><svg class="" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5v8l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5"/></svg>Packages</span><span class="ab-feature"><svg class="" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>Environments</span><span class="ab-feature"><svg class="" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--modal-bg)"/><circle cx="15" cy="17" r="3" fill="var(--modal-bg)"/></svg>Configuration</span></div>
-      <div class="ab-by"><span class="ab-avatar" aria-hidden="true">I</span><span>Made with love by <b>Ivo</b>, a.k.a. <a class="ab-link" href="https://github.com/Tavris1" onclick="pywebview.api.open_url(this.href);return false" title="github.com/Tavris1">Tavris1</a></span></div>
-      <div class="ab-by"><span class="ab-avatar" aria-hidden="true">B</span><span>AMD edition by <a class="ab-link" href="https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD" onclick="pywebview.api.open_url(this.href);return false" title="github.com/BoomerCyb/ComfyUI-Easy-Install-AMD">BoomerCyb</a></span></div>
+      <div class="ab-platforms"><button class="ab-platform-btn" onclick="pywebview.api.open_url('https://www.microsoft.com/en-gb/software-download/')"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M2 4.7 10.5 3.5v8H2Zm10-1.4L22 2v9.5H12ZM2 13h8.5v8L2 19.8Zm10 0h10v9l-10-1.3Z"/></svg>Windows</button><button class="ab-platform-btn" onclick="pywebview.api.open_url('https://www.amd.com/en/support/download/drivers.html')"><svg viewBox="0 0 100 100" aria-hidden="true" fill="#ED1C24"><path d="M0 0h100v100L70 70V30H30Z"/><path d="M30 41.5 0 71.5V100h28.5l30-30H30Z"/></svg>AMD Radeon GPUs</button><button class="ab-platform-btn" onclick="pywebview.api.open_url('https://discord.com/invite/gggpkVgBf3')"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="12" cy="6" r="3"/><circle cx="4" cy="8" r="2.5"/><circle cx="20" cy="8" r="2.5"/><path d="M7 21v-5a5 5 0 0 1 10 0v5ZM0 19v-4a4 4 0 0 1 6-3.5A7 7 0 0 0 5 16v3Zm19 0v-3a7 7 0 0 0-1-4.5 4 4 0 0 1 6 3.5v4Z"/></svg>Pixaroma Community Edition</button></div>
+
     </div>
+      <div class="ab-features"><span class="ab-feature"><svg class="" viewBox="0 0 24 24" width="13" height="13" fill="none"
+        stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m12 3 9 5v8l-9 5-9-5V8Z"/>
+        <path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5"/></svg><span><strong>Packages</strong><small>Install, update and manage ComfyUI packages with ease.</small></span></span><span class="ab-feature"><svg class=""
+        viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/>
+        <path d="m7 9 3 3-3 3M13 15h4"/></svg><span><strong>Environments</strong><small>Manage your ComfyUI environments.</small></span></span><span class="ab-feature"><svg class="" viewBox="0 0 24 24"
+        width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--modal-bg)"/><circle cx="15" cy="17"
+        r="3" fill="var(--modal-bg)"/></svg><span><strong>Configuration</strong><small>Configure ComfyUI and related settings.</small></span></span></div>
+    <div class="ab-actions">
+      <div class="ab-by"><svg class="ab-author-logo" viewBox="0 0 115.71 90" width="32" height="32" aria-hidden="true" focusable="false"><path fill="#43A25A" d="M48.21 45c0,1.71 0.68,3.34 1.89,4.55 1.21,1.21 2.84,1.88 4.54,1.88l6.43 0c1.71,-0 3.34,-0.68 4.55,-1.89 1.21,-1.21 1.88,-2.84 1.88,-4.54l0 -38.57c-0,-1.71 -0.68,-3.34 -1.89,-4.55 -1.21,-1.21 -2.84,-1.88 -4.54,-1.88l-6.43 0c-1.71,0 -3.34,0.68 -4.55,1.89 -1.21,1.21 -1.88,2.84 -1.88,4.54l0 38.57zm53.1 45l-86.91 0c-3.82,0 -7.48,-1.51 -10.18,-4.21 -2.7,-2.7 -4.22,-6.38 -4.22,-10.19l0 -48.34c-0,-3.82 1.51,-7.48 4.21,-10.18 2.7,-2.7 6.37,-4.22 10.19,-4.22l24.17 0 0 19.28 -19.28 0 0 38.57 77.14 0 0 -38.57 -18.81 0 0 -19.28 23.7 0c3.82,-0 7.48,1.51 10.18,4.21 2.7,2.7 4.22,6.38 4.22,10.19l0 48.34c0,3.82 -1.51,7.48 -4.21,10.18 -2.7,2.7 -6.37,4.22 -10.19,4.22z"/></svg><span>Made with love by <b>ivo</b>, a.k.a. <a class="ab-link" href="https://github.com/Tavris1"
+        onclick="pywebview.api.open_url(this.href);return false" title="github.com/Tavris1"><b>Tavris1</b></a></span></div>
+      <div class="ab-by"><span>AMD edition by <a class="ab-link" href="https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD" onclick="pywebview.api.open_url(this.href);return false" title="github.com/BoomerCyb/ComfyUI-Easy-Install-AMD"><b>BoomerCyb</b></a></span></div>
     <div class="ab-project-links">
-      <button class="ab-btn" onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD')"><svg class="ab-btn-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1Z"/></svg><span class="ab-btn-copy">Home Page<small>Explore the project on GitHub</small></span><svg class="ab-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></button>
-      <button class="ab-btn" onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest')"><svg class="ab-btn-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg><span class="ab-btn-copy">See what's new<small>Latest release &amp; improvements</small></span><svg class="ab-ext" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></button>
+      <button class="ab-btn"onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD')"><svg
+        class="ab-btn-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1Z"/></svg><span
+        class="ab-btn-copy">Home Page</span><svg class="ab-ext" viewBox="0 0 24 24"
+        width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></button>
+      <button class="ab-btn"
+        onclick="pywebview.api.open_url('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD/releases/latest')"><svg
+        class="ab-btn-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg><span
+        class="ab-btn-copy">What's new</span><svg class="ab-ext"
+        viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></button>
+    </div>
     </div>
     <div class="ab-support">
-      <h3 class="ab-support-head"><svg class="" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>Like Easy Install?</h3>
-      <div class="ab-support-sub">Support Ivo and the future of EZi.</div>
+      <h3 class="ab-support-head"><svg class="" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+        stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path
+        d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>Support Development</h3>
+      <div class="ab-support-sub">Your support helps build a better future for EZi.</div>
       <div class="ab-support-grid">
-        <button class="ab-btn ab-support-btn" onclick="pywebview.api.open_url('https://paypal.me/tavris1')" title="Donate via PayPal"><svg class="ab-btn-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 21 3-18h5a5 5 0 0 1 0 10h-6M6 17l2-12h5"/></svg><span>PayPal</span></button>
-        <button class="ab-btn ab-support-btn" onclick="pywebview.api.open_url('https://buymeacoffee.com/tavris1')"><svg class="ab-btn-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h12v6a6 6 0 0 1-12 0ZM17 8h2a3 3 0 1 1 0 6h-2M8 3v2M12 3v2M4 21h15"/></svg><span>Buy Me a Coffee</span></button>
-        <button class="ab-btn ab-support-btn" onclick="pywebview.api.open_url('https://github.com/sponsors/Tavris1')"><svg class="" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg><span>Sponsor</span></button>
+        <a class="ab-support-badge" href="https://paypal.me/tavris1" onclick="pywebview.api.open_url(this.href); return false;" title="PayPal">
+          <img src="https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&amp;logo=paypal&amp;logoColor=white" alt="PayPal" height="28"></a>
+        <a class="ab-support-badge" href="https://buymeacoffee.com/tavris1" onclick="pywebview.api.open_url(this.href); return false;" title="Buy Me a Coffee">
+          <img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&amp;logo=buy-me-a-coffee&amp;logoColor=black" alt="Buy Me a Coffee" height="28"></a>
+        <a class="ab-support-badge" href="https://github.com/sponsors/Tavris1" onclick="pywebview.api.open_url(this.href); return false;" title="GitHub Sponsors">
+          <img src="https://img.shields.io/badge/Sponsor-30363D?style=for-the-badge&amp;logo=GitHub-Sponsors&amp;logoColor=white" alt="GitHub Sponsors" height="28"></a>
       </div>
     </div>
   </div>`;
@@ -2258,7 +2716,8 @@ function show_settings() {
 
   function _updateModalBtns(tabName) {
     const applyBtn = Array.from(document.querySelectorAll('#modal-btns .modal-btn')).find(b => b.textContent.trim() === 'Apply');
-    const copyBtn  = Array.from(document.querySelectorAll('#modal-btns .modal-btn')).find(b => b.textContent.includes('Copy SysInfo') || b.textContent.includes('Copied') || b.textContent.includes('Failed'));
+    const copyBtn  = Array.from(document.querySelectorAll('#modal-btns .modal-btn')).find(b =>
+      b.textContent.includes('Copy SysInfo') || b.textContent.includes('Copied') || b.textContent.includes('Failed'));
     if (applyBtn) applyBtn.style.display = (tabName === 'advanced' || tabName === 'appearance') ? '' : 'none';
     if (copyBtn)  copyBtn.style.display  = (tabName === 'general')  ? '' : 'none';
     if (tabName === 'advanced' || tabName === 'appearance') _checkChanges();
@@ -2278,10 +2737,10 @@ function show_settings() {
   setTimeout(() => {
     const tipsCheck = document.getElementById('set-show-tooltips');
     if (tipsCheck) tipsCheck.addEventListener('change', _checkChanges);
-    const depCheck = document.getElementById('set-hide-deprecation');
-    if (depCheck) depCheck.addEventListener('change', _checkChanges);
     const themeSel = document.getElementById('set-theme');
     if (themeSel) themeSel.addEventListener('change', function() { applyTheme(this.value); _checkChanges(); });
+    const launcherThemeSel = document.getElementById('set-launcher-theme');
+    if (launcherThemeSel) launcherThemeSel.addEventListener('change', _checkChanges);
     const comfySel = document.getElementById('set-comfy-ver');
     if (comfySel) comfySel.addEventListener('change', _checkChanges);
     const feSel = document.getElementById('set-frontend-ver');
@@ -2319,6 +2778,10 @@ function show_settings() {
       const valEl = document.getElementById('set-con-bg-opacity-val');
       if (valEl) valEl.textContent = this.value + '%';
       _checkChanges();
+    });
+    ['set-sel-copy', 'set-sel-save', 'set-sel-google', 'set-sel-chatgpt', 'set-sel-claude', 'set-sel-lang'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', _checkChanges);
     });
     const conBgAnim = document.getElementById('set-con-bg-anim');
     if (conBgAnim) conBgAnim.addEventListener('change', _checkChanges);
@@ -2446,7 +2909,9 @@ function show_settings() {
           '</span>' +
           '<span style="flex:1;font-size:11px;color:var(--text);font-family:inherit">' + p + '</span>' +
           '<button data-pin-idx="' + i + '" class="pin-remove-btn" title="Remove"' +
-            ' style="flex-shrink:0;padding:1px 7px;font-family:inherit;font-size:12px;font-weight:bold;border:1px solid var(--border3);border-radius:4px;background:var(--btn-bg);color:var(--text2);cursor:pointer;line-height:1.4;transition:border-color .15s,color .15s;"' +
+            ' style="flex-shrink:0;padding:1px 7px;font-family:inherit;font-size:12px;font-weight:bold;' +
+            'border:1px solid var(--border3);border-radius:4px;background:var(--btn-bg);color:var(--text2);cursor:pointer;' +
+            'line-height:1.4;transition:border-color .15s,color .15s;"' +
             ' onmouseover="this.style.borderColor=\'#ff5555\';this.style.color=\'#ff5555\';"' +
             ' onmouseout="this.style.borderColor=\'var(--border3)\';this.style.color=\'var(--text2)\';">&#x2715;</button>' +
         '</div>';
@@ -2641,8 +3106,20 @@ function show_settings() {
     const uvEmpty  = parseFloat(document.getElementById('uv-cache-size').textContent)  === 0;
     warn.style.display = (pipEmpty && uvEmpty) ? 'none' : 'flex';
   }
+  const _keepCacheChk = document.getElementById('set-keep-cache');
+  _keepCacheChk.addEventListener('change', function() {
+    const want = _keepCacheChk.checked;
+    pywebview.api.set_keep_cache(want).then(function(actual) {
+      if (_stale()) return;
+      _keepCacheChk.checked = !!actual;
+    }).catch(function() {
+      if (_stale()) return;
+      _keepCacheChk.checked = !want;
+    });
+  });
   pywebview.api.get_cache_sizes().then(function(d) {
     if (_stale()) return;
+    _keepCacheChk.checked = !!d.keep;
     _setCacheSize('pip-cache-size', d.pip || null);
     _setCacheSize('uv-cache-size',  d.uv  || null);
     _updateCacheWarning();
@@ -2847,7 +3324,9 @@ function toggle() {
     termPanel.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease';
     termPanel.style.transform = 'translateX(0)'; termPanel.style.opacity = '1'; termPanel.style.pointerEvents = 'auto';
     icoBg.style.transition = 'none'; icoBg.style.opacity = '0'; icoBg.style.display = 'none';
-    btn.textContent = 'ComfyUI ▶'; dot.style.display = ''; statusEl.textContent = uiLoaded ? 'ComfyUI is running' : dot.classList.contains('ready') ? 'ComfyUI is starting' : 'Starting...';
+    btn.textContent = 'ComfyUI ▶';
+    dot.style.display = '';
+    statusEl.textContent = uiLoaded ? 'ComfyUI is running' : dot.classList.contains('ready') ? 'ComfyUI is starting' : 'Starting...';
     document.getElementById('reload-btn').style.display = 'none';
     termPanel.addEventListener('transitionend', function _done() {
       termPanel.removeEventListener('transitionend', _done);
@@ -3225,6 +3704,256 @@ function tImportEnd() {
   tSchedule();
   return true;
 }
+(function() {
+  var pop = document.createElement('div');
+  pop.id = 'sel-pop';
+  var cur = '';
+  var on = { copy: true, save: true, google: true, chatgpt: true, claude: false };
+  var btns = {};
+  function mk(key, label, fn) {
+    var b = document.createElement('button');
+    b.textContent = label;
+    b.addEventListener('mousedown', function(e) { e.preventDefault(); e.stopPropagation(); });
+    b.addEventListener('mouseup', function(e) { e.stopPropagation(); });
+    b.addEventListener('click', function(e) { e.stopPropagation(); fn(cur); hide(); });
+    pop.appendChild(b);
+    btns[key] = b;
+  }
+  var aiLang = 'en';
+  var LANGS = [
+    ['en', 'English', 'English'],
+    ['id', 'Indonesian', 'Bahasa Indonesia'],
+    ['ms', 'Malay', 'Bahasa Melayu'],
+    ['bs', 'Bosnian', 'Bosanski'],
+    ['ca', 'Catalan', 'Català'],
+    ['cs', 'Czech', 'Čeština'],
+    ['da', 'Danish', 'Dansk'],
+    ['de', 'German', 'Deutsch'],
+    ['et', 'Estonian', 'Eesti'],
+    ['es', 'Spanish', 'Español'],
+    ['fil', 'Filipino', 'Filipino'],
+    ['fr', 'French', 'Français'],
+    ['hr', 'Croatian', 'Hrvatski'],
+    ['it', 'Italian', 'Italiano'],
+    ['lv', 'Latvian', 'Latviešu'],
+    ['lt', 'Lithuanian', 'Lietuvių'],
+    ['hu', 'Hungarian', 'Magyar'],
+    ['nl', 'Dutch', 'Nederlands'],
+    ['no', 'Norwegian', 'Norsk'],
+    ['pl', 'Polish', 'Polski'],
+    ['pt-BR', 'Brazilian Portuguese', 'Português (Brasil)'],
+    ['pt-PT', 'European Portuguese', 'Português (Portugal)'],
+    ['ro', 'Romanian', 'Română'],
+    ['sq', 'Albanian', 'Shqip'],
+    ['sk', 'Slovak', 'Slovenčina'],
+    ['sl', 'Slovenian', 'Slovenščina'],
+    ['fi', 'Finnish', 'Suomi'],
+    ['sv', 'Swedish', 'Svenska'],
+    ['vi', 'Vietnamese', 'Tiếng Việt'],
+    ['tr', 'Turkish', 'Türkçe'],
+    ['bg', 'Bulgarian', 'Български'],
+    ['kk', 'Kazakh', 'Қазақша'],
+    ['mk', 'Macedonian', 'Македонски'],
+    ['ru', 'Russian', 'Русский'],
+    ['sr', 'Serbian', 'Српски'],
+    ['uk', 'Ukrainian', 'Українська'],
+    ['el', 'Greek', 'Ελληνικά'],
+    ['he', 'Hebrew', 'עברית'],
+    ['ar', 'Arabic', 'العربية'],
+    ['fa', 'Persian', 'فارسی'],
+    ['ur', 'Urdu', 'اردو'],
+    ['hi', 'Hindi', 'हिन्दी'],
+    ['bn', 'Bengali', 'বাংলা'],
+    ['ta', 'Tamil', 'தமிழ்'],
+    ['th', 'Thai', 'ไทย'],
+    ['ka', 'Georgian', 'ქართული'],
+    ['zh-CN', 'Chinese (Simplified)', '中文 (简体)'],
+    ['zh-TW', 'Chinese (Traditional)', '中文 (繁體)'],
+    ['ja', 'Japanese', '日本語'],
+    ['ko', 'Korean', '한국어']
+  ];
+  window.__eziAiLangOptions = function(sel) {
+    sel = sel || 'en';
+    return LANGS.map(function(l) {
+      return '<option value="' + l[0] + '"' + (l[0] === sel ? ' selected' : '') + '>' + l[2] + (l[0] === 'en' ? '' : ' (' + l[1] + ')') + '</option>';
+    }).join('');
+  };
+  function langName() {
+    for (var i = 0; i < LANGS.length; i++) { if (LANGS[i][0] === aiLang) return LANGS[i][1]; }
+    return 'English';
+  }
+  function aiHead() {
+    return 'The following text is from the ComfyUI console (ComfyUI Portable, Windows). ' +
+      'Explain what this message means, whether any action is needed, and how to resolve the issue if necessary. Please respond in ' + langName() + ':';
+  }
+  var URL_BUDGET = 3000;
+  function flat(t) { return t.replace(/\s+/g, ' ').trim().slice(0, 256); }
+  function aiUrl(base, t) {
+    var head = aiHead() + '\n\n```\n', tail = '\n```';
+    var body = t.replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+    var pre = '';
+    while (base.length + encodeURIComponent(head + pre + body + tail).length > URL_BUDGET && body.length > 20) {
+      body = body.slice(Math.max(1, Math.ceil(body.length * 0.1)));
+      pre = '...\n';
+    }
+    return base + encodeURIComponent(head + pre + body + tail);
+  }
+  function openUrl(u) { try { pywebview.api.open_url(u); } catch (e) {} }
+  mk('copy', 'Copy', function(t) {
+    var ok = false;
+    try { pywebview.api.write_clipboard(t); ok = true; } catch (e) {}
+    if (!ok) { try { navigator.clipboard.writeText(t); } catch (e) {} }
+  });
+  mk('save', 'Save', function(t) {
+    try { pywebview.api.save_console_log(t, 'selection'); } catch (e) {}
+  });
+  mk('google', 'Google', function(t) { openUrl('https://www.google.com/search?q=' + encodeURIComponent('ComfyUI ' + flat(t))); });
+  mk('chatgpt', 'Ask ChatGPT', function(t) { openUrl(aiUrl('https://chatgpt.com/?q=', t)); });
+  mk('claude', 'Ask Claude', function(t) { openUrl(aiUrl('https://claude.ai/new?q=', t)); });
+  document.body.appendChild(pop);
+  function anyOn() { return Object.keys(on).some(function(k) { return on[k]; }); }
+  function refresh() {
+    var vis = Object.keys(btns).filter(function(k) { return on[k]; });
+    Object.keys(btns).forEach(function(k) {
+      btns[k].style.display = on[k] ? '' : 'none';
+      btns[k].style.borderRight = (k === vis[vis.length - 1]) ? 'none' : '';
+    });
+    if (!anyOn()) hide();
+  }
+  window.__eziSetSelPop = function(o) {
+    if (!o) return;
+    if (typeof o.lang === 'string' && o.lang) aiLang = o.lang;
+    Object.keys(on).forEach(function(k) { if (k in o && o[k] !== undefined) on[k] = (k === 'claude') ? o[k] === true : o[k] !== false; });
+    refresh();
+  };
+  function hide() { pop.classList.remove('show'); cur = ''; }
+  function selText() {
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return '';
+    var r = sel.getRangeAt(0);
+    if (!term.contains(r.commonAncestorContainer)) return '';
+    return sel.toString();
+  }
+  var downInTerm = false;
+  document.addEventListener('mousedown', function(e) {
+    downInTerm = term.contains(e.target);
+    if (!pop.contains(e.target)) hide();
+  });
+  document.addEventListener('mouseup', function(e) {
+    var fromTerm = downInTerm;
+    downInTerm = false;
+    if (!fromTerm || pop.contains(e.target) || !anyOn()) return;
+    var x = e.clientX, y = e.clientY;
+    setTimeout(function() {
+      var t = selText();
+      if (!t || !t.trim()) { hide(); return; }
+      cur = t;
+      pop.style.left = '0px'; pop.style.top = '0px';
+      pop.classList.add('show');
+      var w = pop.offsetWidth, h = pop.offsetHeight;
+      var left = Math.max(4, Math.min(x - w / 2, window.innerWidth - w - 4));
+      var top = y - h - 14;
+      if (top < 36) top = y + 18;
+      top = Math.max(4, Math.min(top, window.innerHeight - h - 4));
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+    }, 0);
+  });
+  document.addEventListener('selectionchange', function() {
+    if (pop.classList.contains('show') && !selText()) hide();
+  });
+  term.addEventListener('wheel', hide, { passive: true });
+  term.addEventListener('scroll', hide, { passive: true });
+  window.addEventListener('blur', hide);
+  window.addEventListener('resize', hide);
+})();
+function saveLog() {
+  if (window.__eziCloseSelMenu) window.__eziCloseSelMenu();
+  var out = T.lines.map(function(l) { return l.map(function(p) { return p.t; }).join(''); });
+  while (out.length && !out[out.length - 1].trim()) out.pop();
+  if (!out.length) return;
+  try { pywebview.api.save_console_log(out.join('\n')); } catch (e) {}
+}
+(function() {
+  var menu = document.getElementById('sel-menu');
+  var mbtn = document.getElementById('menu-btn');
+  if (!menu || !mbtn) return;
+  var inputs = Array.prototype.slice.call(menu.querySelectorAll('input[data-k]'));
+  var langSel = document.getElementById('sel-lang');
+  if (langSel) langSel.innerHTML = window.__eziAiLangOptions('en');
+  function setAll(o) {
+    if (langSel && typeof o.lang === 'string' && o.lang) langSel.value = o.lang;
+    inputs.forEach(function(i) { if (i.dataset.k in o) i.checked = i.dataset.k === 'claude' ? o.claude === true : o[i.dataset.k] !== false; });
+    window.__eziSetSelPop(o);
+  }
+  inputs.forEach(function(i) {
+    i.addEventListener('change', function() {
+      var o = {}; o[i.dataset.k] = i.checked;
+      window.__eziSetSelPop(o);
+      try { pywebview.api.set_sel_option(i.dataset.k, i.checked); } catch (e) {}
+    });
+  });
+  if (langSel) langSel.addEventListener('change', function() {
+    window.__eziSetSelPop({ lang: langSel.value });
+    try { pywebview.api.set_sel_option('lang', langSel.value); } catch (e) {}
+  });
+  window.__eziSelMenuSync = setAll;
+  menu.querySelectorAll('[data-tip]').forEach(function(el) { eziLazyTip(el); });
+  function close() { menu.classList.remove('open'); mbtn.classList.remove('open'); }
+  window.__eziCloseSelMenu = close;
+  window.toggleSelMenu = function(e) {
+    e.stopPropagation();
+    var o = menu.classList.toggle('open');
+    mbtn.classList.toggle('open', o);
+  };
+  document.addEventListener('mousedown', function(e) { if (!menu.contains(e.target) && !mbtn.contains(e.target)) close(); });
+  window.addEventListener('blur', close);
+})();
+(function() {
+  var MIN = 6, MAX = 40, DEF = 12;
+  var size = DEF, saveTimer = 0;
+  window.__eziTermFont = DEF;
+  function apply(n) {
+    n = Math.max(MIN, Math.min(MAX, n));
+    if (n === size) return false;
+    size = n;
+    window.__eziTermFont = n;
+    term.style.fontSize = n + 'px';
+    var zv = document.getElementById('zoom-val');
+    if (zv) zv.textContent = Math.round(n / DEF * 100) + '%';
+    if (tAtBottom) term.scrollTop = term.scrollHeight;
+    try { send_columns(); } catch (e) {}
+    return true;
+  }
+  function setSize(n) {
+    if (!apply(n)) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function() {
+      try { pywebview.api.set_console_zoom(window.__eziZoomKind || 'attached', size); } catch (e) {}
+    }, 400);
+  }
+  window.__eziStepTermFont = function(d) { setSize(size + d); };
+  window.__eziResetTermFont = function() { setSize(DEF); };
+  window.__eziSetTermFont = function(n) {
+    n = parseInt(n, 10);
+    if (!isNaN(n)) apply(n);
+  };
+  term.addEventListener('wheel', function(e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    if (e.deltaY) setSize(size + (e.deltaY < 0 ? 1 : -1));
+  }, { passive: false });
+  document.addEventListener('keydown', function(e) {
+    if (!e.ctrlKey || e.altKey || e.metaKey) return;
+    if (typeof showingUI !== 'undefined' && showingUI) return;
+    var k = e.key;
+    if (k === '+' || k === '=') setSize(size + 1);
+    else if (k === '-' || k === '_') setSize(size - 1);
+    else if (k === '0') setSize(DEF);
+    else return;
+    e.preventDefault();
+  });
+})();
 function eziLazyTip(btn) {
   if (!btn) return;
   var tip = btn.getAttribute('data-tip') || '';
@@ -3317,7 +4046,10 @@ function _showRestartNotice(text) {
   _eziSetShellExpanded('full');
   var n = document.createElement('div');
   n.id = 'ezi-restart-notice';
-  n.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-width:90vw;box-sizing:border-box;white-space:normal;text-align:center;line-height:1.4;background:#1c3a1c;border:1px solid #50fa7b;color:#50fa7b;padding:10px 22px;border-radius:6px;font-size:12px;font-family:inherit;z-index:2147483647;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.5);visibility:hidden;';
+  n.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-width:90vw;box-sizing:border-box;' +
+    'white-space:normal;text-align:center;line-height:1.4;background:#1c3a1c;border:1px solid #50fa7b;color:#50fa7b;' +
+    'padding:10px 22px;border-radius:6px;font-size:12px;font-family:inherit;z-index:2147483647;pointer-events:none;' +
+    'box-shadow:0 4px 16px rgba(0,0,0,0.5);visibility:hidden;';
   n.textContent = text;
   document.body.appendChild(n);
   setTimeout(function() { n.style.visibility = 'visible'; }, showingUI ? 150 : 0);
@@ -3364,12 +4096,15 @@ function startCrop(mode) {
   if (_cropMode === 'video') {
     hint.innerHTML = '\uD83C\uDF9E\uFE0F Record: Click for full window &nbsp;|&nbsp; Drag to select area'
       + _fpsPickerHTML()
-      + '<button id="crop-cancel-btn" class="btn-danger" style="margin-left:4px;padding:0 10px;height:22px;font-family:inherit;font-size:11px;font-weight:bold;border-radius:4px;cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;gap:4px;box-sizing:border-box;">\u2715 Cancel</button>';
+      + '<button id="crop-cancel-btn" class="btn-danger" style="margin-left:4px;padding:0 10px;height:22px;'
+      + 'font-family:inherit;font-size:11px;font-weight:bold;border-radius:4px;cursor:pointer;pointer-events:auto;'
+      + 'display:inline-flex;align-items:center;gap:4px;box-sizing:border-box;">\u2715 Cancel</button>';
     hint.style.color = '#ff8888';
     _updateFpsBtns();
   } else {
     hint.innerHTML = `Click for full window &nbsp;|&nbsp; Drag to select area &nbsp;<button id="crop-cancel-btn" class="btn-danger"
-        style="margin-left:8px;padding:0 10px;height:22px;font-family:inherit;font-size:11px;font-weight:bold;border-radius:4px;cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;gap:4px;box-sizing:border-box;">\u2715 Cancel</button>`;
+        style="margin-left:8px;padding:0 10px;height:22px;font-family:inherit;font-size:11px;font-weight:bold;border-radius:4px;
+          cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;gap:4px;box-sizing:border-box;">\u2715 Cancel</button>`;
     hint.style.color = '';
   }
   _reattachCropCancelBtn();
@@ -3411,9 +4146,13 @@ function showRecIndicator(x, y, w, h) {
   document.getElementById('rec-outline').style.display = 'none';
   var recIndicator = document.getElementById('rec-indicator');
   recIndicator.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
-  recIndicator.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:#ff4444;display:inline-block;animation:rec-blink 1s ease-in-out infinite;flex-shrink:0;"></span>
+  recIndicator.innerHTML = `<span
+    style="width:8px;height:8px;border-radius:50%;background:#ff4444;display:inline-block;
+      animation:rec-blink 1s ease-in-out infinite;flex-shrink:0;"></span>
     <button onclick="stopRecording()"
-      style="padding:3px 10px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid #ff4444;border-radius:4px;background:#6e2020;color:#ff8888;cursor:pointer;animation:rec-blink 1s ease-in-out infinite;line-height:1;letter-spacing:0.5px;">&#x23F9; Stop REC</button>`;
+      style="padding:3px 10px;font-family:inherit;font-size:11px;font-weight:bold;border:1px solid #ff4444;border-radius:4px;
+        background:#6e2020;color:#ff8888;cursor:pointer;animation:rec-blink 1s ease-in-out infinite;line-height:1;
+        letter-spacing:0.5px;">&#x23F9; Stop REC</button>`;
 }
 function stopRecording() {
   _cropPending = false;
@@ -3514,6 +4253,19 @@ function show_ezi_updating() {
 
 function show_ezi_updated(version) {
   _eziNoticeSet({ msg: '\u2713 EZi updated' + (version ? ' \u2192 ' + version : ''), color: '#50fa7b', whatsNew: true });
+}
+
+function show_upstream_update(version, basedOn, url) {
+  // Ivo's original EZi has a newer release than the one this AMD edition is built on.
+  const notice = document.getElementById('upstream-notice');
+  const msg = document.getElementById('upstream-msg');
+  msg.textContent = '\u2605 Ivo released EZi ' + version;
+  msg.title = 'ComfyUI-Easy-Install by Ivo ' + version + ' is out. This AMD edition is built on ' + basedOn
+    + '; the AMD edition gets its changes in a later update.';
+  const btn = document.getElementById('upstream-notes-btn');
+  btn.title = url;
+  btn.onclick = function() { pywebview.api.open_url(url); };
+  notice.style.display = 'flex';
 }
 
 function doEziUpdate() {
@@ -3618,9 +4370,15 @@ document.getElementById('settings-btn').addEventListener('click', function(e) {
       `<div style="text-align:center;line-height:2">
         <div style="font-size:32px;margin-bottom:8px">\uD83D\uDE80</div>
         <div style="color:#f1fa8c;font-size:13px;font-weight:bold">${_eziDeob('Q29tZnlVSS1FYXN5LUluc3RhbGw=')}</div>
-        <div style="color:#8b949e;font-size:11px;margin-top:6px">${_eziDeob('TWFkZSB3aXRoIA==')}\u2764\uFE0F${_eziDeob('IGJ5IA==')}<span style="color:#58a6ff">${_eziDeob('aXZvIGFrYSBUYXZyaXMx')}</span></div>
-        <div style="color:#00FF00;font-size:11px;margin-top:6px">${_eziDeob('Q29uZ3JhdHVsYXRpb25zIHRvIFBpeGFyb21hIG9uIHJlYWNoaW5nIDEwMCwwMDAgc3Vic2NyaWJlcnMg')}<span style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif; color: unset;">\uD83C\uDF89\uFE0F</span></div>
-        <div style="color:#8b949e;font-size:11px;margin-top:6px">${_eziDeob('T25seSA5MDAsMDAwIGxlZnQgdW50aWwgdGhlIG5leHQgRWFzdGVyIGVnZyA=')}<span style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif; color: unset;">\uD83D\uDE0E\uFE0F</span></div>
+        <div
+          style="color:#8b949e;font-size:11px;margin-top:6px">${_eziDeob('TWFkZSB3aXRoIA==')}\u2764\uFE0F${_eziDeob('IGJ5IA==')}<span
+          style="color:#58a6ff">${_eziDeob('aXZvIGFrYSBUYXZyaXMx')}</span></div>
+        <div
+          style="color:#00FF00;font-size:11px;margin-top:6px">${_eziDeob('Q29uZ3JhdHVsYXRpb25zIHRvIFBpeGFyb21hIG9uIHJlYWNoaW5nIDEwMCwwMDAgc3Vic2NyaWJlcnMg')}<span
+          style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif; color: unset;">\uD83C\uDF89\uFE0F</span></div>
+        <div
+          style="color:#8b949e;font-size:11px;margin-top:6px">${_eziDeob('T25seSA5MDAsMDAwIGxlZnQgdW50aWwgdGhlIG5leHQgRWFzdGVyIGVnZyA=')}<span
+          style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif; color: unset;">\uD83D\uDE0E\uFE0F</span></div>
       </div>`,
       [{ label: 'Cheers!', cls: '', action: () => {} }]
     );
@@ -3693,7 +4451,9 @@ function show_update_confirm() {
 function show_update_missing(path, name) {
   var esc = function(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
   showModal('⚠', 'Bat file not found',
-    '<code style="color:#f1fa8c;font-size:11px">' + esc(name || 'Update ComfyUI.bat') + '</code> not found in:<br><code style="color:#f1fa8c;font-size:11px">' + esc(path) + '</code><br><br>Nothing was changed.',
+    '<code style="color:#f1fa8c;font-size:11px">' + esc(name || 'Update ComfyUI.bat') +
+      '</code> not found in:<br><code style="color:#f1fa8c;font-size:11px">' + esc(path) +
+      '</code><br><br>Nothing was changed.',
     [
       { label: 'OK', cls: 'primary', action: () => {} },
     ]
@@ -3768,10 +4528,33 @@ document.addEventListener('click', function() {
 });
 
 window.__consoleDetached = false;
+window.__eziSelPopSync = function(o) {
+  if (!o) return;
+  if ('copy' in o) eziSettings.selCopy = o.copy !== false;
+  if ('google' in o) eziSettings.selGoogle = o.google !== false;
+  if ('chatgpt' in o) eziSettings.selChatgpt = o.chatgpt !== false;
+  if ('claude' in o) eziSettings.selClaude = o.claude === true;
+  if ('save' in o) eziSettings.selSave = o.save !== false;
+  if (typeof o.lang === 'string' && o.lang) eziSettings.selLang = o.lang;
+  window.__eziSelMenuSync(o);
+  var _langEl = document.getElementById('set-sel-lang');
+  if (_langEl && eziSettings.selLang) _langEl.value = eziSettings.selLang;
+  [['set-sel-copy', eziSettings.selCopy], ['set-sel-save', eziSettings.selSave],
+   ['set-sel-google', eziSettings.selGoogle], ['set-sel-chatgpt', eziSettings.selChatgpt],
+   ['set-sel-claude', eziSettings.selClaude]].forEach(function(p) {
+    var el = document.getElementById(p[0]);
+    if (el) el.checked = p[0] === 'set-sel-claude' ? p[1] === true : p[1] !== false;
+  });
+};
 eziLazyTip(document.getElementById('detach-btn'));
+eziLazyTip(document.getElementById('menu-btn'));
 function updateDetachBtn() {
   var b = document.getElementById('detach-btn');
-  if (b) b.style.display = (!showingUI && !window.__consoleDetached) ? 'inline-flex' : 'none';
+  if (b) b.style.display = !window.__consoleDetached ? 'inline-flex' : 'none';
+  var vis = !showingUI && !window.__consoleDetached;
+  var mw = document.getElementById('menu-wrap');
+  if (mw) mw.style.display = vis ? '' : 'none';
+  if (!vis && window.__eziCloseSelMenu) window.__eziCloseSelMenu();
 }
 function detachConsole() {
   if (window.__consoleDetached) return;
@@ -3787,15 +4570,17 @@ window.__eziConsoleDetachedUI = function(isDet) {
   if (isDet) {
     document.documentElement.classList.add('console-detached');
     btn.style.display = 'none';
-    if (rb) rb.style.display = 'none';
-    statusEl.textContent = 'Console detached';
+    if (rb) rb.style.display = showingUI ? 'inline-flex' : 'none';
+    statusEl.textContent = showingUI ? '' : 'Console detached';
     tReset();
     if (!showingUI && uiLoaded) toggle();
   } else {
     document.documentElement.classList.remove('console-detached');
     btn.style.display = '';
     if (rb) rb.style.display = showingUI ? 'inline-flex' : 'none';
-    if (!showingUI) {
+    if (showingUI) {
+      statusEl.textContent = '';
+    } else {
       statusEl.textContent = uiLoaded ? 'ComfyUI is running' : dot.classList.contains('ready') ? 'ComfyUI is starting' : 'Starting...';
     }
     tSnapBottom();
@@ -3808,7 +4593,7 @@ function send_columns() {
   if (window.__consoleDetached) return;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  ctx.font = '12px Consolas, "Courier New", monospace';
+  ctx.font = (window.__eziTermFont || 12) + 'px Consolas, "Courier New", monospace';
   const charW = ctx.measureText('M').width || 7.2;
   const style = window.getComputedStyle(term);
   const padL = parseFloat(style.paddingLeft) || 0;
@@ -3840,8 +4625,13 @@ window.addEventListener('resize', send_columns);
         try {
           var loaded = JSON.parse(s);
           Object.assign(eziSettings, loaded);
-          applyTheme(eziSettings.theme || 'dark');
+          applyTheme(eziSettings.theme || 'amd');
           applyTooltips(eziSettings.showTooltips !== false);
+          window.__eziSelMenuSync({
+            copy: eziSettings.selCopy, google: eziSettings.selGoogle, chatgpt: eziSettings.selChatgpt,
+            claude: eziSettings.selClaude, save: eziSettings.selSave, lang: eziSettings.selLang
+          });
+          window.__eziSetTermFont(eziSettings.consoleZoomAttached);
           if (typeof eziSettings.recFps !== 'undefined' && [15,30,60].indexOf(eziSettings.recFps) !== -1) {
             _recFps = eziSettings.recFps;
           }

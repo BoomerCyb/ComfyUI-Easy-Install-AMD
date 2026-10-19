@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.26-amd"
+APP_VERSION = "0.1.27-amd"
 
 import sys
 import os
@@ -241,6 +241,32 @@ def _ezi_hook_core_ready(window):
         _do()
 
 
+_EASY_MENU_SHIM = r"""
+var _restartNoticeTimer = null;
+function _showRestartNotice(text) {
+  var old = document.getElementById('ezi-restart-notice');
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+  if (_restartNoticeTimer) { clearTimeout(_restartNoticeTimer); _restartNoticeTimer = null; }
+  var n = document.createElement('div');
+  n.id = 'ezi-restart-notice';
+  n.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-width:90vw;box-sizing:border-box;' +
+    'white-space:normal;text-align:center;line-height:1.4;background:#1c3a1c;border:1px solid #50fa7b;color:#50fa7b;' +
+    'padding:10px 22px;border-radius:6px;font-size:12px;font-family:inherit;z-index:2147483647;pointer-events:none;' +
+    'box-shadow:0 4px 16px rgba(0,0,0,0.5);';
+  n.textContent = text;
+  document.body.appendChild(n);
+  _restartNoticeTimer = setTimeout(function() {
+    _restartNoticeTimer = null;
+    if (n.parentNode) n.parentNode.removeChild(n);
+  }, 5000);
+}
+"""
+
+
+class _EziSkipComfyView(Exception):
+    pass
+
+
 def _ezi_setup_main_window(window):
     form = window.native
     shell = form.webview
@@ -257,6 +283,8 @@ def _ezi_setup_main_window(window):
 
         comfy_webview = None
         try:
+            if ADV_CONSOLE:
+                raise _EziSkipComfyView()
             _WebView2Class = type(shell)
             comfy_webview = _WebView2Class()
             comfy_webview.Anchor = _WinForms.AnchorStyles.Top | _WinForms.AnchorStyles.Left
@@ -426,15 +454,14 @@ def _ezi_setup_main_window(window):
             except Exception:
                 shell.CoreWebView2InitializationCompleted += _ezi_init_comfy_webview
         except Exception as _e:
-            print("Could not create ComfyUI webview:", _e)
+            if not isinstance(_e, _EziSkipComfyView):
+                print("Could not create ComfyUI webview:", _e)
             comfy_webview = None
 
         def _ezi_apply_bounds(sender=None, args=None):
             try:
-                is_maximized = (form.WindowState == _WinForms.FormWindowState.Maximized)
-                gap = 0 if is_maximized else _EZI_TOP_RESIZE_GAP
                 target_w = max(0, form.ClientSize.Width)
-                full_h = max(0, form.ClientSize.Height - gap)
+                full_h = max(0, form.ClientSize.Height)
                 _sc = _ezi_dpi_scale(form=form)
                 bar_h = int(round(_EZI_BAR_HEIGHT * _sc))
                 expanded = _EZI_WINDOW_REF.get("shell_expanded", True)
@@ -447,16 +474,17 @@ def _ezi_setup_main_window(window):
                 else:
                     shell_h = bar_h
                 if comfy_webview is not None:
-                    ctop = gap + bar_h
+                    ctop = bar_h
+                    overlap = max(2, int(round(2 * _sc)))
                     _prog = _EZI_WINDOW_REF.get("comfy_slide_progress", 1.0)
                     comfy_x = int(round(target_w * (1.0 - _prog))) if _prog < 1.0 else 0
-                    comfy_webview.SetBounds(comfy_x, ctop, target_w,
-                                            max(0, form.ClientSize.Height - ctop))
-                    shell.SetBounds(0, gap, target_w,
+                    comfy_webview.SetBounds(comfy_x, ctop - overlap, target_w,
+                                            max(0, form.ClientSize.Height - ctop + overlap))
+                    shell.SetBounds(0, 0, target_w,
                                            max(bar_h, shell_h))
                     shell.BringToFront()
                 else:
-                    shell.SetBounds(0, gap, target_w, shell_h)
+                    shell.SetBounds(0, 0, target_w, shell_h)
             except Exception:
                 pass
 
@@ -552,7 +580,7 @@ def _ezi_download_with_progress(url, dest_path, println=None, label=None, header
     last_print = 0.0
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=(_comfy_ssl() if url.startswith("https://127.0.0.1") else None)) as resp:
             total = 0
             try:
                 total = int(resp.headers.get("Content-Length") or 0)
@@ -697,10 +725,8 @@ except ImportError:
 
 
 CURRENT_SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+KEEP_CACHE_FLAG_PATH = os.path.join(CURRENT_SCRIPT_DIR, 'keep_cache.flag')
 
-_DEPR_MARK = '[DEPRECATION WARNING] Detected import of deprecated legacy API:'
-_DEPR_HOLD_MAX = len(_DEPR_MARK) + 80
-_LINE_TERM_RE = re.compile(r'[\r\n]')
 _PRESS_KEY_RE = re.compile(r'[^\r\n]*press any key[^\r\n]*(?:\r?\n|$)', re.IGNORECASE)
 
 _PTY_ROWS = 40
@@ -786,6 +812,10 @@ def _log_error(where):
 EZI_UA_TAG = "ComfyUI-EZi-Desktop"
 # Releases of this AMD edition (Update Easy-Install installs the latest one).
 EZI_RELEASES_REPO = "BoomerCyb/ComfyUI-Easy-Install-AMD"
+# Ivo's original ComfyUI-Easy-Install, and the release of it this AMD edition is built on
+# (tools/sync_upstream.py sets it). A newer one there is shown as a notice, not installed.
+UPSTREAM_REPO = "Tavris1/ComfyUI-Easy-Install"
+UPSTREAM_VERSION = "3.24.0"
 
 
 def _ezi_version_key(version):
@@ -805,7 +835,8 @@ CHROME_UA = (
 
 _argv_rest = sys.argv[1:]
 DEV_MODE = '--dev' in _argv_rest
-_argv_rest = [a for a in _argv_rest if a != '--dev']
+ADV_CONSOLE = '--advanced-console' in _argv_rest
+_argv_rest = [a for a in _argv_rest if a not in ('--dev', '--advanced-console')]
 _bat_arg = _argv_rest[0] if _argv_rest else "Start ComfyUI.bat"
 BAT_FILE = _bat_arg if os.path.isabs(_bat_arg) else os.path.join(ROOT_DIR, _bat_arg)
 COMFY_PORT = 8188
@@ -814,6 +845,30 @@ COMFYUI_URL_RE = re.compile(
     r'To see the GUI go to:\s+https?://(?:127\.0\.0\.1|localhost|0\.0\.0\.0):(\d+)',
     re.IGNORECASE
 )
+
+_COMFY_SCHEME = ["http"]
+_LOOPBACK_SSL = [None]
+
+
+def _comfy_origin(port):
+    return f"{_COMFY_SCHEME[0]}://127.0.0.1:{port}"
+
+
+def _comfy_ssl():
+    if _COMFY_SCHEME[0] != "https":
+        return None
+    if _LOOPBACK_SSL[0] is None:
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        _LOOPBACK_SSL[0] = ctx
+    return _LOOPBACK_SSL[0]
+
+
+def _comfy_urlopen(url, timeout=5):
+    import urllib.request as _ur
+    return _ur.urlopen(url, timeout=timeout, context=_comfy_ssl())
 
 
 def _setup_path():
@@ -1933,8 +1988,65 @@ def _get_comfy_theme_css_vars():
             '--text-on-accent':   text_on_accent,
         }
     except Exception:
+        _log_error('_get_comfy_theme_css_vars')
         return {}
 
+
+_EZI_AI_LANGS = (
+    "en", "zh-CN", "zh-TW", "es", "ru", "ja", "ko", "de", "fr", "pt-BR", "it", "tr", "ar", "hi", "id", "vi", "pl", "uk", "nl",
+    "th", "fa", "bg", "cs", "ro", "el", "hu", "sr", "he", "bn", "sv", "ms", "fil"
+)
+
+
+def _ezi_system_lang():
+    try:
+        k32 = ctypes.windll.kernel32
+        buf = ctypes.create_unicode_buffer(85)
+        name = ""
+        try:
+            lang_id = k32.GetUserDefaultUILanguage()
+            if lang_id and k32.LCIDToLocaleName(lang_id, buf, 85, 0):
+                name = buf.value
+        except Exception:
+            name = ""
+        if not name and k32.GetUserDefaultLocaleName(buf, 85):
+            name = buf.value
+        low = name.lower().replace("_", "-")
+        if not low:
+            return "en"
+        primary = low.split("-")[0]
+        if primary == "zh":
+            return "zh-TW" if any(t in low for t in ("tw", "hk", "mo", "hant")) else "zh-CN"
+        if primary == "pt":
+            return "pt-BR"
+        primary = {"tl": "fil", "iw": "he", "in": "id"}.get(primary, primary)
+        for code in _EZI_AI_LANGS:
+            if code.lower() == primary:
+                return code
+    except Exception:
+        pass
+    return "en"
+
+
+def _persist_comfy_theme_vars():
+    try:
+        vars_ = _get_comfy_theme_css_vars()
+        if not vars_:
+            _log_error('_persist_comfy_theme_vars: empty theme vars, looked in ' + os.path.join(_get_comfy_user_dir(), 'comfy.settings.json'))
+            return
+        if not os.path.exists(SETTINGS_PATH):
+            return
+        with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict) or data.get("theme") != "comfyui" or data.get("comfy_theme_vars") == vars_:
+            return
+        data["comfy_theme_vars"] = vars_
+        tmp = SETTINGS_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, SETTINGS_PATH)
+    except Exception:
+        _log_error('_persist_comfy_theme_vars')
 
 def _load_settings():
     defaults = {
@@ -1942,13 +2054,21 @@ def _load_settings():
         "window_maximized": False,
         "window_placement": None,
         "show_tooltips": True,
-        "hide_deprecation_warnings": True,
+        "launcher_theme": "amd",
         "console_detached": False,
         "console_placement": None,
         "rec_fps": 30,
         "console_bg_image": "",
         "console_bg_fit": "fit",
         "console_bg_opacity": 0.12,
+        "sel_pop_copy": True,
+        "sel_pop_google": True,
+        "sel_pop_chatgpt": True,
+        "sel_pop_claude": False,
+        "sel_pop_save": True,
+        "sel_ai_lang": _ezi_system_lang(),
+        "console_zoom_attached": 12,
+        "console_zoom_detached": 12,
     }
     try:
         if os.path.exists(SETTINGS_PATH):
@@ -1968,13 +2088,22 @@ def _load_settings():
             defaults.update(data)
     except Exception:
         _log_error('_load_settings')
+    if defaults.get("theme") == "comfyui":
+        _persist_comfy_theme_vars()
     return defaults
 
 def _save_settings(settings):
     try:
         if not settings or not isinstance(settings, dict):
             return
-        ALLOWED = ("last_save_dir", "window_maximized", "comfy_storage", "show_tooltips", "hide_deprecation_warnings", "window_placement", "custom_file_browser", "theme", "console_detached", "console_placement", "_dpi_aware_version", "rec_fps", "console_bg_image", "console_bg_fit", "console_bg_opacity", "console_bg_animate", "cached_comfy_stable_version", "pinned_packages", "proxy_port", "ezi_updated_from")
+        ALLOWED = (
+            "last_save_dir", "window_maximized", "comfy_storage", "show_tooltips",
+            "window_placement", "custom_file_browser", "theme", "launcher_theme", "console_detached", "launcher_mode", "console_placement",
+            "adv_console_placement", "adv_console_zoom_detached", "_dpi_aware_version", "rec_fps", "console_bg_image",
+            "console_bg_fit", "console_bg_opacity", "console_bg_animate", "sel_pop_copy", "sel_pop_google", "sel_pop_chatgpt",
+            "sel_pop_claude", "sel_pop_save", "sel_ai_lang", "console_zoom_attached", "console_zoom_detached",
+            "cached_comfy_stable_version", "pinned_packages", "proxy_port", "ezi_updated_from", "ezi_zip_failed_sig"
+        )
         existing = {}
         try:
             if os.path.exists(SETTINGS_PATH):
@@ -1984,12 +2113,26 @@ def _save_settings(settings):
                     existing = {}
         except Exception:
             _log_error('_save_settings')
+        keep_existing = ("launcher_mode",)
+        if ADV_CONSOLE:
+            keep_existing = ("launcher_mode", "window_placement", "window_maximized", "console_placement")
         merged = {}
         for k in ALLOWED:
-            if k in settings:
+            if k in keep_existing and k in existing:
+                merged[k] = existing[k]
+            elif k in settings:
                 merged[k] = settings[k]
             elif k in existing:
                 merged[k] = existing[k]
+        if merged.get("theme") == "comfyui":
+            try:
+                theme_vars = _get_comfy_theme_css_vars()
+            except Exception:
+                theme_vars = {}
+            if not theme_vars and isinstance(existing.get("comfy_theme_vars"), dict):
+                theme_vars = existing["comfy_theme_vars"]
+            if theme_vars:
+                merged["comfy_theme_vars"] = theme_vars
         if not merged:
             return
         tmp = SETTINGS_PATH + ".tmp"
@@ -2019,6 +2162,19 @@ def _load_shell_html():
         )
 
 SHELL_HTML = _load_shell_html()
+
+def _parse_theme_names():
+    try:
+        block = re.search(r"const EZI_THEME_LIST\s*=\s*\[(.*?)\];", SHELL_HTML, re.S).group(1)
+        names = tuple(re.findall(r"value:\s*'([^']+)'", block))
+        if names:
+            return names
+    except (AttributeError, IndexError):
+        pass
+    return ("dark", "aurora", "amd", "pixaroma", "light", "comfyui")
+
+EZI_THEME_NAMES = _parse_theme_names()
+LAUNCHER_THEME_NAMES = EZI_THEME_NAMES + ("follow",)
 
 
 def _load_ico_as_base64():
@@ -2097,10 +2253,74 @@ def _get_shell_html(settings=None):
             .replace("{ICO_OPACITY}", ico_opacity)
             .replace("{EZI_VERSION}", APP_VERSION))
 
-_CONSOLE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 19h-6a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v4"/><path d="M14 15a1 1 0 0 1 1 -1h5a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1l0 -3"/><path d="M7 9l4 4"/><path d="M7 12v-3h3"/></svg>'
+_CONSOLE_ICON_SVG = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+    'stroke-linejoin="round" aria-hidden="true" focusable="false">'
+    '<path d="M11 21h-6a2 2 0 0 1-2-2v-14a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6"/>'
+    '<path d="M14 15a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1z"/>'
+    '<path d="M6.5 7.5l5 5"/>'
+    '<path d="M6.5 11.5v-4h4"/>'
+    '</svg>')
 
 _CONSOLE_PAGE_BODY = r"""<body>
-<div id="bar"><button id="attach-btn" tabindex="-1" data-tip="Attach console back to the ComfyUI-EZi window" onmousedown="event.preventDefault()" onclick="attachConsole()">__ICON__</button><span id="status">ComfyUI Console</span></div>
+<div id="bar"><button id="attach-btn" tabindex="-1" data-tip="Attach console back to the ComfyUI-EZi window"
+  onmousedown="event.preventDefault()" onclick="attachConsole()">__ICON__</button><div id="menu-wrap"><button id="menu-btn"
+  tabindex="-1" data-tip="Console options" onmousedown="event.preventDefault()"
+  onclick="toggleSelMenu(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18"
+  rx="2.5"/><path d="M12 7.5v9"/><path d="M9.5 7.5h5"/>
+  <path d="M9.5 16.5h5"/></svg></button><div id="sel-menu"><div class="sm-row"
+  data-tip="Save the entire console log as a .txt file" onclick="saveLog()"><span>Save log as .txt</span><svg viewBox="0 0 24 24"
+  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+  focusable="false"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2v-12a2 2 0 0 1 2-2"/><circle cx="12" cy="14" r="2"/>
+  <path d="M14 4v4h-6v-4"/></svg></div><div class="sm-sep">Selection popup</div><label class="sm-row"
+  data-tip="Show a Copy button when text is selected in the console"><span>Copy</span><span class="ezi-sw"><input type="checkbox"
+  data-k="copy"><i></i></span></label><label class="sm-row"
+  data-tip="Show a button that saves the selected text to a .txt file"><span>Save selection</span><span class="ezi-sw"><input
+  type="checkbox" data-k="save"><i></i></span></label><label class="sm-row"
+  data-tip="Show a button that searches the selected text on Google"><span>Google</span><span class="ezi-sw"><input
+  type="checkbox" data-k="google"><i></i></span></label><div class="sm-sep">Account required</div><label class="sm-row"
+  data-tip="Show a button that asks ChatGPT about the selected text (needs a ChatGPT account)"><span>Ask ChatGPT</span><span
+  class="ezi-sw"><input type="checkbox" data-k="chatgpt"><i></i></span></label><label class="sm-row"
+  data-tip="Show a button that asks Claude about the selected text (needs a Claude account)"><span>Ask Claude</span><span
+  class="ezi-sw"><input type="checkbox"
+  data-k="claude"><i></i></span></label><div class="sm-sep">AI answer language</div><div class="sm-lang"
+  data-tip="Language in which ChatGPT and Claude should answer"><select id="sel-lang"></select></div><div
+  class="sm-sep">Text size</div><div class="sm-zoom"><button type="button" class="sm-zb"
+  data-tip="Decrease text size (Ctrl and -)" onmousedown="event.preventDefault()"
+  onclick="__eziStepTermFont(-1)">&minus;</button><span id="zoom-val"
+  data-tip="Current text size">100%</span><button type="button" class="sm-zb" data-tip="Increase text size (Ctrl and +)"
+  onmousedown="event.preventDefault()" onclick="__eziStepTermFont(1)">+</button><button type="button" class="sm-zb sm-zreset"
+  data-tip="Reset text size to 100% (Ctrl and 0)" onmousedown="event.preventDefault()"
+  onclick="__eziResetTermFont()">Reset</button></div></div></div><div id="cap-wrap"
+  style="margin-left:auto;display:flex;align-items:center;gap:8px;height:32px;"><div id="out-btn-wrap"><button id="out-btn"
+  tabindex="-1" onmousedown="event.preventDefault()" onclick="toggleOutDropdown(event)" title="Folders"><svg class="btn-icon"
+  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  aria-hidden="true" focusable="false"><path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v2"/>
+  <path d="M3 7h6l2 3h11l-3 10H3Z"/></svg> Folders <span class="out-chevron">&#x25BE;</span></button><div id="out-dropdown"><div
+  class="out-drop-item" onclick="openOutputFolder()"><img class="btn-icon"
+  src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f4c2.svg"> Output</div><div class="out-drop-item"
+  onclick="openSubFolder('input')"><img class="btn-icon"
+  src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f4e5.svg"> Input</div><div class="out-drop-item"
+  onclick="openSubFolder('workflows')"><img class="btn-icon"
+  src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f5c2.svg"> Workflows</div><div class="out-drop-item"
+  onclick="openSubFolder('models')"><img class="btn-icon"
+  src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9e0.svg"> Models</div></div></div><div
+  id="scr-btn-wrap"><button id="scr-btn" tabindex="-1" onmousedown="event.preventDefault()" onclick="toggleScrDropdown(event)"
+  title="Capture"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  <path d="M14 4h-4L8 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-4Z"/><circle cx="12" cy="13"
+  r="4"/></svg> Capture <span class="out-chevron">&#x25BE;</span></button><div id="scr-dropdown"><div class="scr-drop-item"
+  onclick="startCrop('screenshot')"><img class="btn-icon"
+  src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f4f7.svg"> Screenshot</div><div class="scr-drop-item"
+  onclick="startCrop('video')"><img class="btn-icon"
+  src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f3a5.svg"> Record Video</div></div></div><div id="rec-indicator"
+  style="display:none"></div><button id="settings-btn" tabindex="-1" title="Easy menu" onmousedown="event.preventDefault()"
+  onclick="openEasyMenu()">&#x2630;</button></div></div>
+<div id="modal-overlay"><div id="modal-box"><div id="modal-icon"></div><div id="modal-title"></div><div id="modal-msg"></div><div
+  id="modal-btns"></div></div></div>
+<div id="crop-overlay"><div id="crop-shade-t"></div><div id="crop-shade-b"></div><div id="crop-shade-l"></div><div
+  id="crop-shade-r"></div><div id="crop-sel"></div><div id="crop-hint"></div></div>
 <div id="panels">
   <div id="term-panel"></div>
   <div id="ico-bg"></div>
@@ -2111,13 +2331,17 @@ const EZI_INIT = __INIT__;
 const ansi = new AnsiUp();
 const term = document.getElementById('term-panel');
 let showingUI = false;
+window.__eziZoomKind = 'detached';
 __EMU__
 function applyTheme(theme, vars) {
   var root = document.documentElement;
-  root.classList.remove('theme-pixaroma', 'theme-light', 'theme-comfyui');
+  root.classList.remove('theme-pixaroma', 'theme-light', 'theme-comfyui', 'theme-aurora', 'theme-amd');
   if (theme === 'pixaroma') root.classList.add('theme-pixaroma');
+  else if (theme === 'aurora') root.classList.add('theme-aurora');
+  else if (theme === 'amd') root.classList.add('theme-amd');
   else if (theme === 'light') root.classList.add('theme-light');
   else if (theme === 'comfyui') {
+    if (!vars && typeof eziSettings !== 'undefined') vars = eziSettings.comfyThemeVars;
     var cssBody = Object.entries(vars || {}).map(function(kv) { return kv[0] + ':' + kv[1]; }).join(';');
     var el = document.getElementById('ezi-comfyui-theme-style');
     if (!el) { el = document.createElement('style'); el.id = 'ezi-comfyui-theme-style'; document.head.appendChild(el); }
@@ -2130,7 +2354,7 @@ function attachConsole() { try { pywebview.api.attach_console(); } catch (e) {} 
 function send_columns() {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  ctx.font = '12px Consolas, "Courier New", monospace';
+  ctx.font = (window.__eziTermFont || 12) + 'px Consolas, "Courier New", monospace';
   const charW = ctx.measureText('M').width || 7.2;
   const style = window.getComputedStyle(term);
   const padL = parseFloat(style.paddingLeft) || 0;
@@ -2145,7 +2369,206 @@ window.addEventListener('resize', send_columns);
   if (typeof pywebview !== 'undefined' && pywebview.api && pywebview.api.set_columns) send_columns();
   else setTimeout(waitForApi, 50);
 })();
+const CAP_CANCEL_BTN = '<button id="crop-cancel-btn" class="btn-danger" style="margin-left:8px;padding:0 10px;height:22px;font-family:inherit;' +
+  'font-size:11px;font-weight:bold;border-radius:4px;cursor:pointer;pointer-events:auto;display:inline-flex;' +
+  'align-items:center;gap:4px;box-sizing:border-box;">&#x2715; Cancel</button>';
+const OVERLAY_TOP = 32;
+const overlay = document.getElementById('crop-overlay');
+const cropSel = document.getElementById('crop-sel');
+const shadeT = document.getElementById('crop-shade-t');
+const shadeB = document.getElementById('crop-shade-b');
+const shadeL = document.getElementById('crop-shade-l');
+const shadeR = document.getElementById('crop-shade-r');
+let cropStart = null;
+let _cropMode = 'screenshot';
+let _cropPending = false;
+let _recFps = EZI_INIT.recFps || 30;
+let _easyLoaded = false;
+let _easyLoading = false;
+function openEasyMenu() {
+  closeAllDropdowns();
+  if (_easyLoading) return;
+  var run = function() {
+    pywebview.api.get_ui_settings().then(function(s) {
+      try { if (s) Object.assign(eziSettings, JSON.parse(s)); } catch (e) {}
+      show_settings();
+    });
+  };
+  if (_easyLoaded) { run(); return; }
+  _easyLoading = true;
+  pywebview.api.get_easy_menu_js().then(function(js) {
+    _easyLoading = false;
+    if (!js) return;
+    var sc = document.createElement('script');
+    sc.textContent = js;
+    document.head.appendChild(sc);
+    _easyLoaded = true;
+    run();
+  }).catch(function() { _easyLoading = false; });
+}
+function closeAllDropdowns() {
+  ['out-dropdown', 'scr-dropdown'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('open');
+  });
+}
+function toggleOutDropdown(e) {
+  e.stopPropagation();
+  var dd = document.getElementById('out-dropdown');
+  document.getElementById('scr-dropdown').classList.remove('open');
+  dd.classList.toggle('open');
+}
+function toggleScrDropdown(e) {
+  e.stopPropagation();
+  var sd = document.getElementById('scr-dropdown');
+  document.getElementById('out-dropdown').classList.remove('open');
+  sd.classList.toggle('open');
+}
+function openOutputFolder() {
+  closeAllDropdowns();
+  try { pywebview.api.open_output_folder(); } catch (e) {}
+}
+function openSubFolder(type) {
+  closeAllDropdowns();
+  try { pywebview.api.open_sub_folder(type); } catch (e) {}
+}
+document.addEventListener('click', closeAllDropdowns);
+(function waitForFolders() {
+  if (typeof pywebview !== 'undefined' && pywebview.api && pywebview.api.check_output_folder) {
+    pywebview.api.check_output_folder().then(function(path) {
+      if (path) document.getElementById('out-btn-wrap').classList.add('visible');
+    });
+  } else setTimeout(waitForFolders, 100);
+})();
+function _fpsPickerHTML() {
+  var btnStyle = 'margin-left:3px;padding:0 7px;height:22px;font-family:inherit;font-size:11px;font-weight:bold;border-radius:4px;' +
+    'cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;border:1px solid #ff8888;background:#6e2020;' +
+    'color:#ff8888;box-sizing:border-box;';
+  return ' &nbsp;<span style="font-size:11px;opacity:0.85;">FPS:</span>'
+    + [15, 30, 60].map(function(f) {
+        return '<button onclick="event.stopPropagation();_recFps=' + f + ';_updateFpsBtns(true);" id="fps-btn-' + f + '" style="' + btnStyle + '">' + f + '</button>';
+      }).join('')
+    + ' &nbsp;';
+}
+function _updateFpsBtns(save) {
+  [15, 30, 60].forEach(function(f) {
+    var b = document.getElementById('fps-btn-' + f);
+    if (!b) return;
+    b.style.background = (_recFps === f) ? '#ff4444' : '#6e2020';
+    b.style.color = (_recFps === f) ? '#fff' : '#ff8888';
+  });
+  if (save) { try { pywebview.api.save_ui_settings(JSON.stringify({ recFps: _recFps })); } catch (e) {} }
+}
+function _reattachCropCancelBtn() {
+  var btn = document.getElementById('crop-cancel-btn');
+  if (!btn) return;
+  btn.addEventListener('mousedown', function(e) { e.stopPropagation(); e.preventDefault(); });
+  btn.addEventListener('click', function(e) { e.stopPropagation(); e.preventDefault(); cropCancel(); });
+  btn.addEventListener('mouseup', function(e) { e.stopPropagation(); e.preventDefault(); });
+}
+function startCrop(mode) {
+  _cropMode = mode || 'screenshot';
+  closeAllDropdowns();
+  var hint = document.getElementById('crop-hint');
+  if (_cropMode === 'video') {
+    hint.innerHTML = '\uD83C\uDF9E\uFE0F Record: Click for full window &nbsp;|&nbsp; Drag to select area' + _fpsPickerHTML() + CAP_CANCEL_BTN.replace('margin-left:8px', 'margin-left:4px');
+    hint.style.color = '#ff8888';
+    _updateFpsBtns(false);
+  } else {
+    hint.innerHTML = 'Click for full window &nbsp;|&nbsp; Drag to select area &nbsp;' + CAP_CANCEL_BTN;
+    hint.style.color = '';
+  }
+  _reattachCropCancelBtn();
+  overlay.classList.add('active');
+  cropSel.style.cssText = 'left:0;top:0;width:0;height:0;';
+  shadeT.style.cssText = 'top:0;left:0;right:0;bottom:0;';
+  shadeB.style.cssText = shadeL.style.cssText = shadeR.style.cssText = 'display:none';
+  hint.style.display = '';
+}
+function cropCancel() {
+  cropStart = null;
+  overlay.classList.remove('active');
+}
+function screenshotFull(fullW, fullH) {
+  if (_cropPending) return;
+  _cropPending = true;
+  var w = fullW || window.innerWidth;
+  var h = fullH || window.innerHeight;
+  if (_cropMode === 'video') {
+    pywebview.api.console_start_recording(0, 0, w, h, _recFps);
+  } else {
+    pywebview.api.console_screenshot(0, 0, w, h).finally(function() { _cropPending = false; });
+  }
+}
+function showRecIndicator() {
+  _cropPending = false;
+  var recIndicator = document.getElementById('rec-indicator');
+  recIndicator.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
+  recIndicator.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#ff4444;display:inline-block;' +
+    'animation:rec-blink 1s ease-in-out infinite;flex-shrink:0;' +
+    '"></span><button onclick="stopRecording()" style="padding:3px 10px;font-family:inherit;font-size:11px;' +
+    'font-weight:bold;border:1px solid #ff4444;border-radius:4px;background:#6e2020;color:#ff8888;cursor:pointer;' +
+    'animation:rec-blink 1s ease-in-out infinite;line-height:1;letter-spacing:0.5px;">&#x23F9; Stop REC</button>';
+}
+function stopRecording() {
+  _cropPending = false;
+  try { pywebview.api.stop_recording(); } catch (e) {}
+  var recIndicator = document.getElementById('rec-indicator');
+  recIndicator.style.display = 'none';
+  recIndicator.innerHTML = '';
+}
+function updateShades(x, y, w, h) {
+  shadeT.style.cssText = 'top:0;left:0;right:0;height:' + y + 'px;';
+  shadeB.style.cssText = 'top:' + (y + h) + 'px;left:0;right:0;bottom:0;';
+  shadeL.style.cssText = 'top:' + y + 'px;left:0;width:' + x + 'px;height:' + h + 'px;';
+  shadeR.style.cssText = 'top:' + y + 'px;left:' + (x + w) + 'px;right:0;height:' + h + 'px;';
+}
+overlay.addEventListener('mousedown', function(e) {
+  if (e.target !== overlay) return;
+  cropStart = { x: e.clientX, y: Math.max(e.clientY, OVERLAY_TOP) };
+  shadeT.style.cssText = shadeB.style.cssText = shadeL.style.cssText = shadeR.style.cssText = '';
+  document.getElementById('crop-hint').style.display = 'none';
+});
+overlay.addEventListener('mousemove', function(e) {
+  if (!cropStart) return;
+  var rawY = Math.max(e.clientY, OVERLAY_TOP);
+  var x = Math.min(e.clientX, cropStart.x);
+  var y = Math.min(rawY, cropStart.y);
+  var w = Math.abs(e.clientX - cropStart.x);
+  var h = Math.abs(rawY - cropStart.y);
+  cropSel.style.cssText = 'left:' + x + 'px;top:' + (y - OVERLAY_TOP) + 'px;width:' + w + 'px;height:' + h + 'px;';
+  updateShades(x, y - OVERLAY_TOP, w, h);
+});
+overlay.addEventListener('mouseup', function(e) {
+  if (!cropStart) return;
+  var rawY = Math.max(e.clientY, OVERLAY_TOP);
+  var x = Math.min(e.clientX, cropStart.x);
+  var y = Math.min(rawY, cropStart.y);
+  var w = Math.abs(e.clientX - cropStart.x);
+  var h = Math.abs(rawY - cropStart.y);
+  cropStart = null;
+  var fullW = window.innerWidth, fullH = window.innerHeight;
+  overlay.classList.remove('active');
+  if (_cropPending) return;
+  _cropPending = true;
+  if (w > 5 && h > 5) {
+    if (_cropMode === 'video') {
+      pywebview.api.console_start_recording(Math.round(x), Math.round(y), Math.round(w), Math.round(h), _recFps);
+    } else {
+      pywebview.api.console_screenshot(Math.round(x), Math.round(y), Math.round(w), Math.round(h)).finally(function() { _cropPending = false; });
+    }
+  } else {
+    _cropPending = false;
+    screenshotFull(fullW, fullH);
+  }
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') cropCancel();
+});
 eziLazyTip(document.getElementById('attach-btn'));
+eziLazyTip(document.getElementById('menu-btn'));
+window.__eziSelMenuSync(EZI_INIT.selPop || {});
+window.__eziSetTermFont(EZI_INIT.zoom || 12);
 applyTooltips(EZI_INIT.tooltips !== false);
 term.tabIndex = -1;
 function _focusTerm() {
@@ -2162,6 +2585,10 @@ _focusTerm();
 </html>
 """
 
+def _ezi_valid_lang(value):
+    return isinstance(value, str) and re.fullmatch(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?", value) is not None
+
+
 def _get_console_html(settings=None):
     html = _get_shell_html(settings)
     head = html[:html.index('</head>')]
@@ -2169,17 +2596,28 @@ def _get_console_html(settings=None):
     a = html.index('const T = {')
     b = html.index('\n})();', html.index('window.applyTooltips = function')) + len('\n})();')
     emu = html[a:b]
-    theme = (settings or {}).get("theme", "dark")
+    theme = (settings or {}).get("theme", "amd")
     try:
         theme_vars = _get_comfy_theme_css_vars() if theme == "comfyui" else {}
     except Exception:
         theme_vars = {}
     init = json.dumps({"theme": theme, "comfyThemeVars": theme_vars,
-                       "tooltips": bool((settings or {}).get("show_tooltips", True))}).replace('</', '<\\/')
+                       "tooltips": bool((settings or {}).get("show_tooltips", True)),
+                       "selPop": {"copy": bool((settings or {}).get("sel_pop_copy", True)),
+                                  "google": bool((settings or {}).get("sel_pop_google", True)),
+                                  "chatgpt": bool((settings or {}).get("sel_pop_chatgpt", True)),
+                                  "claude": bool((settings or {}).get("sel_pop_claude", False)),
+                                  "save": bool((settings or {}).get("sel_pop_save", True)),
+                                  "lang": str((settings or {}).get("sel_ai_lang", "en") or "en")},
+                       "recFps": int((settings or {}).get("rec_fps", 30)),
+                       "zoom": int((settings or {}).get("adv_console_zoom_detached", (settings or {}).get("console_zoom_detached", 12))
+                                   if ADV_CONSOLE else (settings or {}).get("console_zoom_detached", 12))
+                       }).replace('</', '<\\/')
     body = (_CONSOLE_PAGE_BODY.replace('__ICON__', _CONSOLE_ICON_SVG)
                               .replace('__INIT__', init)
                               .replace('__EMU__', emu))
-    return head + '</head>\n' + body
+    adv_css = '<style>#attach-btn{display:none!important}</style>' if ADV_CONSOLE else ''
+    return head + adv_css + '</head>\n' + body
 
 async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None, api_holder=None):
     async def handle_shell(request):
@@ -2204,6 +2642,9 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
     async def handle_any(request):
         comfy_port = comfy_port_holder[0]
         comfy_host = f"127.0.0.1:{comfy_port}"
+        up_scheme  = _COMFY_SCHEME[0]
+        up_ws      = "wss" if up_scheme == "https" else "ws"
+        up_ssl     = _comfy_ssl()
         path_qs    = request.path_qs
         api_ref = api_holder[0] if api_holder else None
         
@@ -2211,7 +2652,7 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
             ws_server = web.WebSocketResponse(max_msg_size=134217728); await ws_server.prepare(request)
             try:
                 async with ClientSession() as session:
-                    async with session.ws_connect(f"ws://{comfy_host}{path_qs}", max_msg_size=134217728) as ws_client:
+                    async with session.ws_connect(f"{up_ws}://{comfy_host}{path_qs}", max_msg_size=134217728, ssl=up_ssl) as ws_client:
                         async def fwd(src, dst):
                             try:
                                 async for msg in src:
@@ -2262,8 +2703,8 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
                 # cross-site check still rejects requests sent by other websites.
                 origin = request.headers.get('Origin')
                 if origin is not None:
-                    fwd_hd['Origin'] = f"http://{comfy_host}" if origin == f"http://{request.host}" else origin
-                async with session.request(request.method, f"http://{comfy_host}{path_qs}", headers=fwd_hd, data=await request.read(), allow_redirects=False) as resp:
+                    fwd_hd['Origin'] = f"{up_scheme}://{comfy_host}" if origin == f"http://{request.host}" else origin
+                async with session.request(request.method, f"{up_scheme}://{comfy_host}{path_qs}", headers=fwd_hd, data=await request.read(), allow_redirects=False, ssl=up_ssl) as resp:
                     body = await resp.read()
                     resp_hd = {k: v for k, v in resp.headers.items() if k.lower() not in ('content-encoding', 'transfer-encoding', 'content-length')}
                     
@@ -2424,7 +2865,10 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
             if (document.getElementById('ezi-cmenu')) return;
             var m = document.createElement('div');
             m.id = 'ezi-cmenu';
-            m.style.cssText = 'position:fixed;background:var(--comfy-menu-bg, #1e1e1e);border:1px solid var(--border-color, #444);border-radius:6px;padding:4px 0;z-index:9999999;display:none;font-size:12px;color:var(--input-text, #cccccc);box-shadow:0 6px 16px rgba(0,0,0,0.3);font-family:Segoe UI, Tahoma, Geneva, Verdana, sans-serif;min-width:220px;';
+            m.style.cssText = 'position:fixed;background:var(--comfy-menu-bg, #1e1e1e);border:1px solid var(--border-color, #444);' +
+              'border-radius:6px;padding:4px 0;z-index:9999999;display:none;font-size:12px;' +
+              'color:var(--input-text, #cccccc);box-shadow:0 6px 16px rgba(0,0,0,0.3);' +
+              'font-family:Segoe UI, Tahoma, Geneva, Verdana, sans-serif;min-width:220px;';
             document.body.appendChild(m);
 
             function addItem(txt, shortcut, fn, addSeparator) {
@@ -2613,6 +3057,34 @@ class Api:
     _NO_WIN_HIDDEN = 0x08000000 | 0x20000000
     PY_EXE         = os.path.join(ROOT_DIR, "python_embeded", "python.exe")
     COMFY_DIR      = os.path.join(ROOT_DIR, "ComfyUI")
+    _cap_win       = None
+
+    def get_easy_menu_js(self):
+        try:
+            html = SHELL_HTML
+            pre = html[html.index('const settingsDefaults'):html.index('function applyTheme(theme)')]
+            modal = html[html.index('function showModal('):html.index('function show_close_confirm()')]
+            body = html[html.index('let _settingsOpenId = 0;'):html.index('function set_dot_ready()')]
+            return (pre + _EASY_MENU_SHIM + modal + body).replace("{EZI_VERSION}", APP_VERSION)
+        except Exception:
+            _log_error('get_easy_menu_js')
+            return ""
+
+    def _cap_hwnd(self):
+        win = self._cap_win
+        if win is not None:
+            return self._console_hwnd or _get_hwnd(win)
+        return _get_hwnd(self._window) if self._window else None
+
+    def _cap_eval(self, js):
+        win = self._cap_win
+        if win is not None:
+            try:
+                win.evaluate_js(js)
+            except Exception:
+                pass
+            return
+        self._safe_eval(js)
 
     def get_addon_status(self):
         from importlib.metadata import distributions
@@ -2851,8 +3323,6 @@ class Api:
         self._comfy_exit_code = None
         self._out_buf, self._out_lock = [], threading.Lock()
         self._columns = 120
-        self._depr_hold, self._depr_drop, self._depr_bol = '', False, True
-        self._depr_blank, self._depr_hold_t = False, 0.0
         self._last_ch = '\n'
         self._console_win, self._console_hwnd = None, None
         self._console_allow_close, self._console_geo_timer = False, None
@@ -2877,7 +3347,7 @@ class Api:
         if not port:
             return
 
-        full_url = f"http://127.0.0.1:{port}{url}"
+        full_url = f"{_comfy_origin(port)}{url}"
 
         if not self._window:
             return
@@ -3039,6 +3509,7 @@ class Api:
         threading.Thread(target=self._run, daemon=True).start()
         threading.Thread(target=self._check_update, daemon=True).start()
         threading.Thread(target=self._check_ezi_update, daemon=True).start()
+        threading.Thread(target=self._check_upstream_update, daemon=True).start()
         threading.Thread(target=self._port_monitor, daemon=True).start()
 
     def _apply_ezi_update(self, bat):
@@ -3086,6 +3557,42 @@ class Api:
         except Exception:
             return False
 
+    def is_window_maximized(self):
+        return bool(self._is_maximized())
+
+    def start_top_resize(self, zone):
+        try:
+            if self._is_maximized():
+                return
+            hwnd = _get_hwnd(self._window)
+            if not hwnd:
+                return
+            ht = int(zone)
+            if ht not in (12, 13, 14):
+                ht = 12
+            u = ctypes.WinDLL('user32')
+            u.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t]
+            u.SendMessageW.restype = ctypes.c_ssize_t
+
+            def _do():
+                try:
+                    pt = _wt.POINT()
+                    u.GetCursorPos(ctypes.byref(pt))
+                    lp = ((pt.y & 0xFFFF) << 16) | (pt.x & 0xFFFF)
+                    u.ReleaseCapture()
+                    u.SendMessageW(hwnd, 0x00A1, ht, lp)
+                except Exception:
+                    _log_error('start_top_resize_ui')
+
+            form = getattr(self._window, 'native', None)
+            if form is not None and form.InvokeRequired:
+                import System
+                form.BeginInvoke(System.Action(_do))
+            else:
+                _do()
+        except Exception:
+            _log_error('start_top_resize')
+
     def _get_columns(self):
         try:
             win = self._console_win or self._window
@@ -3127,6 +3634,8 @@ class Api:
             _install_hidden_titlebar_hook(hwnd)
             _suppress_dwm_border(hwnd)
             _taskbar_mark_not_fullscreen(hwnd)
+            if ADV_CONSOLE:
+                ctypes.windll.user32.ShowWindow(hwnd, 0)
         _set_window_icon(hwnd)
 
     def _kill_process_tree(self, root_pid):
@@ -3322,7 +3831,7 @@ class Api:
 
         def _http_alive(port, timeout=5):
             try:
-                r = _ur.urlopen(f'http://127.0.0.1:{port}/system_stats', timeout=timeout)
+                r = _comfy_urlopen(f'{_comfy_origin(port)}/system_stats', timeout=timeout)
                 return r.status == 200
             except Exception:
                 return False
@@ -3498,6 +4007,18 @@ class Api:
                 self._println(f'\033[92mEasy-Install is up to date (v{APP_VERSION}, latest is v{tag})\033[0m')
         except Exception as e:
             self._println(f'\033[91mEasy-Install update check failed: {e!r}\033[0m')
+
+    def _check_upstream_update(self):
+        """Show when Ivo has released a newer ComfyUI-Easy-Install than the one this AMD edition is built on."""
+        try:
+            tag = _latest_release_tag(UPSTREAM_REPO).lstrip("v")
+            if tag and _ezi_version_key(tag) > _ezi_version_key(UPSTREAM_VERSION):
+                self._println(f'\033[95mComfyUI-Easy-Install by Ivo has a new release: v{tag} '
+                              f'(this AMD edition is built on v{UPSTREAM_VERSION})\033[0m')
+                url = f"https://github.com/{UPSTREAM_REPO}/releases/tag/{tag}"
+                self._safe_eval(f"show_upstream_update({json.dumps('v' + tag)}, {json.dumps('v' + UPSTREAM_VERSION)}, {json.dumps(url)})")
+        except Exception as e:
+            self._println(f'\033[93mUpstream release check failed: {e!r}\033[0m')
 
     def run_update(self):
         bat = os.path.join(ROOT_DIR, 'Update ComfyUI.bat')
@@ -3754,7 +4275,17 @@ class Api:
         except Exception:
             pass
 
-        return {'pip': _fmt(pip_size), 'uv': _fmt(uv_size)}
+        return {'pip': _fmt(pip_size), 'uv': _fmt(uv_size), 'keep': os.path.exists(KEEP_CACHE_FLAG_PATH)}
+
+    def set_keep_cache(self, enabled):
+        try:
+            if enabled:
+                open(KEEP_CACHE_FLAG_PATH, 'a').close()
+            elif os.path.exists(KEEP_CACHE_FLAG_PATH):
+                os.remove(KEEP_CACHE_FLAG_PATH)
+        except Exception:
+            _log_error('set_keep_cache')
+        return os.path.exists(KEEP_CACHE_FLAG_PATH)
 
     def clear_cache(self, cache_type):
         import shutil as _sh
@@ -4926,9 +5457,19 @@ class Api:
             pass
 
     def screenshot(self, x, y, w, h):
+        self._cap_win = None
         threading.Thread(target=self._do_screenshot, args=(x, y, w, h), daemon=True).start()
 
     def start_recording(self, x, y, w, h, fps=15):
+        self._cap_win = None
+        threading.Thread(target=self._do_start_recording, args=(x, y, w, h, int(fps)), daemon=True).start()
+
+    def console_screenshot(self, x, y, w, h):
+        self._cap_win = self._console_win
+        threading.Thread(target=self._do_screenshot, args=(x, y, w, h), daemon=True).start()
+
+    def console_start_recording(self, x, y, w, h, fps=15):
+        self._cap_win = self._console_win
         threading.Thread(target=self._do_start_recording, args=(x, y, w, h, int(fps)), daemon=True).start()
 
     def stop_recording(self):
@@ -4998,7 +5539,7 @@ class Api:
             pt = wt.POINT(0, 0)
             user.ClientToScreen(_vp(hwnd), ctypes.byref(pt))
             src_x = pt.x + phys_x
-            src_y = pt.y + (0 if self._is_maximized() else _EZI_TOP_RESIZE_GAP) + phys_y
+            src_y = pt.y + phys_y
 
             hdc_screen = user.GetDC(None)
             hdc_mem    = gdi.CreateCompatibleDC(hdc_screen)
@@ -5106,24 +5647,24 @@ class Api:
             from PIL import Image
         except ImportError:
             self._println("[Record] Error: Pillow is not installed.")
-            self._safe_eval("stopRecording()")
+            self._cap_eval("stopRecording()")
             return
 
         hwnd = None
         for _attempt in range(10):
-            hwnd = _get_hwnd(self._window) if self._window else None
+            hwnd = self._cap_hwnd()
             if hwnd:
                 break
             time.sleep(0.3)
         if not hwnd:
             self._println("[Record] Error: could not find application window handle.")
-            self._safe_eval("stopRecording()")
+            self._cap_eval("stopRecording()")
             return
 
         cap_ctx = self._make_gdi_capture_ctx(hwnd, x, y, w, h)
         if cap_ctx is None:
             self._println("[Record] Failed to create capture context.")
-            self._safe_eval("stopRecording()")
+            self._cap_eval("stopRecording()")
             return
 
         fw, fh = cap_ctx.cap_w, cap_ctx.cap_h
@@ -5131,10 +5672,10 @@ class Api:
         if fw < 16 or fh < 16:
             self._println(f"[Record] Region too small ({fw}x{fh}). Minimum is 16x16 pixels.")
             cap_ctx.release()
-            self._safe_eval("stopRecording()")
+            self._cap_eval("stopRecording()")
             return
 
-        self._safe_eval(f"showRecIndicator({x},{y},{w},{h})")
+        self._cap_eval(f"showRecIndicator({x},{y},{w},{h})")
 
         try:
             _rc = wt.RECT()
@@ -5199,7 +5740,7 @@ class Api:
                                 creationflags=0x08000000)
             except Exception as e:
                 self._println(f"[Record] ffmpeg launch failed: {e}")
-                self._safe_eval("stopRecording()")
+                self._cap_eval("stopRecording()")
                 return
 
             self._println(f"[Record] Recording started (ffmpeg, {fw}x{fh} @ {FPS}fps)...")
@@ -5303,7 +5844,7 @@ class Api:
 
             if not frames:
                 self._println("[Record] No frames captured.")
-                self._safe_eval("stopRecording()")
+                self._cap_eval("stopRecording()")
                 return
 
             if len(timestamps) > 1:
@@ -5318,13 +5859,13 @@ class Api:
                 self._println("[Record] Encoded as MJPEG AVI (ffmpeg not found; install ffmpeg or imageio-ffmpeg for much smaller files).")
             except Exception as e:
                 self._println(f"[Record] Recording failed ({e}). Install ffmpeg for better results.")
-                self._safe_eval("stopRecording()")
+                self._cap_eval("stopRecording()")
                 return
 
         finally:
             cap_ctx.release()
             self._hide_rec_overlay()
-            self._safe_eval("stopRecording()")
+            self._cap_eval("stopRecording()")
 
         self._println("[Record] Recording stopped. Saving...")
 
@@ -5332,10 +5873,11 @@ class Api:
         default_name = f"ComfyUI-EZi-recording-{time.strftime('%Y%m%d_%H%M%S')}{ext}"
 
         save_path = None
-        if self._window and os.path.exists(tmp_file):
+        dlg_win = self._cap_win or self._window
+        if dlg_win and os.path.exists(tmp_file):
             try:
                 ft = ("MP4 Video (*.mp4)", "All Files (*.*)") if tmp_file.endswith('.mp4') else ("AVI Video (*.avi)", "All Files (*.*)",)
-                result = self._window.create_file_dialog(
+                result = dlg_win.create_file_dialog(
                     SAVE_DIALOG_TYPE,
                     directory=self._last_save_dir,
                     save_filename=default_name,
@@ -5422,7 +5964,7 @@ class Api:
                             "Run: python_embeded\\python.exe -m pip install Pillow")
                 return
 
-            hwnd = _get_hwnd(self._window) if self._window else None
+            hwnd = self._cap_hwnd()
             if not hwnd:
                 self._println("[Screenshot] Error: No window handle found.")
                 return
@@ -5438,9 +5980,10 @@ class Api:
 
             default_name = f"ComfyUI-EZi-screenshot-{time.strftime('%Y%m%d_%H%M%S')}.png"
             save_path = None
-            if self._window:
+            dlg_win = self._cap_win or self._window
+            if dlg_win:
                 try:
-                    result = self._window.create_file_dialog(
+                    result = dlg_win.create_file_dialog(
                         SAVE_DIALOG_TYPE,
                         directory=self._last_save_dir,
                         save_filename=default_name,
@@ -5460,7 +6003,7 @@ class Api:
             self._println(f"Screenshot error: {e}")
 
     def save_window_state(self):
-        if not self._window:
+        if not self._window or ADV_CONSOLE:
             return
         try:
             hwnd = self._main_hwnd or _get_hwnd(self._window)
@@ -5533,19 +6076,21 @@ class Api:
 
     def get_ui_settings(self):
         try:
-            hide = self._settings.get("hide_deprecation_warnings", True)
             fb = self._settings.get("custom_file_browser", "")
-            theme = self._settings.get("theme", "dark")
+            theme = self._settings.get("theme", "amd")
             comfy_theme = _get_comfy_current_theme()
             comfy_theme_vars = _get_comfy_theme_css_vars()
             console_detached = self._settings.get("console_detached", False)
+            if ADV_CONSOLE and not console_detached:
+                console_detached = True
+                self._startup_detach = True
             custom_paths_json = self.get_custom_paths()
             custom_paths = json.loads(custom_paths_json) if custom_paths_json else {'input': '', 'output': '', 'user': ''}
             return json.dumps({
                 "showTooltips": bool(self._settings.get("show_tooltips", True)),
-                "hideDeprecationWarnings": hide,
                 "customFileBrowser": fb,
                 "theme": theme,
+                "launcherTheme": self._settings.get("launcher_theme", "amd") if self._settings.get("launcher_theme", "amd") in LAUNCHER_THEME_NAMES else "amd",
                 "comfyTheme": comfy_theme,
                 "comfyThemeVars": comfy_theme_vars,
                 "consoleDetached": console_detached,
@@ -5555,6 +6100,16 @@ class Api:
                 "consoleBgFit":     self._settings.get("console_bg_fit", "fit"),
                 "consoleBgOpacity": self._settings.get("console_bg_opacity", 0.12),
                 "consoleBgAnimate": self._settings.get("console_bg_animate", True),
+                "selCopy":    bool(self._settings.get("sel_pop_copy", True)),
+                "selGoogle":  bool(self._settings.get("sel_pop_google", True)),
+                "selChatgpt": bool(self._settings.get("sel_pop_chatgpt", True)),
+                "selClaude":  bool(self._settings.get("sel_pop_claude", False)),
+                "selSave":    bool(self._settings.get("sel_pop_save", True)),
+                "selLang":    str(self._settings.get("sel_ai_lang", "en") or "en"),
+                "consoleZoomAttached": int(self._settings.get("console_zoom_attached", 12)),
+                "consoleZoomDetached": int(
+                    self._settings.get("adv_console_zoom_detached", self._settings.get("console_zoom_detached", 12))
+                    if ADV_CONSOLE else self._settings.get("console_zoom_detached", 12)),
             })
         except Exception as e:
             print(f"[EZi DEBUG] get_ui_settings ERROR: {e}", flush=True)
@@ -5570,13 +6125,13 @@ class Api:
             if "showTooltips" in data:
                 self._settings["show_tooltips"] = bool(data["showTooltips"])
                 self._console_push_tooltips()
-            if "hideDeprecationWarnings" in data:
-                self._settings["hide_deprecation_warnings"] = bool(data["hideDeprecationWarnings"])
             if "customFileBrowser" in data:
                 self._settings["custom_file_browser"] = str(data["customFileBrowser"]).strip()
-            if "theme" in data and data["theme"] in ("dark", "pixaroma", "light", "comfyui"):
+            if "theme" in data and data["theme"] in EZI_THEME_NAMES:
                 self._settings["theme"] = data["theme"]
                 self._console_push_theme()
+            if "launcherTheme" in data and data["launcherTheme"] in LAUNCHER_THEME_NAMES:
+                self._settings["launcher_theme"] = data["launcherTheme"]
             if "recFps" in data and int(data["recFps"]) in (15, 30, 60):
                 self._settings["rec_fps"] = int(data["recFps"])
             if "consoleBgImage" in data:
@@ -5592,6 +6147,18 @@ class Api:
                     pass
             if "consoleBgAnimate" in data:
                 self._settings["console_bg_animate"] = bool(data["consoleBgAnimate"])
+            sel_changed = False
+            for _jk, _sk, _df in (("selCopy", "sel_pop_copy", True), ("selGoogle", "sel_pop_google", True),
+                                  ("selChatgpt", "sel_pop_chatgpt", True), ("selClaude", "sel_pop_claude", False),
+                                  ("selSave", "sel_pop_save", True)):
+                if _jk in data and bool(data[_jk]) != bool(self._settings.get(_sk, _df)):
+                    self._settings[_sk] = bool(data[_jk])
+                    sel_changed = True
+            if "selLang" in data and _ezi_valid_lang(data["selLang"]) and data["selLang"] != self._settings.get("sel_ai_lang", "en"):
+                self._settings["sel_ai_lang"] = data["selLang"]
+                sel_changed = True
+            if sel_changed:
+                self._console_push_selpop()
 
             if self._settings_holder is not None:
                 self._settings_holder[0] = self._settings
@@ -5655,7 +6222,7 @@ class Api:
         want_max = False
         try:
             user32 = ctypes.windll.user32
-            pl = self._settings.get("console_placement")
+            pl = self._settings.get("adv_console_placement" if ADV_CONSOLE else "console_placement")
             if pl and isinstance(pl, dict):
                 x, y = pl.get("x", 100), pl.get("y", 100)
                 cx, cy = pl.get("cx", 900), pl.get("cy", 500)
@@ -5667,7 +6234,7 @@ class Api:
                 elif _is_rect_on_active_monitor(x, y, x + cx, y + cy):
                     user32.MoveWindow(hwnd, x, y, cx, cy, True)
             try:
-                dark = ctypes.c_int(0 if self._settings.get("theme", "dark") == "light" else 1)
+                dark = ctypes.c_int(0 if self._settings.get("theme", "amd") == "light" else 1)
                 for attr in (20, 19):
                     if ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(dark), ctypes.sizeof(dark)) == 0:
                         break
@@ -5739,8 +6306,11 @@ class Api:
                         pass
                 self._console_hwnd = hwnd
                 self._console_win = win
-                self._settings["console_detached"] = True
-                _save_settings(self._settings)
+                if getattr(self, "_startup_detach", False):
+                    self._startup_detach = False
+                else:
+                    self._settings["console_detached"] = True
+                    _save_settings(self._settings)
             except Exception as e:
                 self._console_win, self._console_hwnd = None, None
                 self._abort_console_window(win)
@@ -5776,6 +6346,10 @@ class Api:
     def _on_console_closing(self):
         if self._console_allow_close:
             return True
+        if ADV_CONSOLE:
+            self._confirm_close = True
+            threading.Thread(target=self._graceful_close, daemon=True).start()
+            return False
         threading.Thread(target=self.attach_console, daemon=True).start()
         return False
 
@@ -5797,7 +6371,7 @@ class Api:
         if win is None:
             return
         try:
-            theme = self._settings.get("theme", "dark")
+            theme = self._settings.get("theme", "amd")
             vars_ = _get_comfy_theme_css_vars() if theme == "comfyui" else {}
             win.evaluate_js(f"applyTheme({json.dumps(theme)}, {json.dumps(vars_)})")
         except Exception:
@@ -5811,6 +6385,95 @@ class Api:
             win.evaluate_js(f"applyTooltips({json.dumps(bool(self._settings.get('show_tooltips', True)))})")
         except Exception:
             pass
+
+    def _sel_pop_state(self):
+        return {
+            "copy":    bool(self._settings.get("sel_pop_copy", True)),
+            "google":  bool(self._settings.get("sel_pop_google", True)),
+            "chatgpt": bool(self._settings.get("sel_pop_chatgpt", True)),
+            "claude":  bool(self._settings.get("sel_pop_claude", False)),
+            "save":    bool(self._settings.get("sel_pop_save", True)),
+            "lang":    str(self._settings.get("sel_ai_lang", "en") or "en"),
+        }
+
+    def _console_push_selpop(self):
+        win = self._console_win
+        if win is None:
+            return
+        try:
+            win.evaluate_js(f"window.__eziSelMenuSync && window.__eziSelMenuSync({json.dumps(self._sel_pop_state())})")
+        except Exception:
+            pass
+
+    def save_console_log(self, text, kind="log"):
+        try:
+            if not isinstance(text, str) or not text:
+                return False
+            win = self._console_win or self._window
+            if win is None:
+                return False
+            text = text.replace("\r\n", "\n").replace("\r", "\n")
+            label = "selection" if kind == "selection" else "log"
+            default_name = f"ComfyUI-EZi-console-{label}-{time.strftime('%Y%m%d_%H%M%S')}.txt"
+            result = win.create_file_dialog(
+                SAVE_DIALOG_TYPE,
+                directory=self._last_save_dir,
+                save_filename=default_name,
+                file_types=("Text File (*.txt)", "All Files (*.*)")
+            )
+            if not result:
+                return False
+            path = result[0] if isinstance(result, (list, tuple)) else result
+            with open(path, "w", encoding="utf-8", newline="\r\n") as f:
+                f.write(text + "\n")
+            self._last_save_dir = os.path.dirname(path)
+            self._settings["last_save_dir"] = self._last_save_dir
+            _save_settings(self._settings)
+            return True
+        except Exception:
+            _log_error('save_console_log')
+            return False
+
+    def set_console_zoom(self, kind, size):
+        try:
+            key = {"attached": "console_zoom_attached", "detached": "adv_console_zoom_detached" if ADV_CONSOLE else "console_zoom_detached"}.get(kind)
+            if key is None:
+                return False
+            self._settings[key] = max(6, min(40, int(size)))
+            if self._settings_holder is not None:
+                self._settings_holder[0] = self._settings
+            _save_settings(self._settings)
+            return True
+        except Exception:
+            _log_error('set_console_zoom')
+            return False
+
+    def set_sel_option(self, name, value):
+        try:
+            if name == "lang":
+                if not _ezi_valid_lang(value):
+                    return False
+                self._settings["sel_ai_lang"] = value
+                if self._settings_holder is not None:
+                    self._settings_holder[0] = self._settings
+                _save_settings(self._settings)
+                self._safe_eval(f"window.__eziSelPopSync && window.__eziSelPopSync({json.dumps({'lang': value})})")
+                self._console_push_selpop()
+                return True
+            key = {"copy": "sel_pop_copy", "google": "sel_pop_google", "chatgpt": "sel_pop_chatgpt",
+                   "claude": "sel_pop_claude", "save": "sel_pop_save"}.get(name)
+            if key is None:
+                return False
+            self._settings[key] = bool(value)
+            if self._settings_holder is not None:
+                self._settings_holder[0] = self._settings
+            _save_settings(self._settings)
+            self._safe_eval(f"window.__eziSelPopSync && window.__eziSelPopSync({json.dumps({name: bool(value)})})")
+            self._console_push_selpop()
+            return True
+        except Exception:
+            _log_error('set_sel_option')
+            return False
 
     def _destroy_console_window(self):
         win = self._console_win
@@ -5865,8 +6528,9 @@ class Api:
             if is_maximized:
                 placement["maximized_rect"] = [rc.left, rc.top, rc.right, rc.bottom]
 
-            if self._settings.get("console_placement") != placement:
-                self._settings["console_placement"] = placement
+            pl_key = "adv_console_placement" if ADV_CONSOLE else "console_placement"
+            if self._settings.get(pl_key) != placement:
+                self._settings[pl_key] = placement
                 _save_settings(self._settings)
         except Exception:
             _log_error('_save_console_placement')
@@ -6014,7 +6678,9 @@ class Api:
                 for arg_name, path_val in env_dirs.items():
                     extra_args.extend([arg_name, path_val])
 
-            final_args = py_flags + [main_path] + extra_args + ["--disable-auto-launch"]
+            final_args = py_flags + [main_path] + extra_args
+            if not ADV_CONSOLE:
+                final_args.append("--disable-auto-launch")
 
             target_port = self._comfy_port_holder[0]
             for arg_i, arg_v in enumerate(extra_args):
@@ -6076,11 +6742,12 @@ class Api:
                     )
                     if _chk.returncode != 0:
                         self._println(f'\033[93m[Pinned] {_pkg} version mismatch - reinstalling {_entry}...\033[0m')
-                        _rc = self._stream_cmd(
-                            [self.PY_EXE, '-I', '-m', 'pip', 'install',
-                             '--force-reinstall', _entry,
-                             '--no-deps', '--no-warn-script-location', '--no-cache-dir'],
-                            env=run_env, use_pty=True)
+                        _pip_cmd = [self.PY_EXE, '-I', '-m', 'pip', 'install',
+                                    '--force-reinstall', _entry,
+                                    '--no-deps', '--no-warn-script-location']
+                        if not os.path.exists(KEEP_CACHE_FLAG_PATH):
+                            _pip_cmd.append('--no-cache-dir')
+                        _rc = self._stream_cmd(_pip_cmd, env=run_env, use_pty=True)
                         if _rc == 0:
                             self._println(f'\033[92m[Pinned] {_entry} restored.\033[0m')
                         else:
@@ -6088,6 +6755,7 @@ class Api:
             except Exception:
                 _log_error('_run')
 
+            _COMFY_SCHEME[0] = "https" if ('--tls-keyfile' in extra_args and '--tls-certfile' in extra_args) else "http"
             self._proc = subprocess.Popen(
                 [self.PY_EXE] + final_args,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -6123,13 +6791,14 @@ class Api:
                 if m and not self._url_found and not self._restarting:
                     self._url_found = True
                     detected_port = int(m.group(1))
+                    _COMFY_SCHEME[0] = "https" if "https://" in m.group(0).lower() else "http"
                     self._comfy_port_holder[0] = detected_port
                     self._safe_eval("set_dot_ready()")
                     def _wait_and_load(port, proxy_port):
                         import urllib.request as _ur
                         for _ in range(40):
                             try:
-                                _ur.urlopen(f'http://127.0.0.1:{port}/system_stats', timeout=5)
+                                _comfy_urlopen(f'{_comfy_origin(port)}/system_stats', timeout=5)
                                 self._navigate_comfy_webview(f'http://127.0.0.1:{proxy_port}/')
                                 return
                             except Exception:
@@ -6139,6 +6808,7 @@ class Api:
                                      args=(detected_port, self._proxy_port),
                                      daemon=True).start()
                 elif m and self._restarting:
+                    _COMFY_SCHEME[0] = "https" if "https://" in m.group(0).lower() else "http"
                     self._comfy_port_holder[0] = int(m.group(1))
             tail = dec.decode(b'', final=True)
             if tail:
@@ -6159,72 +6829,6 @@ class Api:
                 self._safe_eval("switchToConsole('Stopped')")
         except Exception as e: self._println(f"Error: {str(e)}")
 
-    def _depr_filter(self, text):
-        if not self._settings.get('hide_deprecation_warnings', True):
-            text = self._depr_hold + text
-            self._depr_hold, self._depr_drop, self._depr_blank = '', False, False
-            if text:
-                self._depr_bol = text[-1] in '\r\n'
-            return text
-        if self._depr_hold == '\r' and self._depr_blank:
-            text, self._depr_hold = '\r' + text, ''
-        out, pos, n = [], 0, len(text)
-        while pos < n:
-            if self._depr_drop:
-                nl = text.find('\n', pos)
-                if nl < 0:
-                    break
-                pos, self._depr_drop, self._depr_bol, self._depr_blank = nl + 1, False, True, True
-                continue
-            if not self._depr_bol:
-                m = _LINE_TERM_RE.search(text, pos)
-                if not m:
-                    out.append(text[pos:])
-                    break
-                out.append(text[pos:m.end()])
-                pos, self._depr_bol = m.end(), True
-                continue
-            if self._depr_blank:
-                c = text[pos]
-                if c == '\n':
-                    self._depr_blank = False
-                    pos += 1
-                    continue
-                if c == '\r' and pos + 1 >= n:
-                    self._depr_hold, self._depr_hold_t = '\r', time.monotonic()
-                    break
-                self._depr_blank = False
-                if c == '\r' and text[pos + 1] == '\n':
-                    pos += 2
-                    continue
-            m = _LINE_TERM_RE.search(text, pos)
-            seg = text[pos:m.start()] if m else text[pos:]
-            cand = self._depr_hold + seg
-            if _DEPR_MARK in cand:
-                self._depr_hold, self._depr_drop, self._depr_bol = '', True, False
-                pos += len(seg)
-                continue
-            if m:
-                out.append(cand + m.group())
-                self._depr_hold = ''
-                pos = m.end()
-                continue
-            if len(cand) >= _DEPR_HOLD_MAX:
-                out.append(cand)
-                self._depr_hold, self._depr_bol = '', False
-            else:
-                if not self._depr_hold:
-                    self._depr_hold_t = time.monotonic()
-                self._depr_hold = cand
-            break
-        return ''.join(out)
-
-    def _depr_release(self, age=0.05):
-        with self._out_lock:
-            if self._depr_hold and time.monotonic() - self._depr_hold_t >= age:
-                held, self._depr_hold, self._depr_bol, self._depr_blank = self._depr_hold, '', False, False
-                self._sink(held)
-
     def _sink(self, text):
         if not text:
             return
@@ -6235,7 +6839,7 @@ class Api:
         if not text:
             return
         with self._out_lock:
-            self._sink(self._depr_filter(text))
+            self._sink(text)
 
     def _println(self, text):
         if text.endswith('\n'):
@@ -6245,12 +6849,8 @@ class Api:
 
     def _ensure_nl(self):
         with self._out_lock:
-            if self._depr_hold:
-                held, self._depr_hold = self._depr_hold, ''
-                self._sink(held)
             if self._last_ch != '\n':
                 self._sink('\n')
-            self._depr_bol = True
 
     def _ctl(self, seq):
         with self._out_lock:
@@ -6260,7 +6860,6 @@ class Api:
         CHUNK = 262144
         while True:
             time.sleep(0.03)
-            self._depr_release()
             if not self._js_ready.is_set():
                 continue
             with self._pump_lock:
@@ -6323,10 +6922,7 @@ class Api:
                         pass
                     self._ctl("\x1b]777;ezi-pty;end\x07")
                     with self._out_lock:
-                        if self._depr_hold:
-                            held, self._depr_hold = self._depr_hold, ''
-                            self._sink(held)
-                        self._last_ch, self._depr_bol, self._depr_drop, self._depr_blank = '\n', True, False, False
+                        self._last_ch = '\n'
                 return pty.exitstatus or 0
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 cwd=cwd, env=env,
@@ -6439,6 +7035,8 @@ class Api:
         self._ui_invoke(self._hide_rec_overlay_now)
 
     def _navigate_comfy_webview(self, url):
+        if ADV_CONSOLE:
+            return
         def _do():
             cw = _EZI_WINDOW_REF.get("comfy_webview")
             if cw is None:
@@ -6632,6 +7230,7 @@ if __name__ == '__main__':
             user_agent=CHROME_UA,
             frameless=False,
             resizable=True,
+            hidden=ADV_CONSOLE,
             background_color='#1e1e1e',
         )
     except TypeError:
@@ -6641,6 +7240,7 @@ if __name__ == '__main__':
             js_api=api,
             frameless=False,
             resizable=True,
+            hidden=ADV_CONSOLE,
             background_color='#1e1e1e',
         )
     api.set_window(window)
@@ -6717,6 +7317,8 @@ if __name__ == '__main__':
     window.events.closing += _on_closing
 
     def _restore_on_shown():
+        if ADV_CONSOLE:
+            return
         try:
             hwnd = _get_hwnd(window)
             if not hwnd:

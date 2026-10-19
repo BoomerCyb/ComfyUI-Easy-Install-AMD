@@ -129,6 +129,8 @@ def main():
             failures.append({'node': node['name'], 'error': str(error)})
             print('Node installation needs attention:', node['name'], '-', error, flush=True)
     (root / 'amd/node-install-report.json').write_text(json.dumps(failures, indent=2), encoding='utf-8')
+    from maintenance import patch_rgthree
+    patch_rgthree(root / 'ComfyUI/custom_nodes')
     stage('6/7', 'Preparing optional audio tools')
     if not shutil.which('sox'):
         try:

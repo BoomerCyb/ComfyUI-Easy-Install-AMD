@@ -1,4 +1,4 @@
-VERSION = '0.1.26-amd'
+VERSION = '0.1.27-amd'
 
 import glob
 import os
@@ -9,6 +9,8 @@ import ctypes.wintypes as wt
 import threading
 import re
 import shlex
+import json
+import math
 
 import time
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -27,10 +29,8 @@ def attention_available(module):
     return (os.path.isfile(os.path.join(site, module, '__init__.py'))
             and bool(glob.glob(os.path.join(glob.escape(site), module + '-*.dist-info'))))
 
-HAS_SAGE = True
-HAS_FLASH = True
-ATTENTION_CHECK_PENDING = True
-ATTENTION_CHECK_RESULTS = None
+HAS_SAGE  = attention_available('sageattention')
+HAS_FLASH = attention_available('flash_attn')
 
 HAS_DESK_SAGE  = HAS_SAGE and os.path.exists(root('Start ComfyUI SageAttention.bat'))
 HAS_DESK_FLASH = HAS_FLASH and os.path.exists(root('Start ComfyUI FlashAttention.bat'))
@@ -124,75 +124,7 @@ RDW_UPDATENOW    = 0x0100
 RDW_ALLCHILDREN  = 0x0080
 RGN_DIFF         = 4
 
-# Pixaroma theme
-C_BG            = 0x111111
-C_TITLEBAR      = 0x1A1A1A
-C_BORDER        = 0x252525
-C_FOOTER_BG     = 0x161616
-
-C_ORANGE = 0x4467F6
-C_GREEN  = 0x5A5AF0
-C_BLUE   = 0xF49145
-
-C_DP_BG         = 0x222222
-C_DP_BORDER     = 0x0A53E8
-C_DP_TEXT       = 0x0A53E8
-C_DPH_BG        = 0x00226E
-C_DPH_BORDER    = 0x4070FF
-C_DPH_TEXT      = 0x4070FF
-
-C_DP_INST_BORDER = 0x18488A
-C_DP_INST_TEXT   = 0x18488A
-
-C_BP_BG         = 0x222222
-C_BP_BORDER     = 0x5A5AF0
-C_BP_TEXT       = 0x5A5AF0
-C_BPH_BG        = 0x242460
-C_BPH_BORDER    = 0x8B8BFF
-C_BPH_TEXT      = 0x8B8BFF
-
-C_BP_INST_BORDER = 0x323284
-C_BP_INST_TEXT   = 0x323284
-
-C_UP_BG         = 0x222222
-C_UP_BORDER     = 0xD08020
-C_UP_TEXT       = 0xD08020
-C_UPH_BG        = 0x281800
-C_UPH_BORDER    = 0xFFB050
-C_UPH_TEXT      = 0xFFB050
-
-C_UP_DIM_BORDER = 0x724611
-C_UP_DIM_TEXT   = 0x724611
-
-C_FLD_BG        = 0x1E1E1E
-C_FLD_BORDER    = 0x2A2A2A
-C_FLD_TEXT      = C_DP_BORDER
-C_FLDH_BG       = 0x00226E
-C_FLDH_BORDER   = 0x0A53E8
-C_FLDH_TEXT     = 0x0A53E8
-
-C_VER_TEXT      = 0xAAAAAA
-
-# Layout
-WIN_W           = sc(520)
-SEP_X           = sc(180)
-SEP2_X          = sc(350)
-TITLE_H         = sc(36)
-STRIPE_H        = sc(2)
-SEC_TOP_PAD     = sc(12)
-SEC_LABEL_H     = sc(22)
-SEC_LABEL_PAD   = 0
-CONTENT_TOP     = TITLE_H + STRIPE_H + SEC_TOP_PAD + SEC_LABEL_H + SEC_LABEL_PAD
-BTN_H           = sc(36)
-BTN_GAP         = sc(6)
-FOOTER_H        = sc(44)
-FOOTER_BTN_H    = sc(28)
-BOT_PAD         = sc(8)
-ARROW_W         = sc(22)
-ARROW_GAP       = sc(2)
-WIN_BORDER_W    = max(1, sc(1))
-
-WIN_H = CONTENT_TOP + (5 * BTN_H) + (4 * BTN_GAP) + BOT_PAD + FOOTER_H
+WIN_W, WIN_H = sc(672), sc(420)
 
 user32   = ctypes.windll.user32
 gdi32    = ctypes.windll.gdi32
@@ -341,6 +273,9 @@ ID_FOLD_OUTPUT    = 41
 ID_FOLD_INPUT     = 42
 ID_FOLD_WORKFLOWS = 43
 ID_FOLD_MODELS    = 44
+
+ID_MODE_BROWSER   = 50
+ID_MODE_HYBRID    = 51
 ID_TRITON         = 45
 
 ID_SC_EZI_DESK     = 110
@@ -373,9 +308,6 @@ for _sc_id, _sc_meta in SHORTCUT_META.items():
     )
 
 WM_APP_CLOSE = 0x8001
-WM_APP_ATTENTION_READY = 0x8002
-WM_TIMER = 0x0113
-ATTENTION_TIMER = 73
 
 g_fonts          = {}
 g_brushes        = {}
@@ -385,6 +317,7 @@ g_gradient_bmp   = None
 g_tooltip_hwnd   = None
 g_creating_shortcut = False
 g_hwnd           = None
+g_adv            = False
 
 class TOOLINFOW(ctypes.Structure):
     _fields_ = [
@@ -399,37 +332,7 @@ class TOOLINFOW(ctypes.Structure):
         ('lpReserved', ctypes.c_void_p),
     ]
 
-def triton_enabled():
-    try:
-        with open(root('Start ComfyUI.bat'), encoding='utf-8') as handle:
-            args = handle.read()
-        return '--enable-triton-backend' in args and '--disable-triton-backend' not in args
-    except OSError:
-        return False
-
-
-def toggle_triton():
-    try:
-        result = subprocess.run(
-            [root('python_embeded/python.exe'), root('amd/windows_tools.py'), 'triton'],
-            cwd=ROOT_DIR, capture_output=True, text=True,
-            timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
-    except (OSError, subprocess.SubprocessError) as error:
-        user32.MessageBoxW(g_hwnd, str(error), 'Triton Toggle Failed', 0x10)
-        return
-    message = (result.stdout + result.stderr).strip()
-    if result.returncode:
-        # Show the tool's own message (e.g. "ComfyUI is running"), not just the exit status.
-        user32.MessageBoxW(g_hwnd, message[-1500:] or f'Exit code {result.returncode}', 'Triton Toggle Failed', 0x10)
-        return
-    BTN_META[ID_TRITON] = ('Triton: On' if triton_enabled() else 'Triton: Off', 'desk')
-    user32.RedrawWindow(g_hwnd, None, None,
-                        RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN)
-    user32.MessageBoxW(g_hwnd, message, 'Triton Backend', 0x40)
-
-
 BTN_META = {
-    ID_TRITON: ('Triton: On' if triton_enabled() else 'Triton: Off', 'desk'),
     ID_EZI_DESK:       ('ComfyUI EZi',     'desk'),
     ID_KITCHEN_DESK:   ('KitchenAttn',     'desk'),
     ID_SAGE_DESK:      ('SageAttn',        'desk'),
@@ -444,6 +347,8 @@ BTN_META = {
     ID_UPD_EASY:       ('Easy-Install',    'upd'),
     ID_CLOSE:          ('\u2715',          'close'),
     ID_VERSION:        ('v' + VERSION,     'version'),
+    ID_MODE_BROWSER:   ('BROWSER',         'modebrow'),
+    ID_MODE_HYBRID:    ('HYBRID',          'modehyb'),
     ID_FOLD_OUTPUT:    ('Output',          'fld'),
     ID_FOLD_INPUT:     ('Input',           'fld'),
     ID_FOLD_WORKFLOWS: ('Workflows',       'fld'),
@@ -654,6 +559,10 @@ def _load_custom_browser():
     return None
 
 
+def _settings_path():
+    return os.path.join(SCRIPT_DIR, 'ComfyUI-EZi.settings.json')
+
+
 def _open_folder(path):
     if path and os.path.isdir(path):
         try:
@@ -670,55 +579,14 @@ def open_folder_async(resolver):
     threading.Thread(target=lambda: _open_folder(resolver()), daemon=True).start()
 
 
-def btn_default_bg(btn_id):
-    if btn_id in (ID_TRITON, ID_EZI_DESK,  ID_KITCHEN_DESK, ID_SAGE_DESK,  ID_FLASH_DESK,
-                  ID_SC_EZI_DESK, ID_SC_SAGE_DESK, ID_SC_FLASH_DESK, ID_SC_KITCHEN_DESK):
-        if btn_id in INSTALL_BTN_STATE and is_install_state(btn_id):
-            return C_BG
-        if is_dimmed_state(btn_id):
-            return C_BG
-        return C_DP_BG
-    if btn_id in (ID_EZI_BROW,  ID_KITCHEN_BROW, ID_SAGE_BROW,  ID_FLASH_BROW,
-                  ID_SC_EZI_BROW, ID_SC_SAGE_BROW, ID_SC_FLASH_BROW, ID_SC_KITCHEN_BROW):
-        if btn_id in INSTALL_BTN_STATE and is_install_state(btn_id):
-            return C_BG
-        if is_dimmed_state(btn_id):
-            return C_BG
-        return C_BP_BG
-    if btn_id in (ID_UPD_COMFY, ID_SC_UPD_COMFY, ID_UPD_COMFY_NODE, ID_UPD_EASY):
-        return C_UP_BG
-    if btn_id in (ID_FOLD_OUTPUT, ID_FOLD_INPUT, ID_FOLD_WORKFLOWS, ID_FOLD_MODELS):
-        return C_FLD_BG
-    return C_BG
-
-
-def check_attention_background():
-    global ATTENTION_CHECK_RESULTS
-    ATTENTION_CHECK_RESULTS = (attention_available('sageattention'), attention_available('flash_attn'))
-    user32.PostMessageW(g_hwnd, WM_APP_ATTENTION_READY, 0, 0)
-
-
-def apply_attention_results():
-    global HAS_SAGE, HAS_FLASH, HAS_DESK_SAGE, HAS_BROW_SAGE, HAS_DESK_FLASH, HAS_BROW_FLASH, ATTENTION_CHECK_PENDING
-    HAS_SAGE, HAS_FLASH = ATTENTION_CHECK_RESULTS
-    HAS_DESK_SAGE = HAS_BROW_SAGE = HAS_SAGE and os.path.isfile(root('Start ComfyUI SageAttention.bat'))
-    HAS_DESK_FLASH = HAS_BROW_FLASH = HAS_FLASH and os.path.isfile(root('Start ComfyUI FlashAttention.bat'))
-    ATTENTION_CHECK_PENDING = False
-    user32.KillTimer(g_hwnd, ATTENTION_TIMER)
-    for button, available, bat, installer, desktop in (
-        (ID_SAGE_DESK, HAS_DESK_SAGE, 'Start ComfyUI SageAttention.bat', INSTALL_SAGE_BAT, True),
-        (ID_SAGE_BROW, HAS_BROW_SAGE, 'Start ComfyUI SageAttention.bat', INSTALL_SAGE_BAT, False),
-        (ID_FLASH_DESK, HAS_DESK_FLASH, 'Start ComfyUI FlashAttention.bat', INSTALL_FLASH_BAT, True),
-        (ID_FLASH_BROW, HAS_BROW_FLASH, 'Start ComfyUI FlashAttention.bat', INSTALL_FLASH_BAT, False)):
-        ACTIONS[button] = (lambda bat=bat: launch_ezi_with_bat(bat)) if available and desktop else (lambda bat=bat: launch_bat(bat)) if available else (lambda installer=installer: install_addon(installer))
-    user32.RedrawWindow(g_hwnd, None, None, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN)
-
-
-def launch_ezi():
+def launch_ezi(adv=False):
     pythonw = os.path.join(ROOT_DIR, 'python_embeded', 'pythonw.exe')
     if not os.path.exists(pythonw):
         pythonw = re.sub(r'(?i)python\.exe$', 'pythonw.exe', sys.executable)
-    subprocess.Popen([pythonw, EZI_PY], cwd=SCRIPT_DIR, creationflags=0x8)
+    cmd = [pythonw, EZI_PY]
+    if adv:
+        cmd.append('--advanced-console')
+    subprocess.Popen(cmd, cwd=SCRIPT_DIR, creationflags=0x8)
     user32.PostMessageW(g_hwnd, WM_APP_CLOSE, 0, 0)
 
 
@@ -730,10 +598,22 @@ def launch_bat(name):
     user32.PostMessageW(g_hwnd, WM_APP_CLOSE, 0, 0)
 
 
-def launch_ezi_with_bat(bat_name):
+def launch_ezi_with_bat(bat_name, adv=False):
     pythonw = os.path.join(ROOT_DIR, 'python_embeded', 'pythonw.exe')
-    subprocess.Popen([pythonw, EZI_PY, bat_name], cwd=SCRIPT_DIR, creationflags=0x8)
+    cmd = [pythonw, EZI_PY, bat_name]
+    if adv:
+        cmd.append('--advanced-console')
+    subprocess.Popen(cmd, cwd=SCRIPT_DIR, creationflags=0x8)
     user32.PostMessageW(g_hwnd, WM_APP_CLOSE, 0, 0)
+
+
+def launch_brow(name):
+    if not g_adv:
+        launch_bat(name)
+    elif name == 'Start ComfyUI.bat':
+        launch_ezi(adv=True)
+    else:
+        launch_ezi_with_bat(name, adv=True)
 
 
 def install_addon(bat_path):
@@ -744,14 +624,47 @@ def install_addon(bat_path):
     user32.PostMessageW(g_hwnd, WM_APP_CLOSE, 0, 0)
 
 
+def triton_enabled():
+    try:
+        with open(root('Start ComfyUI.bat'), encoding='utf-8') as handle:
+            args = handle.read()
+        return '--enable-triton-backend' in args and '--disable-triton-backend' not in args
+    except OSError:
+        return False
+
+
+def triton_label():
+    return 'Triton: On' if triton_enabled() else 'Triton: Off'
+
+
+def toggle_triton():
+    try:
+        result = subprocess.run(
+            [root('python_embeded/python.exe'), root('amd/windows_tools.py'), 'triton'],
+            cwd=ROOT_DIR, capture_output=True, text=True,
+            timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
+    except (OSError, subprocess.SubprocessError) as error:
+        user32.MessageBoxW(g_hwnd, str(error), 'Triton Toggle Failed', 0x10)
+        return
+    message = (result.stdout + result.stderr).strip()
+    if result.returncode:
+        # Show the tool's own message (e.g. "ComfyUI is running"), not just the exit status.
+        user32.MessageBoxW(g_hwnd, message[-1500:] or f'Exit code {result.returncode}', 'Triton Toggle Failed', 0x10)
+        return
+    spec = list(g_control_specs[ID_TRITON]); spec[4] = triton_label(); g_control_specs[ID_TRITON] = tuple(spec)
+    user32.SetWindowTextW(g_controls[ID_TRITON], spec[4])
+    user32.InvalidateRect(g_controls[ID_TRITON], None, False)
+    user32.MessageBoxW(g_hwnd, message, 'Triton Backend', 0x40)
+
+
 ACTIONS = {
-    ID_TRITON: toggle_triton,
+    ID_TRITON:     lambda: toggle_triton(),
     ID_VERSION:    lambda: os.startfile('https://github.com/BoomerCyb/ComfyUI-Easy-Install-AMD'),
     ID_EZI_DESK:   lambda: launch_ezi(),
-    ID_EZI_BROW:   lambda: launch_bat('Start ComfyUI.bat'),
+    ID_EZI_BROW:   lambda: launch_brow('Start ComfyUI.bat'),
 
     ID_KITCHEN_DESK: lambda: launch_ezi_with_bat('Start ComfyUI KitchenAttention.bat'),
-    ID_KITCHEN_BROW: lambda: launch_bat('Start ComfyUI KitchenAttention.bat'),
+    ID_KITCHEN_BROW: lambda: launch_brow('Start ComfyUI KitchenAttention.bat'),
 
     ID_SAGE_DESK:  (
         (lambda: launch_ezi_with_bat('Start ComfyUI SageAttention.bat'))
@@ -764,12 +677,12 @@ ACTIONS = {
         else (lambda: install_addon(INSTALL_FLASH_BAT))
     ),
     ID_SAGE_BROW:  (
-        (lambda: launch_bat('Start ComfyUI SageAttention.bat'))
+        (lambda: launch_brow('Start ComfyUI SageAttention.bat'))
         if HAS_BROW_SAGE
         else (lambda: install_addon(INSTALL_SAGE_BAT))
     ),
     ID_FLASH_BROW: (
-        (lambda: launch_bat('Start ComfyUI FlashAttention.bat'))
+        (lambda: launch_brow('Start ComfyUI FlashAttention.bat'))
         if HAS_BROW_FLASH
         else (lambda: install_addon(INSTALL_FLASH_BAT))
     ),
@@ -813,9 +726,19 @@ def create_shortcut(sc_btn_id):
             ID_FLASH_BROW:   'Start ComfyUI FlashAttention.bat',
             ID_KITCHEN_BROW: 'Start ComfyUI KitchenAttention.bat',
         }
-        target   = os.path.join(ROOT_DIR, bat_map[main_id])
-        args     = ''
-        work_dir = ROOT_DIR
+        if g_adv:
+            if main_id == ID_EZI_BROW:
+                target = sys.executable
+                args   = '"{}" --advanced-console'.format(EZI_PY)
+            else:
+                target = os.path.join(ROOT_DIR, 'python_embeded', 'pythonw.exe')
+                args   = '"{}" "{}" --advanced-console'.format(EZI_PY, bat_map[main_id])
+            work_dir = SCRIPT_DIR
+            label    = label + ' HYBRID'
+        else:
+            target   = os.path.join(ROOT_DIR, bat_map[main_id])
+            args     = ''
+            work_dir = ROOT_DIR
 
     ico_path = os.path.join(SCRIPT_DIR, ico_name)
 
@@ -830,731 +753,705 @@ def create_shortcut(sc_btn_id):
     shortcut.Save()
     user32.PostMessageW(g_hwnd, WM_APP_CLOSE, 0, 0)
 
+LOGO_PNG = (
+    'iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAMFBMVEWC382C382C382C382C382C382C382C382C382C382C382C382C'
+    '382C382C382C380xhxc0AAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAABBdJREFUeNrtm01rE0EYxyeTxJRYTARvvayCCEVoPHhR'
+    'L4JXNSi96EE/QvEsFPwE/Qi5eBDFWnr0El9yUarRm1ClB70JjUppqV3HQ7pNNjuzz3/myWi185zSZXZ++5v33c4IYRUnH726JjzGaaWU'
+    '6vjLv6qUUkq1vAHe9gE7ngWUansC3EoAmxY3FSzSKpe7JJ60PPjZ9FsFviqhNgD0vBSRW0jfd7kBfv2bRfRz8POJF8CWE8BhrFNKeSrO'
+    'mST/DU+ASgKY89Ui5vv5b3trcuU+oOmvUVfsC6hg2W2ui9dr4mBFqojk7GykSfPhpuHmG/c1F1cePDQVYnnQVdOxmdtqs3GH6EfZ0E6R'
+    'k+b0rZxGro2d/KEpG7quspiTXtf2K3npt62E9bN8LfeGdmY+eIGuibC10YVRQLWRP0bYAoot07rTEJqFZH5sjHQ0ZT1mgXfsFlGVSB1n'
+    'L1HzcisFKOMrChTQTAHmxg+o2NSYru9XFdQu+lUhY4d5iarl42uDIioSaX/oLjaImxpDdUCs7+IjuqvviFqI4PLcjAwT9F1sOBoe6Sxe'
+    'XcgXobbv5ftwHRTFPnuFCoAACIADBijlzmN1KI91Z4BcgQj3FlwB8e1nCKDuXgcdaALquQPiq54NQAUGAFPg9AO2AgVgK5A9matAArgK'
+    '9FjEVKABTAVgNOUpAACeAjIfsBQQAEsBmtE4ChCAo4DNyQwFDMBQAFcV7gogwF0BXRc5K5TAdPHZ9LvsxPKYAWJ1NfXn4bD4DYB9CKh7'
+    'BpQWPAPORX4BxaWeX8D5ut9KLi55bkXuAhiAIYABGAIQgCMAATgCCIAlgACm6n4BhSXPo+lUwy+gsCz8ApgCJIArQAK4AhSALUAB2AIE'
+    'gC9ALH6HBI5d2vv5tTu2z5pDAuef7v28KITY6tXHUESHtDXwuW3zyiOtN76oy1avPPZLxy9dq7c2a8CuAKwgHQVgBekqgCpIVwFUQToL'
+    'gArSWQBUkO4CmIId4GXX+guGFSC+Yv8FwwqQyQ9QsAFosqMVJEcAUZAsAUBBsgQABckToBUkT4BWkNh2/ZyMOr3eWKZMY1HEzbrzqkKt'
+    'IyXROUM/ZC15vG/ppzk6YMGfEkbyKrn/Izd88QqA/wwQiz+1r6I8mwwNjy0zOpVscJ1IrnTz99lZr7oN+yOlaTNmyy7/yeylYQMJ7xY3'
+    'hWZTdURsB206nd4wFbLmAb4Ll7Nwpr3dM4pQFMjZDd0D7na0j5q73uOAac21N+n+pjgKZeDuxZy92S41kNleX1PuDamCbMeXFicnoIMF'
+    'kfGgE3lyAjpYkG3kUjkWkv7kRWQ4uetQSIuwuvZQynOBniED2t88fCCF2FBt9J62roYKeQxn5JvTCU0mn3IAtulDhAgRIkSIECFChPh7'
+    '8RvLWl3uOMlp8QAAAABJRU5ErkJggg=='
+)
 
-def _rgb(c):
-    return (c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF)
+import base64
+import tempfile
+import zlib
 
+P = ctypes.c_void_p
+I = ctypes.c_int
+U = ctypes.c_uint
+F = ctypes.c_float
 
-def _to_col(r, g, b):
-    return (b << 16) | (g << 8) | r
+def _bind(lib, name, result, *args):
+    fn = getattr(lib, name)
+    fn.restype, fn.argtypes = result, list(args)
+    return fn
 
+for name, result, args in [
+    ('CreateWindowExW', P, [U, wt.LPCWSTR, wt.LPCWSTR, U, I,I,I,I,P,P,P,P]),
+    ('GetDC', P, [P]), ('ReleaseDC', I, [P,P]),
+    ('BeginPaint', P, [P, ctypes.POINTER(PAINTSTRUCT)]),
+    ('EndPaint', I, [P, ctypes.POINTER(PAINTSTRUCT)]),
+    ('LoadCursorW', P, [P,P]), ('DestroyWindow', I, [P]),
+    ('PostMessageW', I, [P,U,WPARAM,LPARAM]),
+    ('InvalidateRect', I, [P,P,I]), ('GetClientRect', I, [P,ctypes.POINTER(wt.RECT)]),
+    ('GetWindowRect', I, [P,ctypes.POINTER(wt.RECT)]),
+    ('SetWindowTextW', I, [P,wt.LPCWSTR]), ('EnableWindow', I, [P,I]),
+    ('SetWindowPos', I, [P,P,I,I,I,I,U]),
+    ('IsWindowEnabled', I, [P]), ('GetFocus', P, []),
+    ('ShowWindow', I, [P,I]), ('UpdateWindow', I, [P]),
+    ('SetForegroundWindow', I, [P]), ('SetWindowRgn', I, [P,P,I]),
+    ('TrackMouseEvent', I, [ctypes.POINTER(TRACKMOUSEEVENT)]),
+    ('DrawTextW', I, [P,wt.LPCWSTR,I,ctypes.POINTER(wt.RECT),U]),
+    ('CreatePopupMenu', P, []), ('AppendMenuW', I, [P,U,ctypes.c_size_t,wt.LPCWSTR]),
+    ('TrackPopupMenu', U, [P,U,I,I,I,P,P]), ('DestroyMenu', I, [P]),
+    ('IsDialogMessageW', I, [P,ctypes.POINTER(wt.MSG)]),
+    ('GetNextDlgTabItem', P, [P,P,I]), ('GetKeyState', ctypes.c_short, [I]),
+    ('MessageBoxW', I, [P,wt.LPCWSTR,wt.LPCWSTR,U]),
+    ('GetMessageW', I, [ctypes.POINTER(wt.MSG),P,U,U]),
+    ('TranslateMessage', I, [ctypes.POINTER(wt.MSG)]),
+    ('DispatchMessageW', LRESULT, [ctypes.POINTER(wt.MSG)]),
+    ('RegisterClassExW', wt.ATOM, [ctypes.POINTER(WNDCLASSEX)]),
+    ('SetTimer', P, [P,P,U,P]), ('KillTimer', I, [P,P]),
+]:
+    _bind(user32, name, result, *args)
+_bind(kernel32, 'GetModuleHandleW', P, wt.LPCWSTR)
+for name, result, args in [
+    ('CreateCompatibleDC', P, [P]), ('CreateCompatibleBitmap', P, [P,I,I]),
+    ('SelectObject', P, [P,P]), ('DeleteObject', I, [P]), ('DeleteDC', I, [P]),
+    ('CreateFontIndirectW', P, [ctypes.POINTER(LOGFONT)]),
+    ('CreateSolidBrush', P, [U]), ('SetBkMode', I, [P,I]), ('SetTextColor', U, [P,U]),
+    ('BitBlt', I, [P,I,I,I,I,P,I,I,U]),
+    ('CreateRoundRectRgn', P, [I,I,I,I,I,I]),
+]:
+    _bind(gdi32, name, result, *args)
 
-def _lerp(a, b, s):
-    return int(a + (b - a) * s)
+gp = ctypes.windll.gdiplus
+class GPSTART(ctypes.Structure):
+    _fields_ = [('version', U), ('callback', P), ('no_thread', I), ('no_codecs', I)]
+class GPRECT(ctypes.Structure):
+    _fields_ = [('x', F), ('y', F), ('width', F), ('height', F)]
 
+for name, args in [
+    ('GdiplusStartup', [ctypes.POINTER(P),ctypes.POINTER(GPSTART),P]),
+    ('GdipCreateFromHDC', [P,ctypes.POINTER(P)]), ('GdipDeleteGraphics', [P]),
+    ('GdipSetSmoothingMode', [P,I]), ('GdipSetInterpolationMode', [P,I]),
+    ('GdipCreateSolidFill', [U,ctypes.POINTER(P)]), ('GdipDeleteBrush', [P]),
+    ('GdipCreateLineBrushFromRect', [ctypes.POINTER(GPRECT),U,U,I,I,ctypes.POINTER(P)]),
+    ('GdipCreatePen1', [U,F,I,ctypes.POINTER(P)]), ('GdipDeletePen', [P]),
+    ('GdipCreatePath', [I,ctypes.POINTER(P)]), ('GdipDeletePath', [P]),
+    ('GdipAddPathArc', [P,F,F,F,F,F,F]), ('GdipClosePathFigure', [P]),
+    ('GdipAddPathLine', [P,F,F,F,F]),
+    ('GdipAddPathBezier', [P,F,F,F,F,F,F,F,F]),
+    ('GdipFillPath', [P,P,P]), ('GdipDrawPath', [P,P,P]),
+    ('GdipFillRectangle', [P,P,F,F,F,F]),
+    ('GdipDrawLine', [P,P,F,F,F,F]),
+    ('GdipDrawEllipse', [P,P,F,F,F,F]), ('GdipFillEllipse', [P,P,F,F,F,F]),
+    ('GdipLoadImageFromFile', [wt.LPCWSTR,ctypes.POINTER(P)]),
+    ('GdipDrawImageRect', [P,P,F,F,F,F]), ('GdipDisposeImage', [P]), ('GdipSetLineWrapMode', [P,I]),
+]:
+    _bind(gp, name, I, *args)
+_bind(gp, 'GdiplusShutdown', None, P)
 
-def _lerp_col(c1, c2, s):
-    r1, g1, b1 = _rgb(c1)
-    r2, g2, b2 = _rgb(c2)
-    return _to_col(_lerp(r1, r2, s), _lerp(g1, g2, s), _lerp(b1, b2, s))
+def color(hexcode, alpha=255):
+    return (alpha << 24) | int(hexcode.lstrip('#'), 16)
 
-
-def _gradient_col(t):
-    sep1 = SEP_X  / float(WIN_W)
-    sep2 = SEP2_X / float(WIN_W)
-    fade = 0.05
-
-    if t <= sep1 - fade:
-        return C_DP_BORDER
-    if t < sep1 + fade:
-        s = (t - (sep1 - fade)) / (2 * fade)
-        return _lerp_col(C_DP_BORDER, C_BP_BORDER, s)
-    if t <= sep2 - fade:
-        return C_BP_BORDER
-    if t < sep2 + fade:
-        s = (t - (sep2 - fade)) / (2 * fade)
-        return _lerp_col(C_BP_BORDER, C_UP_BORDER, s)
-    return C_UP_BORDER
-
-
-def create_gradient_cache():
-    global g_gradient_memdc, g_gradient_bmp
-    hdc_screen       = user32.GetDC(0)
-
-    g_gradient_memdc = gdi32.CreateCompatibleDC(hdc_screen)
-    g_gradient_bmp   = gdi32.CreateCompatibleBitmap(hdc_screen, WIN_W, STRIPE_H)
-    gdi32.SelectObject(g_gradient_memdc, g_gradient_bmp)
-    for i in range(WIN_W):
-        t   = i / (WIN_W - 1)
-        col = _gradient_col(t)
-        pen = gdi32.CreatePen(PS_SOLID, 1, col)
-        old = gdi32.SelectObject(g_gradient_memdc, pen)
-        gdi32.MoveToEx(g_gradient_memdc, i, 0, None)
-        gdi32.LineTo(g_gradient_memdc, i, STRIPE_H)
-        gdi32.SelectObject(g_gradient_memdc, old)
-        gdi32.DeleteObject(pen)
-
-    user32.ReleaseDC(0, hdc_screen)
-
-
-def draw_arrow_button(hdc, hw, rc):
-    sc_id  = user32.GetDlgCtrlID(hw)
-    cat    = ARROW_COLOR_CAT.get(sc_id)
-    if not cat:
-        return
-    hovered = (hw == g_hover_btn)
-    dimmed  = is_dimmed_state(sc_id)
-
-    if dimmed:
-        bg       = C_UP_BG
-        border   = C_UP_DIM_BORDER
-        text_col = C_UP_DIM_TEXT
-    elif cat == 'desk':
-        bg       = C_DPH_BG     if hovered else C_DP_BG
-        border   = C_DPH_BORDER if hovered else C_DP_BORDER
-        text_col = C_DPH_TEXT   if hovered else C_DP_TEXT
-    elif cat == 'upd':
-        bg       = C_UPH_BG     if hovered else C_UP_BG
-        border   = C_UPH_BORDER if hovered else C_UP_BORDER
-        text_col = C_UPH_TEXT   if hovered else C_UP_TEXT
-    else:
-        bg       = C_BPH_BG     if hovered else C_BP_BG
-        border   = C_BPH_BORDER if hovered else C_BP_BORDER
-        text_col = C_BPH_TEXT   if hovered else C_BP_TEXT
-
-    if rc.right <= rc.left or rc.bottom <= rc.top:
-        return
-
-    user32.FillRect(hdc, ctypes.byref(rc), get_brush(bg))
-
-    pen = gdi32.CreatePen(PS_SOLID, 1, border)
-    op  = gdi32.SelectObject(hdc, pen)
-    ob  = gdi32.SelectObject(hdc, gdi32.GetStockObject(5))
-    gdi32.RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, sc(7), sc(7))
-    gdi32.SelectObject(hdc, op)
-    gdi32.SelectObject(hdc, ob)
-    gdi32.DeleteObject(pen)
-
-    old_font = gdi32.SelectObject(hdc, g_fonts['arrow'])
-    gdi32.SetBkMode(hdc, 1)
-    gdi32.SetTextColor(hdc, text_col)
-    glyph = 'N' if cat == 'upd' else '\u2197'
-    user32.DrawTextW(hdc, glyph, -1, ctypes.byref(rc),
-                     DT_CENTER | DT_VCENTER | DT_SINGLELINE)
-    gdi32.SelectObject(hdc, old_font)
-
-
-def draw_triton_gradient(hdc, rc, label, hovered):
-    # Reuse the title stripe's column-aligned colors and transition points.
-    gdi32.SaveDC.argtypes = [wt.HDC]
-    gdi32.SaveDC.restype = ctypes.c_int
-    gdi32.RestoreDC.argtypes = [wt.HDC, ctypes.c_int]
-    gdi32.SelectClipRgn.argtypes = [wt.HDC, wt.HANDLE]
-    saved = gdi32.SaveDC(hdc)
-    region = gdi32.CreateRoundRectRgn(rc.left, rc.top, rc.right, rc.bottom, sc(7), sc(7))
-    gdi32.SelectClipRgn(hdc, region)
-    for x in range(rc.left, rc.right):
-        color = _gradient_col((sc(8) + x) / float(WIN_W))
-        column = wt.RECT(x, rc.top, x + 1, rc.bottom)
-        brush = gdi32.CreateSolidBrush(_lerp_col(C_BG, color, .25 if hovered else .13))
-        user32.FillRect(hdc, ctypes.byref(column), brush)
-        gdi32.DeleteObject(brush)
-        edge_brush = gdi32.CreateSolidBrush(color)
-        for edge in (wt.RECT(x, rc.top, x + 1, rc.top + sc(1)),
-                     wt.RECT(x, rc.bottom - sc(1), x + 1, rc.bottom)):
-            user32.FillRect(hdc, ctypes.byref(edge), edge_brush)
-        gdi32.DeleteObject(edge_brush)
-    # Draw a complete rounded border using the difference between two regions.
-    thickness = max(1, sc(1))
-    outer = gdi32.CreateRoundRectRgn(rc.left, rc.top, rc.right + 1, rc.bottom + 1, sc(7), sc(7))
-    inner = gdi32.CreateRoundRectRgn(rc.left + thickness, rc.top + thickness,
-                                   rc.right + 1 - thickness, rc.bottom + 1 - thickness, sc(7), sc(7))
-    ring = gdi32.CreateRectRgn(0, 0, 0, 0)
-    gdi32.CombineRgn(ring, outer, inner, RGN_DIFF)
-    gdi32.SelectClipRgn(hdc, ring)
-    for x in range(rc.left, rc.right):
-        color = _gradient_col((sc(8) + x) / float(WIN_W))
-        brush = gdi32.CreateSolidBrush(_lerp_col(color, 0xFFFFFF, .15) if hovered else color)
-        column = wt.RECT(x, rc.top, x + 1, rc.bottom)
-        user32.FillRect(hdc, ctypes.byref(column), brush)
-        gdi32.DeleteObject(brush)
-    for border_region in (outer, inner, ring):
-        gdi32.DeleteObject(border_region)
-    gdi32.RestoreDC(hdc, saved)
-    gdi32.DeleteObject(region)
-    old_font = gdi32.SelectObject(hdc, g_fonts['btn_pri'])
-    gdi32.SetBkMode(hdc, 1)
-    gdi32.SetTextColor(hdc, C_BPH_TEXT if hovered else C_BP_TEXT)
-    user32.DrawTextW(hdc, label, -1, ctypes.byref(rc), DT_CENTER | DT_VCENTER | DT_SINGLELINE)
-    gdi32.SelectObject(hdc, old_font)
-
-
-def draw_button(hdc, hw, rc):
-    btn_id = user32.GetDlgCtrlID(hw)
-    meta   = BTN_META.get(btn_id)
-    if not meta:
-        return
-    label, btn_type = meta
-    if ATTENTION_CHECK_PENDING and btn_id in (ID_SAGE_DESK, ID_SAGE_BROW, ID_FLASH_DESK, ID_FLASH_BROW):
-        label += ": Checking..."
-    hovered = (hw == g_hover_btn)
-    install = is_install_state(btn_id)
-    if btn_id == ID_TRITON:
-        draw_triton_gradient(hdc, rc, label, hovered)
-        return
-    pen_style = PS_SOLID
-    font = g_fonts['btn_pri']
-
-    if btn_type == 'version':
-        hovered  = (hw == g_hover_btn)
-        text_col = C_DP_BORDER if hovered else C_VER_TEXT
-        if rc.right <= rc.left or rc.bottom <= rc.top:
-            return
-        user32.FillRect(hdc, ctypes.byref(rc), get_brush(C_TITLEBAR))
-        old_font = gdi32.SelectObject(hdc, g_fonts['footer'])
-        gdi32.SetBkMode(hdc, 1)
-        gdi32.SetTextColor(hdc, text_col)
-        user32.DrawTextW(hdc, label, -1, ctypes.byref(rc),
-                         DT_LEFT | DT_VCENTER | DT_SINGLELINE)
-        gdi32.SelectObject(hdc, old_font)
-        return
-
-    if btn_type == 'close':
-        bg       = 0x2A2A2A      if hovered else C_BG
-        border   = 0x2A2A2A      if hovered else 0x2A1015
-        text_col = 0x4070FF      if hovered else 0x666666
-        font     = g_fonts['close']
-    elif btn_type == 'fld':
-        bg       = C_FLDH_BG     if hovered else C_FLD_BG
-        border   = C_FLDH_BORDER if hovered else C_FLD_BORDER
-        text_col = C_FLDH_TEXT   if hovered else C_FLD_TEXT
-        font     = g_fonts['footer']
-    elif btn_type == 'upd':
-        if is_dimmed_state(btn_id):
-            bg       = C_UP_BG
-            border   = C_UP_DIM_BORDER
-            text_col = C_UP_DIM_TEXT
-            font     = g_fonts['btn_pri']
-        else:
-            bg       = C_UPH_BG     if hovered else C_UP_BG
-            border   = C_UPH_BORDER if hovered else C_UP_BORDER
-            text_col = C_UPH_TEXT   if hovered else C_UP_TEXT
-            font     = g_fonts['btn_pri']
-    elif btn_type == 'desk':
-        if is_dimmed_state(btn_id):
-            bg       = C_BG
-            border   = C_DP_INST_BORDER
-            text_col = C_DP_INST_TEXT
-            font     = g_fonts['btn_pri']
-        elif install:
-            label    = '+ Install ' + label
-            bg       = C_BG
-            border   = C_DPH_BORDER  if hovered else C_DP_INST_BORDER
-            text_col = C_DPH_TEXT    if hovered else C_DP_INST_TEXT
-            font     = g_fonts['btn_install']
-        else:
-            bg       = C_DPH_BG     if hovered else C_DP_BG
-            border   = C_DPH_BORDER if hovered else C_DP_BORDER
-            text_col = C_DPH_TEXT   if hovered else C_DP_TEXT
-            font     = g_fonts['btn_pri']
-    elif btn_type == 'brow':
-        if is_dimmed_state(btn_id):
-            bg       = C_BG
-            border   = C_BP_INST_BORDER
-            text_col = C_BP_INST_TEXT
-            font     = g_fonts['btn_pri']
-        elif install:
-            label    = '+ Install ' + label
-            bg       = C_BG
-            border   = C_BPH_BORDER  if hovered else C_BP_INST_BORDER
-            text_col = C_BPH_TEXT    if hovered else C_BP_INST_TEXT
-            font     = g_fonts['btn_install']
-        else:
-            bg       = C_BPH_BG     if hovered else C_BP_BG
-            border   = C_BPH_BORDER if hovered else C_BP_BORDER
-            text_col = C_BPH_TEXT   if hovered else C_BP_TEXT
-            font     = g_fonts['btn_pri']
-    else:
-        bg = C_BG
-        border = 0x2A2A2A
-        text_col = 0x888888
-
-    if rc.right <= rc.left or rc.bottom <= rc.top:
-        return
-
-    user32.FillRect(hdc, ctypes.byref(rc), get_brush(bg))
-
-    pen = gdi32.CreatePen(pen_style, 1, border)
-    op  = gdi32.SelectObject(hdc, pen)
-    ob  = gdi32.SelectObject(hdc, gdi32.GetStockObject(5))
-    gdi32.RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, sc(7), sc(7))
-    gdi32.SelectObject(hdc, op)
-    gdi32.SelectObject(hdc, ob)
-    gdi32.DeleteObject(pen)
-
-    old_font = gdi32.SelectObject(hdc, font)
-    gdi32.SetBkMode(hdc, 1)
-    gdi32.SetTextColor(hdc, text_col)
-    if ATTENTION_CHECK_PENDING and btn_id in (ID_SAGE_DESK, ID_SAGE_BROW, ID_FLASH_DESK, ID_FLASH_BROW):
-        size = wt.SIZE()
-        gdi32.GetTextExtentPoint32W(hdc, label, len(label), ctypes.byref(size))
-        width = rc.right - rc.left
-        span = width + size.cx + sc(16)
-        offset = int(time.monotonic() * sc(55)) % span
-        x = rc.right - offset
-        moving = wt.RECT(x, rc.top, x + size.cx + sc(4), rc.bottom)
-        gdi32.SaveDC.argtypes = [wt.HDC]
-        gdi32.SaveDC.restype = ctypes.c_int
-        gdi32.RestoreDC.argtypes = [wt.HDC, ctypes.c_int]
-        gdi32.IntersectClipRect.argtypes = [wt.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
-        saved_dc = gdi32.SaveDC(hdc)
-        gdi32.IntersectClipRect(hdc, rc.left + sc(4), rc.top + sc(2), rc.right - sc(4), rc.bottom - sc(2))
-        user32.DrawTextW(hdc, label, -1, ctypes.byref(moving), DT_LEFT | DT_VCENTER | DT_SINGLELINE)
-        gdi32.RestoreDC(hdc, saved_dc)
-    else:
-        user32.DrawTextW(hdc, label, -1, ctypes.byref(rc), DT_CENTER | DT_VCENTER | DT_SINGLELINE)
-    gdi32.SelectObject(hdc, old_font)
-
-
-_subclass_procs = []
-
-
-def make_btn_subclass(hwnd_btn, is_arrow=False):
-    orig = user32.GetWindowLongPtrW(hwnd_btn, -4)
-
-    @BTN_PROC_TYPE
-    def sub_proc(hw, msg, wp, lp):
-        global g_hover_btn
-        if msg == WM_PAINT:
-            ps  = PAINTSTRUCT()
-            hdc = user32.BeginPaint(hw, ctypes.byref(ps))
-            rc  = wt.RECT()
-            user32.GetClientRect(hw, ctypes.byref(rc))
-            if is_arrow:
-                draw_arrow_button(hdc, hw, rc)
-            else:
-                draw_button(hdc, hw, rc)
-            user32.EndPaint(hw, ctypes.byref(ps))
-            return 0
-
-        if msg == WM_ERASEBKGND:
-            return 1
-
-        if msg == WM_MOUSEMOVE:
-            if g_hover_btn != hw:
-                prev        = g_hover_btn
-                g_hover_btn = hw
-                if prev:
-                    user32.InvalidateRect(prev, None, False)
-                user32.InvalidateRect(hw, None, False)
-                tme = TRACKMOUSEEVENT(
-                    ctypes.sizeof(TRACKMOUSEEVENT), 0x00000002, hw, 0)
-                user32.TrackMouseEvent(ctypes.byref(tme))
-
-        elif msg == WM_MOUSELEAVE:
-            if g_hover_btn == hw:
-                g_hover_btn = None
-                user32.InvalidateRect(hw, None, False)
-
-        orig_proc = ctypes.cast(orig, BTN_PROC_TYPE)
-        return user32.CallWindowProcW(orig_proc, hw, msg, wp, lp)
-
-    _subclass_procs.append((orig, sub_proc))
-    user32.SetWindowLongPtrW(hwnd_btn, -4,
-                             ctypes.cast(sub_proc, ctypes.c_void_p))
-
-
-def create_tooltip_window(parent):
-    global g_tooltip_hwnd
-    hinstance = kernel32.GetModuleHandleW(None)
-    g_tooltip_hwnd = user32.CreateWindowExW(
-        WS_EX_TOPMOST,
-        'tooltips_class32', None,
-        TTS_ALWAYSTIP | TTS_NOPREFIX,
-        0, 0, 0, 0,
-        parent, None, hinstance, None,
-    )
-    user32.SendMessageW(g_tooltip_hwnd, TTM_SETDELAYTIME, TTDT_AUTOPOP, 5000)
-    user32.SendMessageW(g_tooltip_hwnd, TTM_SETMAXTIPWIDTH, 0, 300)
-
-
-def add_tooltip(hwnd_btn, text):
-    if not g_tooltip_hwnd:
-        return
-    ti = TOOLINFOW()
-    ti.cbSize   = ctypes.sizeof(TOOLINFOW)
-    ti.uFlags   = 0x0011
-    ti.hwnd     = hwnd_btn
-    ti.uId      = hwnd_btn
-    ti.lpszText = text
-
-    SendMsg = ctypes.WINFUNCTYPE(
-        ctypes.c_void_p,
-        wt.HWND, wt.UINT, ctypes.c_void_p, ctypes.c_void_p
-    )(ctypes.cast(user32.SendMessageW, ctypes.c_void_p).value)
-    SendMsg(g_tooltip_hwnd, TTM_ADDTOOLW, None, ctypes.byref(ti))
-
-
-BTN_TIPS = {
-    ID_SC_EZI_DESK:     'Create Desktop shortcut\nComfyUI-Easy-Install-AMD Desktop',
-    ID_SC_SAGE_DESK:    'Create Desktop shortcut\nComfyUI-Easy-Install-AMD SageAttention',
-    ID_SC_FLASH_DESK:   'Create Desktop shortcut\nComfyUI-Easy-Install-AMD FlashAttention',
-    ID_SC_KITCHEN_DESK: 'Create Desktop shortcut\nComfyUI-Easy-Install-AMD KitchenAttention',
-    ID_SC_EZI_BROW:     'Create Desktop shortcut\nComfyUI-EZi',
-    ID_SC_SAGE_BROW:    'Create Desktop shortcut\nComfyUI-SA',
-    ID_SC_FLASH_BROW:   'Create Desktop shortcut\nComfyUI-FA',
-    ID_SC_KITCHEN_BROW: 'Create Desktop shortcut\nComfyUI-KA',
-    ID_SC_UPD_COMFY:    'Update to the latest/nightly version',
-    ID_UPD_COMFY:       'Update to stable version',
+THEMES = {
+    'dark': {
+        'bg': '#0c0e12', 'bar-bg': '#161b22', 'border': '#21262d', 'border2': '#30363d', 'border3': '#484f58',
+        'btn-bg': '#21262d', 'btn-bg2': '#2d333b', 'input-bg': '#0d1117', 'modal-bg': '#161b22',
+        'hover-row': '#1c2128', 'text': '#cccccc', 'text2': '#8b949e', 'text3': '#e6edf3',
+        'accent': '#388bfd', 'accent-hover': '#58a6ff', 'accent-bg': '#0d419d', 'accent-bg-hover': '#1158c7',
+    },
+    'pixaroma': {
+        'bg': '#111111', 'bar-bg': '#1a1a1a', 'border': '#252525', 'border2': '#2e2e2e', 'border3': '#444444',
+        'btn-bg': '#222222', 'btn-bg2': '#2a2a2a', 'input-bg': '#0d0d0d', 'modal-bg': '#1a1a1a',
+        'hover-row': '#1f1f1f', 'text': '#cccccc', 'text2': '#888888', 'text3': '#e0e0e0',
+        'accent': '#e8530a', 'accent-hover': '#ff7040', 'accent-bg': '#6e2200', 'accent-bg-hover': '#8a3000',
+    },
+    'aurora': {
+        'bg': '#0b1926', 'bar-bg': '#102638', 'border': '#304659', 'border2': '#3b566f', 'border3': '#49758a',
+        'btn-bg': '#22374b', 'btn-bg2': '#304b63', 'input-bg': '#09232d', 'modal-bg': '#122438',
+        'hover-row': '#203649', 'text': '#edf3ff', 'text2': '#a1b3cc', 'text3': '#edf3ff',
+        'accent': '#82dfcd', 'accent-hover': '#9be9d9', 'accent-bg': '#224c56', 'accent-bg-hover': '#2b616c',
+    },
+    'amd': {
+        'bg': '#000000', 'bar-bg': '#121212', 'border': '#262626', 'border2': '#333333', 'border3': '#404040',
+        'btn-bg': '#1a1a1a', 'btn-bg2': '#262626', 'input-bg': '#000000', 'modal-bg': '#0d0d0d',
+        'hover-row': '#1c1c1c', 'text': '#e6e6e6', 'text2': '#a6a6a6', 'text3': '#ffffff',
+        'accent': '#ed1c24', 'accent-hover': '#ff4d53', 'accent-bg': '#5c0b0e', 'accent-bg-hover': '#7a0f13',
+    },
+    'light': {
+        'bg': '#f0f2f5', 'bar-bg': '#dde1e7', 'border': '#c8cdd5', 'border2': '#b0b7c0', 'border3': '#8a9199',
+        'btn-bg': '#e2e6eb', 'btn-bg2': '#d0d5dc', 'input-bg': '#ffffff', 'modal-bg': '#ffffff',
+        'hover-row': '#d8dce3', 'text': '#24292f', 'text2': '#57606a', 'text3': '#1c2026',
+        'accent': '#0969da', 'accent-hover': '#0550ae', 'accent-bg': '#0969da', 'accent-bg-hover': '#0550ae',
+    },
 }
 
+AURORA_EXACT = {
+    'row_border': '#334d61', 'icon_bg': '#293e54', 'install': '#192d40', 'dark': '#09232d',
+    'secondary': '#224c56', 'p1': '#94e4d3', 'p2': '#70d2c3', 'p_hover': '#9be9d9',
+    'disabled': '#65768b', 'hover_stroke': '#7b9bb6', 'focus': '#e3f8f4', 'g1': '#153b4b', 'g2': '#45426b',
+}
 
-def create_button(parent, btn_id, x, y, w, h, is_arrow=False):
-    ex_style = WS_EX_NOACTIVATE if is_arrow else 0
-    hwnd_btn = user32.CreateWindowExW(
-        ex_style, 'BUTTON', '',
-        WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-        x, y, w, h,
-        parent, btn_id,
-        kernel32.GetModuleHandleW(None), None,
-    )
-    make_btn_subclass(hwnd_btn, is_arrow=is_arrow)
-    tip = BTN_TIPS.get(btn_id)
-    if tip:
-        add_tooltip(hwnd_btn, tip)
-    return hwnd_btn
+# AMD Red #ED1C24 on Black, with White text and Dark Gray #404040
+AMD_EXACT = {
+    'p1': '#ed1c24', 'p2': '#b5141a', 'p_hover': '#ff3d44', 'dark': '#ffffff', 'secondary': '#ffd6d7',
+    'focus': '#ffffff', 'g1': '#3b0709', 'g2': '#1a1a1a', 'icon_bg': '#262626', 'row_border': '#333333',
+}
 
+def _hex_ok(value):
+    m = re.fullmatch(r'#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})', str(value).strip())
+    if not m: return None
+    h = m.group(1)
+    if len(h) == 3: h = ''.join(c*2 for c in h)
+    return '#' + h.lower()
 
-# Main Window
-@WNDPROC
-def wnd_proc(hwnd, msg, wp, lp):
-    global g_hwnd, g_hover_btn
+def _rgb(h):
+    return tuple(int(h[i:i+2], 16) for i in (1, 3, 5))
 
-    if msg == WM_DESTROY:
-        for br  in g_brushes.values(): gdi32.DeleteObject(br)
-        for fnt in g_fonts.values():   gdi32.DeleteObject(fnt)
-        if g_gradient_bmp:   gdi32.DeleteObject(g_gradient_bmp)
-        if g_gradient_memdc: gdi32.DeleteDC(g_gradient_memdc)
-        user32.PostQuitMessage(0)
-        return 0
+def _lum(h):
+    r, g, b = [c/255 for c in _rgb(h)]
+    return 0.2126*r + 0.7152*g + 0.0722*b
 
-    if msg == WM_PAINT:
-        ps  = PAINTSTRUCT()
-        hdc = user32.BeginPaint(hwnd, ctypes.byref(ps))
+def _mix(a, b, t):
+    return '#%02x%02x%02x' % tuple(round(x + (y-x)*t) for x, y in zip(_rgb(a), _rgb(b)))
 
-        user32.FillRect(hdc, ctypes.byref(wt.RECT(0, 0, WIN_W, WIN_H)),
-                        get_brush(C_BG))
+def _blend(a, b, t):
+    ra, rb = _rgb(a), _rgb(b)
+    return '#%02x%02x%02x' % tuple(int(x*(1-t) + y*t) for x, y in zip(ra, rb))
 
-        user32.FillRect(hdc, ctypes.byref(wt.RECT(0, 0, WIN_W, TITLE_H)),
-                        get_brush(C_TITLEBAR))
-        
-        old_font = gdi32.SelectObject(hdc, g_fonts['title'])
-        gdi32.SetBkMode(hdc, 1)
-        gdi32.SetTextColor(hdc, C_BP_BORDER)
-        title_cx = (SEP_X + SEP2_X) // 2
-        title_rc = wt.RECT(title_cx - WIN_W // 2, 0,
-                           title_cx + WIN_W // 2, TITLE_H)
-        user32.DrawTextW(hdc, 'ComfyUI EZi Launcher - AMD', -1,
-                         ctypes.byref(title_rc),
-                         DT_CENTER | DT_VCENTER | DT_SINGLELINE)
-        gdi32.SelectObject(hdc, old_font)
+def _gamma_lum(h):
+    def lin(c): return c/12.92 if c <= 0.04045 else ((c+0.055)/1.055)**2.4
+    r, g, b = [lin(c/255) for c in _rgb(h)]
+    return 0.2126*r + 0.7152*g + 0.0722*b
 
-        if g_gradient_memdc:
-            gdi32.BitBlt(hdc, 0, TITLE_H, WIN_W, STRIPE_H,
-                         g_gradient_memdc, 0, 0, SRCCOPY)
-                         
-        old_font = gdi32.SelectObject(hdc, g_fonts['sec_title'])
-        gdi32.SetBkMode(hdc, 1)
-        gdi32.SetTextColor(hdc, C_DP_BORDER)
-        user32.DrawTextW(hdc, '-- Desktop --', -1,
-                         ctypes.byref(wt.RECT(sc(12), CONTENT_TOP - SEC_LABEL_H,
-                                              sc(175), CONTENT_TOP)),
-                         DT_CENTER | DT_SINGLELINE)
-        gdi32.SetTextColor(hdc, C_BP_BORDER)
-        user32.DrawTextW(hdc, '-- Browser --', -1,
-                         ctypes.byref(wt.RECT(sc(188), CONTENT_TOP - SEC_LABEL_H,
-                                              sc(350), CONTENT_TOP)),
-                         DT_CENTER | DT_SINGLELINE)
-        gdi32.SetTextColor(hdc, C_UP_BORDER)
-        user32.DrawTextW(hdc, '-- Update --', -1,
-                         ctypes.byref(wt.RECT(sc(355), CONTENT_TOP - SEC_LABEL_H,
-                                              WIN_W - sc(8), CONTENT_TOP)),
-                         DT_CENTER | DT_SINGLELINE)
-        gdi32.SelectObject(hdc, old_font)
-        
-        user32.FillRect(hdc,
-                        ctypes.byref(wt.RECT(0, WIN_H - FOOTER_H, WIN_W, WIN_H)),
-                        get_brush(C_FOOTER_BG))
-
-        BORDER_W = WIN_BORDER_W
-        outer_rgn = gdi32.CreateRoundRectRgn(0, 0, WIN_W + 1, WIN_H + 1, sc(24), sc(24))
-        inner_rgn = gdi32.CreateRoundRectRgn(
-            BORDER_W, BORDER_W, WIN_W + 1 - BORDER_W, WIN_H + 1 - BORDER_W,
-            max(0, sc(24) - BORDER_W), max(0, sc(24) - BORDER_W)
-        )
-        ring_rgn = gdi32.CreateRectRgn(0, 0, 0, 0)
-        gdi32.CombineRgn(ring_rgn, outer_rgn, inner_rgn, RGN_DIFF)
-        gdi32.SelectClipRgn(hdc, ring_rgn)
-        if g_gradient_memdc:
-            gdi32.StretchBlt(hdc, 0, 0, WIN_W, WIN_H,
-                             g_gradient_memdc, 0, 0, WIN_W, STRIPE_H, SRCCOPY)
-        else:
-            user32.FillRect(hdc, ctypes.byref(wt.RECT(0, 0, WIN_W, WIN_H)),
-                            get_brush(C_BP_BORDER))
-        gdi32.SelectClipRgn(hdc, None)
-        gdi32.DeleteObject(outer_rgn)
-        gdi32.DeleteObject(inner_rgn)
-        gdi32.DeleteObject(ring_rgn)
-
-        user32.EndPaint(hwnd, ctypes.byref(ps))
-        return 0
-
-    if msg == WM_ERASEBKGND:
-        return 1
-
-    if msg == WM_DRAWITEM:
-        dis = ctypes.cast(ctypes.c_void_p(lp),
-                          ctypes.POINTER(DRAWITEMSTRUCT)).contents
-        if dis.CtlID in ARROW_COLOR_CAT:
-            draw_arrow_button(dis.hDC, dis.hwndItem, dis.rcItem)
-        else:
-            draw_button(dis.hDC, dis.hwndItem, dis.rcItem)
-        return 1
-
-    if msg == WM_CTLCOLORBTN:
-        hw     = ctypes.cast(ctypes.c_void_p(lp), wt.HWND)
-        btn_id = user32.GetDlgCtrlID(hw)
-        bg     = btn_default_bg(btn_id)
-        gdi32.SetBkColor(wt.HDC(wp), bg)
-        return ctypes.cast(get_brush(bg), ctypes.c_void_p).value
-
-    if msg == WM_TIMER and wp == ATTENTION_TIMER:
-        if ATTENTION_CHECK_PENDING:
-            for button in (ID_SAGE_DESK, ID_SAGE_BROW, ID_FLASH_DESK, ID_FLASH_BROW):
-                child = user32.GetDlgItem(hwnd, button)
-                user32.InvalidateRect(child, None, False)
-        return 0
-
-    if msg == WM_APP_ATTENTION_READY:
-        apply_attention_results()
-        return 0
-
-    if msg == WM_COMMAND:
-        btn_id = wp & 0xFFFF
-        if ATTENTION_CHECK_PENDING and btn_id in (ID_SAGE_DESK, ID_SAGE_BROW, ID_FLASH_DESK, ID_FLASH_BROW, ID_SC_SAGE_DESK, ID_SC_SAGE_BROW, ID_SC_FLASH_DESK, ID_SC_FLASH_BROW):
-            return 0
-        if btn_id == ID_CLOSE:
-            user32.DestroyWindow(hwnd)
-            return 0
-        if btn_id in SHORTCUT_META:
-            main_id = SHORTCUT_META[btn_id][0]
-            if main_id in INSTALL_BTN_STATE and is_install_state(main_id):
-                return 0
-            create_shortcut(btn_id)
-            return 0
-        action = ACTIONS.get(btn_id)
-        if action:
-            if is_dimmed_state(btn_id):
-                return 0
-            action()
-            return 0
-
-    if msg == WM_NCHITTEST:
-        x  = ctypes.c_short(lp & 0xFFFF).value
-        y  = ctypes.c_short((lp >> 16) & 0xFFFF).value
-        rc = wt.RECT()
-        user32.GetWindowRect(hwnd, ctypes.byref(rc))
-        lx, ly = x - rc.left, y - rc.top
-        if 0 <= ly < TITLE_H and 0 <= lx < WIN_W - sc(30):
-            return HTCAPTION
-        return user32.DefWindowProcW(hwnd, msg, wp, lp)
-
-    if msg == WM_APP_CLOSE:
-        user32.DestroyWindow(hwnd)
-        return 0
-
-    if msg == WM_ACTIVATE:
-        if (wp & 0xFFFF) == 0:
-            if g_creating_shortcut:
-                return 0
-            user32.DestroyWindow(hwnd)
-        return 0
-
-    return user32.DefWindowProcW(hwnd, msg, wp, lp)
-
-
-# Main
-def main():
-    global g_hwnd
-
-    if sys.platform != 'win32':
-        sys.exit(1)
-
+def _builtin_palette(pid):
+    site = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages')
     try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-    except Exception:
-        pass
+        for pkg in sorted(os.listdir(site)):
+            if not pkg.startswith('comfyui_frontend_package') or 'dist-info' in pkg: continue
+            pdir = os.path.join(site, pkg, 'static', 'assets', 'palettes')
+            if not os.path.isdir(pdir): continue
+            for fn in os.listdir(pdir):
+                if not fn.endswith('.json'): continue
+                try:
+                    with open(os.path.join(pdir, fn), encoding='utf-8', errors='replace') as f: d = json.load(f)
+                except (OSError, ValueError): continue
+                if d.get('id') == pid and d.get('colors'): return d['colors']
+    except OSError: pass
+    return {}
 
-    hinstance = kernel32.GetModuleHandleW(None)
+def _comfy_theme_fallback():
+    try:
+        path = os.path.join(_get_comfy_user_dir(), 'comfy.settings.json')
+        with open(path, encoding='utf-8', errors='replace') as f: data = json.load(f)
+        pid = data.get('Comfy.ColorPalette', '') or 'dark'
+        custom = data.get('Comfy.CustomColorPalettes', {})
+        colors = custom[pid].get('colors', {}) if isinstance(custom, dict) and pid in custom else _builtin_palette(pid)
+        cb, lg = colors.get('comfy_base', {}), colors.get('litegraph_base', {})
+        def c(k, fb=''): return _hex_ok(cb.get(k, '')) or fb
+        def l(k, fb=''): return _hex_ok(lg.get(k, '')) or fb
+        bg = c('bg-color', '#202020')
+        menu_bg = c('comfy-menu-bg', bg)
+        input_bg = c('comfy-input-bg', bg)
+        fg = c('fg-color', '#cccccc')
+        border = c('border-color', '#444444')
+        lg_bg = l('CLEAR_BACKGROUND_COLOR', bg)
+        node_bg = l('NODE_DEFAULT_BGCOLOR', menu_bg)
+        node_title = l('NODE_TITLE_COLOR', fg)
+        accent = l('NODE_BOX_OUTLINE_COLOR', c('border-color', '#388bfd'))
+        lum = _gamma_lum(accent)
+        if lum > 0.80 or lum < 0.05:
+            link = l('LINK_COLOR', '')
+            if link and 0.05 <= _gamma_lum(link) <= 0.80:
+                accent, lum = link, _gamma_lum(link)
+        target = '#000000' if lum >= 0.18 else '#ffffff'
+        return {
+            'bg': lg_bg, 'bar-bg': menu_bg, 'border': border, 'border2': border, 'border3': border,
+            'btn-bg': node_bg, 'btn-bg2': node_bg, 'input-bg': input_bg, 'modal-bg': menu_bg,
+            'hover-row': lg_bg, 'text': fg, 'text2': node_title, 'text3': fg,
+            'accent': accent, 'accent-hover': _blend(accent, '#ffffff', .30),
+            'accent-bg': _blend(accent, target, .60), 'accent-bg-hover': _blend(accent, target, .45),
+        }
+    except (OSError, ValueError, AttributeError, KeyError, TypeError):
+        return {}
 
-    g_fonts['title']        = make_font(sc(-15), 600)
-    g_fonts['sec_title']    = make_font(sc(-12), 700)
-    g_fonts['btn_pri']      = make_font(sc(-16), 700)
-    g_fonts['btn_install']  = make_font(sc(-13), 500)
-    g_fonts['btn_sec']      = make_font(sc(-14), 500)
-    g_fonts['footer']       = make_font(sc(-12), 500)
-    g_fonts['close']        = make_font(sc(-12), 600)
-    g_fonts['arrow']        = make_font(sc(-14), 600)
+def _load_theme():
+    name, extra = 'amd', {}
+    try:
+        with open(_settings_path(), encoding='utf-8') as f: data = json.load(f)
+        name = data.get('theme', 'amd')
+        lt = data.get('launcher_theme', 'amd')
+        if lt != 'follow':
+            name = lt if lt in THEMES or lt == 'comfyui' else 'amd'
+        if name == 'comfyui':
+            saved = data.get('comfy_theme_vars') or data.get('comfyThemeVars')
+            extra = saved if isinstance(saved, dict) and saved else _comfy_theme_fallback()
+    except (OSError, ValueError, AttributeError): pass
+    v = dict(THEMES.get(name, THEMES['amd']))
+    for k, val in extra.items():
+        h = _hex_ok(val)
+        if h: v[str(k).lstrip('-')] = h
+    return name, v
 
-    CLASS_NAME = 'ComfyUI_EZi_Launcher'
+def _derive_theme(name, v):
+    acc = v['accent']
+    light_acc = _lum(acc) >= 0.35
+    t = {
+        'white': v['text3'], 'muted': v['text2'], 'mint': acc, 'border': v['border2'], 'border_outer': v['border3'],
+        'sep': v['border'], 'bg': v['bg'], 'panel': v['bar-bg'], 'modal': v['modal-bg'], 'row': v['hover-row'],
+        'row_border': v['border'], 'icon_bg': v['btn-bg'], 'btn': v['btn-bg'], 'btn_hover': v['btn-bg2'],
+        'install': _mix(v['btn-bg'], v['bg'], .5),
+        'dark': _mix(acc, '#000000', .85) if light_acc else '#ffffff',
+        'secondary': _mix(acc, '#000000', .65) if light_acc else '#e6e6e6',
+        'p1': _mix(acc, '#ffffff', .12), 'p2': _mix(acc, '#000000', .12), 'p_hover': _mix(acc, '#ffffff', .22),
+        'disabled': _mix(v['text2'], v['bg'], .5), 'hover_stroke': _mix(v['border2'], v['text2'], .5),
+        'focus': _mix(acc, '#ffffff', .8),
+        'g1': _mix(v['bg'], acc, .18), 'g2': _mix(v['bg'], v['border3'], .45),
+    }
+    if name == 'aurora': t.update(AURORA_EXACT)
+    if name == 'amd': t.update(AMD_EXACT)
+    return t
 
-    wc = WNDCLASSEX()
-    wc.cbSize        = ctypes.sizeof(WNDCLASSEX)
-    wc.style         = CS_HREDRAW | CS_VREDRAW
-    wc.lpfnWndProc   = wnd_proc
-    wc.hInstance     = hinstance
-    wc.hCursor       = user32.LoadCursorW(None, IDC_ARROW)
-    wc.hbrBackground = make_solid_brush(C_BG)
-    wc.lpszClassName = CLASS_NAME
+def _tint_png(data, hexcolor):
+    r, g, b = _rgb(hexcolor)
+    out = bytearray(data[:8]); pos = 8
+    while pos < len(data):
+        n = int.from_bytes(data[pos:pos+4], 'big'); typ = data[pos+4:pos+8]; body = data[pos+8:pos+8+n]
+        if typ == b'PLTE': body = bytes([r, g, b]) * (n // 3)
+        out += n.to_bytes(4, 'big') + typ + body + (zlib.crc32(typ + body) & 0xffffffff).to_bytes(4, 'big')
+        pos += 12 + n
+    return bytes(out)
 
-    if not user32.RegisterClassExW(ctypes.byref(wc)):
-        raise ctypes.WinError()
+THEME_NAME, _THEME_VARS = _load_theme()
+TC = _derive_theme(THEME_NAME, _THEME_VARS)
+WHITE = color(TC['white'])
+MUTED = color(TC['muted'])
+MINT = color(TC['mint'])
+BORDER = color(TC['border'])
+DARK = color(TC['dark'])
+g_mode = 'Desktop'
+g_controls = {}
+g_control_specs = {}
+g_subclasses = []
+g_tip_texts = []
+g_scene_dc = None
+g_scene_bitmap = None
+g_scene_old = None
+g_logo = P()
+g_logo_path = None
+g_token = P()
+ID_MODE_DESKTOP = 52
+ROW_IDS = [200, 201, 202, 203]
+ROW_HIT_IDS = [220, 221, 222, 223]
+SC_IDS = [210, 211, 212, 213]
+ROW_NAMES = ['ComfyUI', 'Kitchen Attention', 'Sage Attention', 'Flash Attention']
+ROW_ICONS = ['nodes', 'blocks', 'leaf', 'bolt']
+UPDATE_DESCRIPTIONS = {
+    ID_UPD_EASY: 'EZi and Add-ons',
+    ID_UPD_COMFY: 'Latest stable release',
+    ID_SC_UPD_COMFY: 'Latest development version',
+    ID_UPD_COMFY_NODE: 'Stable + all custom nodes',
+}
+DESK_IDS = [ID_EZI_DESK, ID_KITCHEN_DESK, ID_SAGE_DESK, ID_FLASH_DESK]
+BROW_IDS = [ID_EZI_BROW, ID_KITCHEN_BROW, ID_SAGE_BROW, ID_FLASH_BROW]
 
-    x, y = calc_position()
+def source_id(index):
+    return (DESK_IDS if g_mode == 'Desktop' else BROW_IDS)[index]
 
-    g_hwnd = user32.CreateWindowExW(
-        WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
-        CLASS_NAME, 'ComfyUI-Easy-Install-AMD',
-        WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN,
-        x, y, WIN_W, WIN_H,
-        None, None, hinstance, None,
-    )
-    if not g_hwnd:
-        raise ctypes.WinError()
+def available(bid):
+    if is_dimmed_state(bid):
+        return False
+    if is_install_state(bid):
+        installer = INSTALL_SAGE_BAT if bid in (ID_SAGE_DESK, ID_SAGE_BROW) else INSTALL_FLASH_BAT
+        return os.path.isfile(installer)
+    return True
 
-    rgn = gdi32.CreateRoundRectRgn(0, 0, WIN_W + 1, WIN_H + 1, sc(24), sc(24))
-    user32.SetWindowRgn(g_hwnd, rgn, True)
+def graphics(hdc):
+    g = P()
+    gp.GdipCreateFromHDC(hdc, ctypes.byref(g))
+    gp.GdipSetSmoothingMode(g, 4)
+    gp.GdipSetInterpolationMode(g, 7)
+    return g
 
-    create_gradient_cache()
-    create_tooltip_window(g_hwnd)
+def rounded(g, x,y,w,h, fill, stroke=None, radius=10):
+    path = P()
+    gp.GdipCreatePath(0, ctypes.byref(path))
+    r = min(radius, w/2, h/2)
+    x,y,w,h,r = (value*UI_SCALE for value in (x,y,w,h,r))
+    for xx, yy, angle in [(x,y,180), (x+w-2*r,y,270), (x+w-2*r,y+h-2*r,0), (x,y+h-2*r,90)]:
+        gp.GdipAddPathArc(path, xx,yy,2*r,2*r,angle,90)
+    gp.GdipClosePathFigure(path)
+    if fill is not None:
+        brush = P()
+        if isinstance(fill,tuple):
+            rect=GPRECT(x,y,w,h)
+            gp.GdipCreateLineBrushFromRect(ctypes.byref(rect),fill[0],fill[1],1,0,ctypes.byref(brush))
+        else: gp.GdipCreateSolidFill(fill,ctypes.byref(brush))
+        gp.GdipFillPath(g,brush,path)
+        gp.GdipDeleteBrush(brush)
+    if stroke is not None:
+        pen = P()
+        gp.GdipCreatePen1(stroke,max(1,UI_SCALE),2,ctypes.byref(pen))
+        gp.GdipDrawPath(g,pen,path)
+        gp.GdipDeletePen(pen)
+    gp.GdipDeletePath(path)
 
-    PAD     = sc(8)
-    BTN_W   = SEP_X - PAD * 2
-    MAIN_W  = BTN_W - ARROW_W - ARROW_GAP
+def text_at(hdc, text, x,y,w,h, font='body', col=WHITE, center=False):
+    old = gdi32.SelectObject(hdc,g_fonts[font])
+    gdi32.SetBkMode(hdc,1)
+    rgb = col & 0xffffff
+    gdi32.SetTextColor(hdc, ((rgb & 255)<<16) | (rgb & 0xff00) | (rgb>>16))
+    rc = wt.RECT(sc(x),sc(y),sc(x+w),sc(y+h))
+    user32.DrawTextW(hdc,text,-1,ctypes.byref(rc),DT_VCENTER|DT_SINGLELINE|0x800|(DT_CENTER if center else DT_LEFT))
+    gdi32.SelectObject(hdc,old)
 
-    bw      = SEP2_X - SEP_X - PAD * 2
-    MAIN_BW = bw - ARROW_W - ARROW_GAP
+def icon(g, kind, x,y,size=24, col=MUTED):
+    pen, brush = P(), P()
+    gp.GdipCreatePen1(col, max(1.4,(2.6 if kind=='update' else 1.7)*UI_SCALE*size/24),2,ctypes.byref(pen))
+    gp.GdipCreateSolidFill(col,ctypes.byref(brush))
+    def pt(a,b): return sc(x+a*size/24), sc(y+b*size/24)
+    def line(a,b,c,d): gp.GdipDrawLine(g,pen,*pt(a,b),*pt(c,d))
+    def circle(a,b,r,filled=False):
+        xx,yy=pt(a-r,b-r)
+        (gp.GdipFillEllipse if filled else gp.GdipDrawEllipse)(g,brush if filled else pen,xx,yy,sc(2*r*size/24),sc(2*r*size/24))
+    def poly(points, fill=False):
+        path=P(); gp.GdipCreatePath(0,ctypes.byref(path))
+        for a,b in zip(points,points[1:]): gp.GdipAddPathLine(path,*pt(*a),*pt(*b))
+        if fill: gp.GdipClosePathFigure(path); gp.GdipFillPath(g,brush,path)
+        else: gp.GdipDrawPath(g,pen,path)
+        gp.GdipDeletePath(path)
+    if kind in ('nodes','hybrid'):
+        line(12,5,4,19); line(4,19,20,19); line(20,19,12,5)
+        for a,b in [(12,5),(4,19),(20,19)]: circle(a,b,3,kind=='nodes')
+    elif kind=='desktop':
+        rounded(g,x+size/12,y+size/12,size*5/6,size*.6,None,col,2)
+        line(12,17,12,21); line(7,22,17,22)
+    elif kind=='browser':
+        circle(12,12,10); line(2,12,22,12)
+        gp.GdipDrawEllipse(g,pen,*pt(8,2),sc(size/3),sc(size*5/6))
+    elif kind=='folder':
+        poly([(2,6),(8,6),(11,9),(22,9),(22,21),(2,21),(2,6)])
+    elif kind=='shortcut':
+        poly([(11,4),(21,4),(21,14)]); line(9,16,21,4)
+        poly([(8,7),(3,7),(3,22),(18,22),(18,17)])
+    elif kind=='chevron': poly([(6,9),(12,15),(18,9)])
+    elif kind=='close': line(5,5,19,19); line(19,5,5,19)
+    elif kind=='update':
+        for a in (-165,15):
+            path=P(); gp.GdipCreatePath(0,ctypes.byref(path))
+            gp.GdipAddPathArc(path,*pt(4,4),sc(16*size/24),sc(16*size/24),a,120)
+            gp.GdipDrawPath(g,pen,path); gp.GdipDeletePath(path)
+        poly([(20.84,9.52),(20.2,3.8),(15.11,8.89)],True)
+        poly([(3.16,14.48),(3.8,20.2),(8.89,15.11)],True)
+    elif kind=='blocks':
+        for a,b in [(3,2),(3,11),(12,11),(12,20),(21,20)]:
+            rounded(g,x+a*size/28,y+b*size/28,size/4,size/4,col,None,1)
+    elif kind=='bolt': poly([(14,1),(3,14),(11,14),(8,23),(22,9),(13,9)],True)
+    elif kind=='leaf':
+        for coords in [((11,22),(1,20),(0,10),(2,6),(9,9),(13,16),(11,22)),
+                       ((12,22),(10,10),(16,4),(23,2),(24,13),(19,21),(12,22))]:
+            path=P(); gp.GdipCreatePath(0,ctypes.byref(path))
+            a,b,c,d,e,f,h=coords
+            gp.GdipAddPathBezier(path,*pt(*a),*pt(*b),*pt(*c),*pt(*d))
+            gp.GdipAddPathBezier(path,*pt(*d),*pt(*e),*pt(*f),*pt(*h))
+            gp.GdipClosePathFigure(path); gp.GdipFillPath(g,brush,path); gp.GdipDeletePath(path)
+    gp.GdipDeletePen(pen); gp.GdipDeleteBrush(brush)
 
-    upd_w   = WIN_W - SEP2_X - PAD * 2
+def _load_mode():
+    try:
+        with open(_settings_path(),encoding='utf-8') as f: data=json.load(f)
+        value=data.get('launcher_mode','Desktop')
+        return value if value in ('Desktop','Browser','Hybrid') else 'Desktop'
+    except (OSError, ValueError, AttributeError): return 'Desktop'
 
-    close_sz = sc(22)
-    close_x  = WIN_W - sc(28)
-    close_y  = (TITLE_H - close_sz) // 2
-    create_button(g_hwnd, ID_CLOSE, close_x, close_y, close_sz, close_sz)
+def _save_mode():
+    try:
+        try:
+            with open(_settings_path(),encoding='utf-8') as f: data=json.load(f)
+        except (OSError,ValueError): data={}
+        if not isinstance(data,dict): data={}
+        data['launcher_mode']=g_mode
+        with open(_settings_path(),'w',encoding='utf-8') as f: json.dump(data,f,indent=4,ensure_ascii=False)
+    except OSError: pass
 
-    ver_label = 'v' + VERSION
-    hdc_tmp   = user32.GetDC(g_hwnd)
-    old_f     = gdi32.SelectObject(hdc_tmp, g_fonts['footer'])
-    ver_size  = wt.SIZE()
-    gdi32.GetTextExtentPoint32W(hdc_tmp, ver_label, len(ver_label), ctypes.byref(ver_size))
-    gdi32.SelectObject(hdc_tmp, old_f)
-    user32.ReleaseDC(g_hwnd, hdc_tmp)
-    ver_w = ver_size.cx + sc(6)
-    ver_h = TITLE_H - WIN_BORDER_W
-    create_button(g_hwnd, ID_VERSION, sc(12), WIN_BORDER_W, ver_w, ver_h)
+def paint_scene():
+    global g_scene_dc,g_scene_bitmap,g_scene_old
+    if not g_scene_dc:
+        dc=user32.GetDC(g_hwnd)
+        g_scene_dc=gdi32.CreateCompatibleDC(dc)
+        g_scene_bitmap=gdi32.CreateCompatibleBitmap(dc,WIN_W,WIN_H)
+        g_scene_old=gdi32.SelectObject(g_scene_dc,g_scene_bitmap)
+        user32.ReleaseDC(g_hwnd,dc)
+    dc=g_scene_dc
+    g=graphics(dc)
+    shift=-(time.time()%5)/5*2*WIN_W
+    for first,last,direction,rect in [(color(TC['g1']),color(TC['g2']),0,GPRECT(shift,0,WIN_W,WIN_H)),
+                                       (color(TC['bg'],0),color(TC['bg']),1,GPRECT(0,0,WIN_W,WIN_H))]:
+        brush=P()
+        gp.GdipCreateLineBrushFromRect(ctypes.byref(rect),first,last,direction,0,ctypes.byref(brush))
+        if direction==0: gp.GdipSetLineWrapMode(brush,1)
+        gp.GdipFillRectangle(g,brush,0,0,WIN_W,WIN_H)
+        gp.GdipDeleteBrush(brush)
+    rounded(g,1,1,670,418,None,color(TC['border_outer']),16)
+    rounded(g,12,52,412,308,color(TC['panel'],150),BORDER,12)
+    rounded(g,436,52,224,308,color(TC['modal'],130),BORDER,12)
+    if g_logo: gp.GdipDrawImageRect(g,g_logo,sc(22),sc(10),sc(30),sc(30))
+    gp.GdipDeleteGraphics(g)
+    text_at(dc,'ComfyUI EZi',64,8,153,34,'title')
+    text_at(dc,'Launcher - AMD',195,10,150,30,'heading',MUTED)
+    old=gdi32.SelectObject(dc,g_fonts['title']); rc=wt.RECT()
+    user32.DrawTextW(dc,'Update',-1,ctypes.byref(rc),0x400|DT_SINGLELINE); gdi32.SelectObject(dc,old)
+    ux=448+(200-(rc.right/UI_SCALE+28))/2
+    g=graphics(dc); icon(g,'update',ux,69,20,WHITE); gp.GdipDeleteGraphics(g)
+    text_at(dc,'Update',ux+28,64,170,30,'title')
+    for n,name in enumerate(ROW_NAMES):
+        y=108+n*62
+        bid=source_id(n)
+        missing=is_install_state(bid)
+        status='Not installed' if missing else ('Unavailable' if not available(bid) else ('Default' if n==0 else 'Ready'))
+        g=graphics(dc)
+        rounded(g,22,y,392,54,color(TC['row'],155),color(TC['row_border']),10)
+        rounded(g,32,y+11,32,32,color(TC['icon_bg'],190),None,10)
+        icon(g,ROW_ICONS[n],38,y+17,20,MINT)
+        rounded(g,80,y+36,6,6,MINT if status in ('Default','Ready') else MUTED,None,3)
+        gp.GdipDeleteGraphics(g)
+        text_at(dc,name,78,y+3,174,27,'heading')
+        text_at(dc,status,92,y+29,160,20,'small',MINT)
+    g=graphics(dc)
+    rounded(g,22,367,628,1,color(TC['sep']),None,0)
+    gp.GdipDeleteGraphics(g)
 
-    y_d = CONTENT_TOP
+def draw_control(hdc,hw):
+    bid=user32.GetDlgCtrlID(hw)
+    spec=g_control_specs[bid]
+    x,y,w,h,label,kind=spec
+    gdi32.BitBlt(hdc,0,0,sc(w),sc(h),g_scene_dc,sc(x),sc(y),SRCCOPY)
+    enabled=bool(user32.IsWindowEnabled(hw))
+    hover=g_hover_btn==hw and enabled
+    if kind=='row':
+        if hover or user32.GetFocus()==hw:
+            g=graphics(hdc)
+            rounded(g,1,1,w-2,h-2,None,MINT if hover else WHITE,10)
+            gp.GdipDeleteGraphics(g)
+        return
+    selected=(bid==ID_MODE_DESKTOP and g_mode=='Desktop' or bid==ID_MODE_BROWSER and g_mode=='Browser' or bid==ID_MODE_HYBRID and g_mode=='Hybrid')
+    primary=selected or (bid in ROW_IDS and not is_install_state(source_id(ROW_IDS.index(bid))))
+    col=WHITE if enabled else color(TC['disabled'])
+    g=graphics(hdc)
+    if kind not in ('close','version'):
+        fill=(color(TC['p_hover']) if hover else (color(TC['p1']),color(TC['p2']))) if primary and enabled else (color(TC['btn_hover']) if hover else color(TC['btn'],200))
+        stroke=MINT if primary and enabled else (color(TC['hover_stroke']) if hover else BORDER)
+        if kind=='install': fill=color(TC['install'],180)
+        rounded(g,1,1,w-2,h-2,fill,stroke,7)
+        if primary and enabled: col=DARK
+    if user32.GetFocus()==hw and not (primary and enabled): rounded(g,3,3,w-6,h-6,None,color(TC['focus']),5)
+    if kind in ('desktop','browser','hybrid','folder'):
+        icon(g,kind,10,(h-18)/2,18,col)
+    elif kind in ('shortcut','close'):
+        icon(g,kind,(w-20)/2,(h-20)/2,20,col)
+    gp.GdipDeleteGraphics(g)
+    if kind in ('shortcut','close'): return
+    if kind=='update':
+        text_at(hdc,label,8,5,w-16,25,'heading',col,True)
+        secondary=color(TC['secondary']) if primary and enabled else (MINT if enabled else col)
+        text_at(hdc,UPDATE_DESCRIPTIONS[bid],8,29,w-16,19,'small',secondary,True)
+        return
+    if kind in ('desktop','browser','hybrid','folder'): text_at(hdc,label,34,0,w-40,h,'body',col,True)
+    else: text_at(hdc,label,0,0,w,h,'small' if kind=='version' else 'body',MINT if kind=='version' and enabled else col,True)
 
-    create_button(g_hwnd, ID_EZI_DESK, PAD, y_d, MAIN_W, BTN_H)
-    create_button(g_hwnd, ID_SC_EZI_DESK,
-                  PAD + MAIN_W + ARROW_GAP, y_d, ARROW_W, BTN_H, is_arrow=True)
-    y_d += BTN_H + BTN_GAP
+def add_tip(hw, text):
+    buf=ctypes.create_unicode_buffer(text); g_tip_texts.append(buf)
+    ti=TOOLINFOW(); ti.cbSize=ctypes.sizeof(ti); ti.uFlags=0x11
+    ti.hwnd=g_hwnd; ti.uId=hw; ti.lpszText=ctypes.cast(buf,wt.LPWSTR)
+    user32.SendMessageW(g_tooltip_hwnd,TTM_ADDTOOLW,0,ctypes.addressof(ti))
 
-    if HAS_DESK_KITCHEN:
-        create_button(g_hwnd, ID_KITCHEN_DESK, PAD, y_d, MAIN_W, BTN_H)
-        create_button(g_hwnd, ID_SC_KITCHEN_DESK,
-                      PAD + MAIN_W + ARROW_GAP, y_d, ARROW_W, BTN_H, is_arrow=True)
-    else:
-        create_button(g_hwnd, ID_KITCHEN_DESK, PAD, y_d, BTN_W, BTN_H)
-    y_d += BTN_H + BTN_GAP
+def create_control(bid,x,y,w,h,label,kind='button',tip=None):
+    g_control_specs[bid]=(x,y,w,h,label,kind)
+    style=WS_CHILD|WS_VISIBLE|BS_OWNERDRAW|0x04000000
+    if kind!='row': style|=0x10000
+    hw=user32.CreateWindowExW(0,'BUTTON',label,style,
+        sc(x),sc(y),sc(w),sc(h),g_hwnd,bid,kernel32.GetModuleHandleW(None),None)
+    if not hw: raise ctypes.WinError()
+    g_controls[bid]=hw
+    user32.SetWindowPos(hw,1 if kind=='row' else 0,0,0,0,0,0x1|0x2|0x10)
+    orig=user32.GetWindowLongPtrW(hw,-4)
+    @BTN_PROC_TYPE
+    def proc(window,msg,wp,lp):
+        global g_hover_btn
+        if msg==WM_PAINT:
+            ps=PAINTSTRUCT(); dc=user32.BeginPaint(window,ctypes.byref(ps))
+            crc=wt.RECT(); user32.GetClientRect(window,ctypes.byref(crc))
+            mdc=gdi32.CreateCompatibleDC(dc)
+            mbmp=gdi32.CreateCompatibleBitmap(dc,crc.right,crc.bottom)
+            mold=gdi32.SelectObject(mdc,mbmp)
+            draw_control(mdc,window)
+            gdi32.BitBlt(dc,0,0,crc.right,crc.bottom,mdc,0,0,SRCCOPY)
+            gdi32.SelectObject(mdc,mold); gdi32.DeleteObject(mbmp); gdi32.DeleteDC(mdc)
+            user32.EndPaint(window,ctypes.byref(ps)); return 0
+        if msg==WM_ERASEBKGND: return 1
+        if msg==WM_MOUSEMOVE and g_hover_btn!=window:
+            prev=g_hover_btn; g_hover_btn=window
+            if prev: user32.InvalidateRect(prev,None,False)
+            user32.InvalidateRect(window,None,False)
+            tme=TRACKMOUSEEVENT(ctypes.sizeof(TRACKMOUSEEVENT),2,window,0)
+            user32.TrackMouseEvent(ctypes.byref(tme))
+        elif msg==WM_MOUSELEAVE:
+            if g_hover_btn==window: g_hover_btn=None
+            user32.InvalidateRect(window,None,False)
+        elif msg in (7,8): user32.InvalidateRect(window,None,False)
+        elif msg==0x100 and wp==13:
+            user32.PostMessageW(g_hwnd,WM_COMMAND,bid,0); return 0
+        elif msg==0x100 and wp==27:
+            user32.PostMessageW(g_hwnd,WM_APP_CLOSE,0,0); return 0
+        return user32.CallWindowProcW(ctypes.cast(orig,WNDPROC),window,msg,wp,lp)
+    g_subclasses.append(proc)
+    user32.SetWindowLongPtrW(hw,-4,ctypes.cast(proc,P))
+    if tip: add_tip(hw,tip)
+    return hw
 
-    if HAS_DESK_SAGE:
-        create_button(g_hwnd, ID_SAGE_DESK, PAD, y_d, MAIN_W, BTN_H)
-        create_button(g_hwnd, ID_SC_SAGE_DESK,
-                      PAD + MAIN_W + ARROW_GAP, y_d, ARROW_W, BTN_H, is_arrow=True)
-    else:
-        create_button(g_hwnd, ID_SAGE_DESK, PAD, y_d, BTN_W, BTN_H)
-    y_d += BTN_H + BTN_GAP
+def refresh_controls():
+    for n,bid in enumerate(ROW_IDS):
+        sid=source_id(n)
+        missing=is_install_state(sid)
+        label='+ Install' if missing else 'Launch'
+        spec=list(g_control_specs[bid]); spec[4]=label; spec[5]='install' if missing else 'button'; g_control_specs[bid]=tuple(spec)
+        user32.SetWindowTextW(g_controls[bid],label+' '+ROW_NAMES[n]+' ('+g_mode+')')
+        user32.EnableWindow(g_controls[bid],available(sid))
+        user32.SetWindowTextW(g_controls[ROW_HIT_IDS[n]],label+' '+ROW_NAMES[n]+' ('+g_mode+')')
+        user32.EnableWindow(g_controls[ROW_HIT_IDS[n]],available(sid))
+        user32.EnableWindow(g_controls[SC_IDS[n]],available(sid) and not missing)
+        user32.ShowWindow(g_controls[SC_IDS[n]],0 if missing else SW_SHOW)
+    user32.EnableWindow(g_controls[ID_UPD_COMFY],available(ID_UPD_COMFY))
+    user32.EnableWindow(g_controls[ID_SC_UPD_COMFY],available(ID_SC_UPD_COMFY))
+    user32.EnableWindow(g_controls[ID_UPD_COMFY_NODE],available(ID_UPD_COMFY_NODE))
+    user32.EnableWindow(g_controls[ID_UPD_EASY],available(ID_UPD_EASY))
+    for bid,name in [(ID_MODE_DESKTOP,'Desktop'),(ID_MODE_BROWSER,'Browser'),(ID_MODE_HYBRID,'Hybrid')]:
+        user32.SetWindowTextW(g_controls[bid],name+(' (selected)' if name==g_mode else ''))
+    paint_scene()
+    user32.InvalidateRect(g_hwnd,None,False)
+    for hw in g_controls.values(): user32.InvalidateRect(hw,None,False)
 
-    if HAS_DESK_FLASH:
-        create_button(g_hwnd, ID_FLASH_DESK, PAD, y_d, MAIN_W, BTN_H)
-        create_button(g_hwnd, ID_SC_FLASH_DESK,
-                      PAD + MAIN_W + ARROW_GAP, y_d, ARROW_W, BTN_H, is_arrow=True)
-    else:
-        create_button(g_hwnd, ID_FLASH_DESK, PAD, y_d, BTN_W, BTN_H)
+def handle_command(bid):
+    global g_mode,g_adv
+    if bid==ID_CLOSE: user32.DestroyWindow(g_hwnd); return
+    modes={ID_MODE_DESKTOP:'Desktop',ID_MODE_BROWSER:'Browser',ID_MODE_HYBRID:'Hybrid'}
+    if bid in modes:
+        g_mode=modes[bid]; g_adv=g_mode=='Hybrid'; _save_mode(); refresh_controls(); return
+    if bid in ROW_IDS or bid in ROW_HIT_IDS:
+        sid=source_id((ROW_IDS if bid in ROW_IDS else ROW_HIT_IDS).index(bid))
+        if available(sid): ACTIONS[sid]()
+        return
+    if bid in SC_IDS:
+        sid=source_id(SC_IDS.index(bid))
+        if available(sid) and not is_install_state(sid): create_shortcut(sid+100)
+        return
+    if bid in ACTIONS and available(bid): ACTIONS[bid]()
 
-    y_b = CONTENT_TOP
-    bx  = SEP_X + PAD
+@WNDPROC
+def wnd_proc(hwnd,msg,wp,lp):
+    if msg==WM_PAINT:
+        ps=PAINTSTRUCT(); dc=user32.BeginPaint(hwnd,ctypes.byref(ps))
+        if g_scene_dc: gdi32.BitBlt(dc,0,0,WIN_W,WIN_H,g_scene_dc,0,0,SRCCOPY)
+        user32.EndPaint(hwnd,ctypes.byref(ps)); return 0
+    if msg==WM_ERASEBKGND: return 1
+    if msg==WM_DRAWITEM:
+        dis=ctypes.cast(lp,ctypes.POINTER(DRAWITEMSTRUCT)).contents
+        if dis.CtlID in g_control_specs: draw_control(dis.hDC,dis.hwndItem)
+        return 1
+    if msg==WM_COMMAND:
+        try: handle_command(wp & 0xffff)
+        except Exception as exc:
+            user32.MessageBoxW(hwnd,str(exc),'ComfyUI EZi Launcher',0x10)
+        return 0
+    if msg==WM_NCHITTEST:
+        rc=wt.RECT(); user32.GetWindowRect(hwnd,ctypes.byref(rc))
+        x=ctypes.c_short(lp & 0xffff).value-rc.left
+        y=ctypes.c_short((lp>>16)&0xffff).value-rc.top
+        if 0<=y<sc(48) and 0<=x<sc(552): return HTCAPTION
+    if msg==WM_APP_CLOSE: user32.DestroyWindow(hwnd); return 0
+    if msg==0x100 and wp==27: user32.DestroyWindow(hwnd); return 0
+    if msg==WM_ACTIVATE and (wp & 0xffff)==0:
+        if not g_creating_shortcut: user32.DestroyWindow(hwnd)
+        return 0
+    if msg==0x0113:
+        paint_scene()
+        user32.InvalidateRect(hwnd,None,False)
+        for hw in g_controls.values(): user32.InvalidateRect(hw,None,False)
+        return 0
+    if msg==WM_DESTROY:
+        user32.KillTimer(hwnd,1)
+        user32.PostQuitMessage(0); return 0
+    return user32.DefWindowProcW(hwnd,msg,wp,lp)
 
-    create_button(g_hwnd, ID_EZI_BROW, bx, y_b, MAIN_BW, BTN_H)
-    create_button(g_hwnd, ID_SC_EZI_BROW,
-                  bx + MAIN_BW + ARROW_GAP, y_b, ARROW_W, BTN_H, is_arrow=True)
-    y_b += BTN_H + BTN_GAP
+def main():
+    global g_hwnd,g_tooltip_hwnd,g_mode,g_adv,g_logo_path,WIN_W,WIN_H,UI_SCALE
+    work=wt.RECT()
+    user32.SystemParametersInfoW(0x30,0,ctypes.byref(work),0)
+    if work.right>work.left:
+        UI_SCALE=min(UI_SCALE,(work.right-work.left-32)/672,(work.bottom-work.top-32)/420)
+    WIN_W,WIN_H=sc(672),sc(420)
+    gp.GdiplusStartup(ctypes.byref(g_token),ctypes.byref(GPSTART(1,None,0,0)),None)
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.png',delete=False) as f:
+            g_logo_path=f.name; f.write(_tint_png(base64.b64decode(LOGO_PNG),TC['mint']))
+        gp.GdipLoadImageFromFile(g_logo_path,ctypes.byref(g_logo))
+        for name,size,weight in [('title',20,650),('heading',16,600),('body',14,600),('small',12,400)]:
+            g_fonts[name]=make_font(sc(-size),weight)
+        g_mode=_load_mode(); g_adv=g_mode=='Hybrid'
+        wc=WNDCLASSEX(); wc.cbSize=ctypes.sizeof(wc); wc.style=CS_HREDRAW|CS_VREDRAW
+        wc.lpfnWndProc=wnd_proc; wc.hInstance=kernel32.GetModuleHandleW(None)
+        wc.hCursor=user32.LoadCursorW(None,IDC_ARROW); wc.lpszClassName='ComfyUI_EZi_Aurora'
+        if not user32.RegisterClassExW(ctypes.byref(wc)): raise ctypes.WinError()
+        x,y=calc_position()
+        if work.right>work.left:
+            x=max(work.left,min(x,work.right-WIN_W)); y=max(work.top,min(y,work.bottom-WIN_H))
+        g_hwnd=user32.CreateWindowExW(WS_EX_TOPMOST|WS_EX_TOOLWINDOW,wc.lpszClassName,'ComfyUI-Easy-Install-AMD',
+            WS_POPUP|WS_CLIPCHILDREN,x,y,WIN_W,WIN_H,None,None,wc.hInstance,None)
+        if not g_hwnd: raise ctypes.WinError()
+        user32.SetWindowRgn(g_hwnd,gdi32.CreateRoundRectRgn(0,0,WIN_W+1,WIN_H+1,sc(32),sc(32)),True)
+        g_tooltip_hwnd=user32.CreateWindowExW(WS_EX_TOPMOST,'tooltips_class32',None,TTS_ALWAYSTIP|TTS_NOPREFIX,
+            0,0,0,0,g_hwnd,None,wc.hInstance,None)
+        user32.SendMessageW(g_tooltip_hwnd,TTM_SETMAXTIPWIDTH,0,sc(320))
+        paint_scene()
+        create_control(ID_VERSION,552,12,72,24,'v'+VERSION,'version','Open project page')
+        create_control(ID_CLOSE,632,10,28,28,'Close','close')
+        create_control(ID_TRITON,438,12,106,24,triton_label(),'button','Turn the Triton backend on or off')
+        for bid,x,label,kind in [(ID_MODE_DESKTOP,22,'Desktop','desktop'),(ID_MODE_BROWSER,154,'Browser','browser'),(ID_MODE_HYBRID,286,'Hybrid','hybrid')]:
+            create_control(bid,x,64,128,32,label,kind)
+        for n,bid in enumerate(ROW_IDS):
+            create_control(ROW_HIT_IDS[n],22,108+n*62,392,54,ROW_NAMES[n],'row')
+            create_control(bid,266,119+n*62,94,32,'Launch')
+            create_control(SC_IDS[n],368,119+n*62,34,32,'Create shortcut for '+ROW_NAMES[n],'shortcut','Create desktop shortcut for the selected mode')
+        for n,(bid,label) in enumerate([(ID_UPD_EASY,'Easy-Install'),(ID_UPD_COMFY,'ComfyUI Stable'),
+                                       (ID_SC_UPD_COMFY,'ComfyUI Latest'),(ID_UPD_COMFY_NODE,'ComfyUI + Nodes')]):
+            hw=create_control(bid,448,108+n*62,200,54,label,'update')
+            user32.SetWindowTextW(hw,label+' — '+UPDATE_DESCRIPTIONS[bid])
+        for n,(bid,label) in enumerate([(ID_FOLD_OUTPUT,'Output'),(ID_FOLD_INPUT,'Input'),(ID_FOLD_WORKFLOWS,'Workflows'),(ID_FOLD_MODELS,'Models')]):
+            create_control(bid,22+n*159,374,151,32,label,'folder','Open '+label+' folder')
+        refresh_controls()
+        user32.ShowWindow(g_hwnd,SW_SHOW)
+        user32.UpdateWindow(g_hwnd); user32.SetForegroundWindow(g_hwnd)
+        user32.SetTimer(g_hwnd,1,33,None)
+        msg=wt.MSG()
+        while user32.GetMessageW(ctypes.byref(msg),None,0,0)>0:
+            if msg.message==0x100 and msg.wParam==9:
+                next_hw=user32.GetNextDlgTabItem(g_hwnd,user32.GetFocus(),bool(user32.GetKeyState(0x10)&0x8000))
+                if next_hw: user32.SetFocus(next_hw)
+                continue
+            if msg.message==0x100 and msg.wParam==27:
+                user32.DestroyWindow(g_hwnd)
+                continue
+            user32.TranslateMessage(ctypes.byref(msg)); user32.DispatchMessageW(ctypes.byref(msg))
+    finally:
+        if g_scene_dc:
+            gdi32.SelectObject(g_scene_dc,g_scene_old); gdi32.DeleteObject(g_scene_bitmap); gdi32.DeleteDC(g_scene_dc)
+        for font in g_fonts.values(): gdi32.DeleteObject(font)
+        if g_logo: gp.GdipDisposeImage(g_logo)
+        if g_logo_path:
+            try: os.unlink(g_logo_path)
+            except OSError: pass
+        gp.GdiplusShutdown(g_token)
 
-    if HAS_BROW_KITCHEN:
-        create_button(g_hwnd, ID_KITCHEN_BROW, bx, y_b, MAIN_BW, BTN_H)
-        create_button(g_hwnd, ID_SC_KITCHEN_BROW,
-                      bx + MAIN_BW + ARROW_GAP, y_b, ARROW_W, BTN_H, is_arrow=True)
-    else:
-        create_button(g_hwnd, ID_KITCHEN_BROW, bx, y_b, bw, BTN_H)
-    y_b += BTN_H + BTN_GAP
-
-    if HAS_BROW_SAGE:
-        create_button(g_hwnd, ID_SAGE_BROW, bx, y_b, MAIN_BW, BTN_H)
-        create_button(g_hwnd, ID_SC_SAGE_BROW,
-                      bx + MAIN_BW + ARROW_GAP, y_b, ARROW_W, BTN_H, is_arrow=True)
-    else:
-        create_button(g_hwnd, ID_SAGE_BROW, bx, y_b, bw, BTN_H)
-    y_b += BTN_H + BTN_GAP
-
-    if HAS_BROW_FLASH:
-        create_button(g_hwnd, ID_FLASH_BROW, bx, y_b, MAIN_BW, BTN_H)
-        create_button(g_hwnd, ID_SC_FLASH_BROW,
-                      bx + MAIN_BW + ARROW_GAP, y_b, ARROW_W, BTN_H, is_arrow=True)
-    else:
-        create_button(g_hwnd, ID_FLASH_BROW, bx, y_b, bw, BTN_H)
-
-    y_u = CONTENT_TOP
-    ux  = SEP2_X + PAD
-
-    create_button(g_hwnd, ID_UPD_EASY,       ux, y_u, upd_w, BTN_H)
-    y_u += BTN_H + BTN_GAP
-    create_button(g_hwnd, ID_UPD_COMFY,      ux, y_u, upd_w, BTN_H)
-    y_u += BTN_H + BTN_GAP
-    create_button(g_hwnd, ID_SC_UPD_COMFY,   ux, y_u, upd_w, BTN_H)
-    y_u += BTN_H + BTN_GAP
-    create_button(g_hwnd, ID_UPD_COMFY_NODE, ux, y_u, upd_w, BTN_H)
-
-    fld_pad   = 8
-    fld_gap   = 4
-    fld_total = WIN_W - fld_pad * 2
-    fld_w     = (fld_total - 3 * fld_gap) // 4
-    create_button(g_hwnd, ID_TRITON, PAD, CONTENT_TOP + 4 * (BTN_H + BTN_GAP), WIN_W - 2 * PAD, BTN_H)
-    fld_y     = WIN_H - FOOTER_H + (FOOTER_H - FOOTER_BTN_H) // 2
-
-    fx = fld_pad
-    create_button(g_hwnd, ID_FOLD_OUTPUT,    fx, fld_y, fld_w, FOOTER_BTN_H)
-    fx += fld_w + fld_gap
-    create_button(g_hwnd, ID_FOLD_INPUT,     fx, fld_y, fld_w, FOOTER_BTN_H)
-    fx += fld_w + fld_gap
-    create_button(g_hwnd, ID_FOLD_WORKFLOWS, fx, fld_y, fld_w, FOOTER_BTN_H)
-    fx += fld_w + fld_gap
-    last_w = WIN_W - fld_pad - fx
-    create_button(g_hwnd, ID_FOLD_MODELS,    fx, fld_y, last_w, FOOTER_BTN_H)
-
-    user32.ShowWindow(g_hwnd, SW_SHOW)
-    user32.UpdateWindow(g_hwnd)
-    user32.SetForegroundWindow(g_hwnd)
-    user32.SetTimer(g_hwnd, ATTENTION_TIMER, 50, None)
-    threading.Thread(target=check_attention_background, daemon=True).start()
-
-    user32.RedrawWindow(g_hwnd, None, None,
-                        RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN)
-
-    msg = wt.MSG()
-    while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
-        user32.TranslateMessage(ctypes.byref(msg))
-        user32.DispatchMessageW(ctypes.byref(msg))
-
-if __name__ == '__main__':
-    main()
+if __name__=='__main__': main()
