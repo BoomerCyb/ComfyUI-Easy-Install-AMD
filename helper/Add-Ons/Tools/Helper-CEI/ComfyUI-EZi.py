@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.30-amd"
+APP_VERSION = "0.1.31-amd"
 
 import sys
 import os
@@ -815,7 +815,7 @@ EZI_RELEASES_REPO = "BoomerCyb/ComfyUI-Easy-Install-AMD"
 # Ivo's original ComfyUI-Easy-Install, and the release of it this AMD edition is built on
 # (tools/sync_upstream.py sets it). A newer one there is shown as a notice, not installed.
 UPSTREAM_REPO = "Tavris1/ComfyUI-Easy-Install"
-UPSTREAM_VERSION = "3.24.0"
+UPSTREAM_VERSION = "3.26.0"
 
 
 def _ezi_version_key(version):
@@ -1547,6 +1547,8 @@ def _get_desktop():
         pass
     return os.path.join(os.path.expanduser("~"), "Desktop")
 
+UPDATE_CHECK_INTERVAL = 6 * 3600
+
 
 BAT_NAMES = (
     'Start ComfyUI.bat',
@@ -2054,6 +2056,7 @@ def _load_settings():
         "window_maximized": False,
         "window_placement": None,
         "show_tooltips": True,
+        "theme": "amd",
         "launcher_theme": "amd",
         "console_detached": False,
         "console_placement": None,
@@ -2102,7 +2105,7 @@ def _save_settings(settings):
             "adv_console_placement", "adv_console_zoom_detached", "_dpi_aware_version", "rec_fps", "console_bg_image",
             "console_bg_fit", "console_bg_opacity", "console_bg_animate", "sel_pop_copy", "sel_pop_google", "sel_pop_chatgpt",
             "sel_pop_claude", "sel_pop_save", "sel_ai_lang", "console_zoom_attached", "console_zoom_detached",
-            "cached_comfy_stable_version", "pinned_packages", "proxy_port", "ezi_updated_from", "ezi_zip_failed_sig"
+            "cached_comfy_stable_version", "pinned_packages", "proxy_port", "ezi_updated_from", "ezi_zip_failed_sig", "auto_snapshot", "ezi_zip_tag"
         )
         existing = {}
         try:
@@ -2113,9 +2116,9 @@ def _save_settings(settings):
                     existing = {}
         except Exception:
             _log_error('_save_settings')
-        keep_existing = ("launcher_mode",)
+        keep_existing = ("launcher_mode", "auto_snapshot")
         if ADV_CONSOLE:
-            keep_existing = ("launcher_mode", "window_placement", "window_maximized", "console_placement")
+            keep_existing = ("launcher_mode", "window_placement", "window_maximized", "console_placement", "auto_snapshot")
         merged = {}
         for k in ALLOWED:
             if k in keep_existing and k in existing:
@@ -2270,7 +2273,11 @@ _CONSOLE_PAGE_BODY = r"""<body>
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18"
   rx="2.5"/><path d="M12 7.5v9"/><path d="M9.5 7.5h5"/>
   <path d="M9.5 16.5h5"/></svg></button><div id="sel-menu"><div class="sm-row"
-  data-tip="Save the entire console log as a .txt file" onclick="saveLog()"><span>Save log as .txt</span><svg viewBox="0 0 24 24"
+  data-tip="Search the console (Ctrl+F)" onclick="eziOpenSearch()"><span>Search<small class="sm-kbd">Ctrl+F</small></span><svg viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+  focusable="false"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><div class="sm-row"
+  data-tip="Save the entire console log as a .txt file (Ctrl+S)" onclick="saveLog()"><span>Save log as .txt<small
+  class="sm-kbd">Ctrl+S</small></span><svg viewBox="0 0 24 24"
   fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
   focusable="false"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2v-12a2 2 0 0 1 2-2"/><circle cx="12" cy="14" r="2"/>
   <path d="M14 4v4h-6v-4"/></svg></div><div class="sm-sep">Selection popup</div><label class="sm-row"
@@ -2325,6 +2332,7 @@ _CONSOLE_PAGE_BODY = r"""<body>
   <div id="term-panel"></div>
   <div id="ico-bg"></div>
   <button id="term-jump" onmousedown="event.preventDefault()" onclick="jumpBottom()">&#x2193; Jump to latest</button>
+  __SEARCHBAR__
 </div>
 <script>
 const EZI_INIT = __INIT__;
@@ -2613,7 +2621,11 @@ def _get_console_html(settings=None):
                        "zoom": int((settings or {}).get("adv_console_zoom_detached", (settings or {}).get("console_zoom_detached", 12))
                                    if ADV_CONSOLE else (settings or {}).get("console_zoom_detached", 12))
                        }).replace('</', '<\\/')
+    sb_a = html.index('<div id="term-search"')
+    sb_b = html.index('<!--/term-search-->', sb_a)
+    searchbar = html[sb_a:sb_b]
     body = (_CONSOLE_PAGE_BODY.replace('__ICON__', _CONSOLE_ICON_SVG)
+                              .replace('__SEARCHBAR__', searchbar)
                               .replace('__INIT__', init)
                               .replace('__EMU__', emu))
     adv_css = '<style>#attach-btn{display:none!important}</style>' if ADV_CONSOLE else ''
@@ -2799,6 +2811,55 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
             }}
         }}
 
+        function _eziFindModelDir(href, filename) {{
+            try {{
+                var app = window.app;
+                if (!app || !app.graph) return '';
+                var strip = function(u) {{ return String(u || '').split('?')[0].split('#')[0]; }};
+                var hrefBase = strip(href);
+                var seen = [];
+                var match = function(models) {{
+                    if (!Array.isArray(models)) return '';
+                    for (var i = 0; i < models.length; i++) {{
+                        var m = models[i];
+                        if (!m || !m.directory) continue;
+                        if ((m.url && strip(m.url) === hrefBase) || (m.name && m.name === filename)) return String(m.directory);
+                    }}
+                    return '';
+                }};
+                var scan = function(graph) {{
+                    if (!graph || seen.indexOf(graph) !== -1) return '';
+                    seen.push(graph);
+                    var nodes = graph._nodes || graph.nodes || [];
+                    for (var i = 0; i < nodes.length; i++) {{
+                        var n = nodes[i];
+                        var r = match(n && n.properties && n.properties.models);
+                        if (r) return r;
+                        if (n && n.subgraph) {{
+                            r = scan(n.subgraph);
+                            if (r) return r;
+                        }}
+                    }}
+                    if (graph.subgraphs && typeof graph.subgraphs.values === 'function') {{
+                        var it = Array.from(graph.subgraphs.values());
+                        for (var j = 0; j < it.length; j++) {{
+                            var r2 = scan(it[j]);
+                            if (r2) return r2;
+                        }}
+                    }}
+                    return '';
+                }};
+                var found = scan(app.graph);
+                if (found) return found;
+                if (typeof app.graph.serialize === 'function') {{
+                    var ser = app.graph.serialize();
+                    found = match(ser && ser.models) || match(ser && ser.extra && ser.extra.models);
+                    if (found) return found;
+                }}
+            }} catch(e) {{}}
+            return '';
+        }}
+
         function _eziHandleDownloadAnchor(a) {{
             try {{
                 var filename = a.getAttribute('download') || 'download';
@@ -2824,8 +2885,8 @@ async def make_proxy_app(comfy_port_holder, storage_holder, settings_holder=None
                 }}
 
                 var urlObj = new URL(href, window.location.origin);
-                var relativeUrl = urlObj.pathname + urlObj.search;
-                window._eziPostToShell({{ type: 'ezi_save_image', url: relativeUrl, filename: filename }});
+                var sendUrl = urlObj.origin === window.location.origin ? urlObj.pathname + urlObj.search : urlObj.href;
+                window._eziPostToShell({{ type: 'ezi_save_image', url: sendUrl, filename: filename, directory: _eziFindModelDir(urlObj.href, filename) }});
             }} catch(e) {{ console.error("Download interceptor error:", e); }}
         }}
 
@@ -3054,6 +3115,10 @@ def _is_rect_on_active_monitor(left, top, right, bottom):
 
 class Api:
     _NO_WIN        = 0x08000000
+    _ezi_check_lock = threading.Lock()
+    _comfy_check_lock = threading.Lock()
+    _ezi_last_state = None
+    _comfy_last_tag = None
     _NO_WIN_HIDDEN = 0x08000000 | 0x20000000
     PY_EXE         = os.path.join(ROOT_DIR, "python_embeded", "python.exe")
     COMFY_DIR      = os.path.join(ROOT_DIR, "ComfyUI")
@@ -3345,15 +3410,41 @@ class Api:
             hwnd = ctypes.WinDLL('kernel32').GetConsoleWindow()
             if hwnd: ctypes.WinDLL('user32').ShowWindow(hwnd, 0)
 				
-    def handle_comfyui_download(self, url, filename):
-        threading.Thread(target=self._do_handle_download, args=(url, filename), daemon=True).start()
+    def handle_comfyui_download(self, url, filename, directory=''):
+        threading.Thread(target=self._do_handle_download, args=(url, filename, directory), daemon=True).start()
 
-    def _do_handle_download(self, url, filename):
+    def _model_target_dir(self, directory):
+        try:
+            directory = str(directory or '').strip().replace('/', '\\').strip('\\')
+            if not directory or os.path.isabs(directory) or ':' in directory:
+                return None
+            parts = [p for p in directory.split('\\') if p]
+            if not parts or any(p in ('.', '..') for p in parts):
+                return None
+            models = self._resolve_models_dir()
+            if not models:
+                return None
+            target = os.path.normpath(os.path.join(models, *parts))
+            base = os.path.normcase(os.path.abspath(models))
+            if not os.path.normcase(os.path.abspath(target)).startswith(base + os.sep):
+                return None
+            os.makedirs(target, exist_ok=True)
+            return target if os.path.isdir(target) else None
+        except Exception:
+            _log_error('_model_target_dir')
+            return None
+
+    def _do_handle_download(self, url, filename, directory=''):
         port = self._comfy_port_holder[0]
         if not port:
             return
 
-        full_url = f"{_comfy_origin(port)}{url}"
+        if re.match(r'^https?://', str(url), re.IGNORECASE):
+            full_url = url
+        else:
+            full_url = f"{_comfy_origin(port)}{url}"
+
+        model_dir = self._model_target_dir(directory)
 
         if not self._window:
             return
@@ -3365,23 +3456,28 @@ class Api:
             file_types = ("Audio Files (*.wav;*.mp3;*.ogg;*.flac;*.aac)", "All Files (*.*)")
         elif ext in ('.gif',):
             file_types = ("GIF Image (*.gif)", "All Files (*.*)")
+        elif ext in ('.png', '.jpg', '.jpeg', '.webp', '.bmp'):
+            file_types = ("Image Files (*.png;*.jpg;*.jpeg;*.webp;*.bmp)", "All Files (*.*)")
+        elif ext:
+            file_types = (f"{ext[1:].upper()} Files (*{ext})", "All Files (*.*)")
         else:
-            file_types = ("Image Files (*.png;*.jpg;*.jpeg;*.webp)", "All Files (*.*)")
+            file_types = ("All Files (*.*)",)
 
         save_path = None
         try:
             with self._save_dialog_lock:
                 result = self._window.create_file_dialog(
                     SAVE_DIALOG_TYPE,
-                    directory=self._last_save_dir,
+                    directory=model_dir or self._last_save_dir,
                     save_filename=filename,
                     file_types=file_types
                 )
                 if result:
                     save_path = result[0] if isinstance(result, (list, tuple)) else result
-                    self._last_save_dir = os.path.dirname(save_path)
-                    self._settings["last_save_dir"] = self._last_save_dir
-                    _save_settings(self._settings)
+                    if not model_dir:
+                        self._last_save_dir = os.path.dirname(save_path)
+                        self._settings["last_save_dir"] = self._last_save_dir
+                        _save_settings(self._settings)
         except Exception:
             _log_error('_do_handle_download')
 
@@ -3517,6 +3613,7 @@ class Api:
         threading.Thread(target=self._check_ezi_update, daemon=True).start()
         threading.Thread(target=self._check_upstream_update, daemon=True).start()
         threading.Thread(target=self._port_monitor, daemon=True).start()
+        threading.Thread(target=self._update_watcher, daemon=True).start()
 
     def _apply_ezi_update(self, bat):
         self._settings['ezi_updated_from'] = APP_VERSION
@@ -3929,11 +4026,28 @@ class Api:
                         gave_up = True
                         self._println("\n\033[91m⚠  Restart timed out. ComfyUI did not come back online.\033[0m")
                         self._safe_eval("switchToConsole('Stopped')")
-    def _check_update(self):
+    def _update_watcher(self):
+        last = time.time()
+        while True:
+            time.sleep(60)
+            now = time.time()
+            if now < last:
+                last = now
+                continue
+            if now - last < UPDATE_CHECK_INTERVAL or self._updating:
+                continue
+            last = now
+            self._check_ezi_update(quiet=True)
+            self._check_update(quiet=True)
+
+    def _check_update(self, quiet=False):
+        if not self._comfy_check_lock.acquire(blocking=False):
+            return
         try:
             if not os.path.isdir(os.path.join(self.COMFY_DIR, '.git')):
                 return
-            self._println('\033[93mChecking for ComfyUI update...\033[0m')
+            if not quiet:
+                self._println('\033[93mChecking for ComfyUI update...\033[0m')
             subprocess.run(['git', 'fetch', '--quiet', '--tags'], cwd=self.COMFY_DIR, capture_output=True, timeout=8, creationflags=self._NO_WIN)
             all_tags = subprocess.run(
                 ['git', 'tag', '--sort=-version:refname'],
@@ -3965,11 +4079,16 @@ class Api:
                 tag_is_newer = head_hash and tag_hash and head_hash != tag_hash and \
                     _commit_time(f'{latest_tag}^{{}}') > _commit_time('HEAD')
                 if tag_is_newer:
+                    if quiet and latest_tag == self._comfy_last_tag:
+                        return
+                    self._comfy_last_tag = latest_tag
                     stable_tag = self._stable_comfy_tag()
                     is_stable = bool(stable_tag and latest_tag == stable_tag)
                     self._safe_eval(f"show_update({json.dumps(latest_tag)}, {json.dumps(is_stable)})")
         except Exception:
             _log_error('_check_update')
+        finally:
+            self._comfy_check_lock.release()
 
     def _stable_comfy_tag(self):
         cached = self._settings.get('cached_comfy_stable_version') or None
@@ -3994,25 +4113,38 @@ class Api:
             data = _json.loads(r.read())
         return data.get("tag_name", "").strip().lstrip("v")
 
-    def _check_ezi_update(self):
+    def _check_ezi_update(self, quiet=False):
+        if not self._ezi_check_lock.acquire(blocking=False):
+            return
         try:
-            self._println('\033[95mChecking for Easy-Install update...\033[0m')
+            if not quiet:
+                self._println('\033[95mChecking for Easy-Install update...\033[0m')
             try:
                 tag = self._get_latest_ezi_tag()
             except Exception as e:
-                self._println(f'\033[93mredirect-based check failed ({e!r}), falling back to api.github.com...\033[0m')
+                if not quiet:
+                    self._println(f'\033[93mredirect-based check failed ({e!r}), falling back to api.github.com...\033[0m')
                 tag = self._get_latest_ezi_tag_via_api()
             if not tag:
-                self._println('\033[93mEasy-Install update check: could not determine latest tag\033[0m')
+                if not quiet:
+                    self._println('\033[93mEasy-Install update check: could not determine latest tag\033[0m')
                 return
             if _ezi_version_key(tag) > _ezi_version_key(APP_VERSION):
                 display = "v" + tag
-                self._println(f'\033[95mEasy-Install update available: v{APP_VERSION} -> {display}\033[0m')
+                if quiet and self._ezi_last_state == (display, False):
+                    return
+                self._ezi_last_state = (display, False)
+                self._println(f'[95mEasy-Install update available: v{APP_VERSION} -> {display}[0m')
                 self._safe_eval(f"show_ezi_update({json.dumps(display)})")
-            else:
+            elif not quiet:
                 self._println(f'\033[92mEasy-Install is up to date (v{APP_VERSION}, latest is v{tag})\033[0m')
         except Exception as e:
-            self._println(f'\033[91mEasy-Install update check failed: {e!r}\033[0m')
+            if quiet:
+                _log_error('_check_ezi_update')
+            else:
+                self._println(f'\033[91mEasy-Install update check failed: {e!r}\033[0m')
+        finally:
+            self._ezi_check_lock.release()
 
     def _check_upstream_update(self):
         """Show when Ivo has released a newer ComfyUI-Easy-Install than the one this AMD edition is built on."""

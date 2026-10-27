@@ -1,4 +1,4 @@
-VERSION = '0.1.30-amd'
+VERSION = '0.1.31-amd'
 
 import glob
 import os
@@ -11,6 +11,7 @@ import re
 import shlex
 import json
 import math
+import socket
 
 import time
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -43,6 +44,25 @@ HAS_UPD_COMFY      = os.path.exists(root('Update ComfyUI.bat'))
 HAS_UPD_COMFY_NODE = os.path.exists(root('Update ComfyUI and Nodes.bat'))
 HAS_UPD_EASY       = os.path.exists(root('Update Easy-Install.bat'))
 HAS_UPD_COMFY_NIGHTLY = os.path.exists(root('Update ComfyUI Nightly.bat'))
+
+CUSTOM_NODES_DIR = root(os.path.join('ComfyUI', 'custom_nodes'))
+EMBEDDED_PY      = root(os.path.join('python_embeded', 'python.exe'))
+
+def _find_cm_cli():
+    default = os.path.join(CUSTOM_NODES_DIR, 'ComfyUI-Manager', 'cm-cli.py')
+    if os.path.isfile(default):
+        return default
+    try:
+        for name in sorted(os.listdir(CUSTOM_NODES_DIR)):
+            candidate = os.path.join(CUSTOM_NODES_DIR, name, 'cm-cli.py')
+            if 'manager' in name.lower() and os.path.isfile(candidate):
+                return candidate
+    except OSError:
+        pass
+    return None
+
+CM_CLI        = _find_cm_cli()
+HAS_SNAP_TOOL = bool(CM_CLI) and os.path.isfile(EMBEDDED_PY)
 
 INSTALL_SAGE_BAT  = os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..', 'SageAttention AMD.bat'))
 INSTALL_FLASH_BAT = os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..', 'FlashAttention AMD.bat'))
@@ -124,7 +144,8 @@ RDW_UPDATENOW    = 0x0100
 RDW_ALLCHILDREN  = 0x0080
 RGN_DIFF         = 4
 
-WIN_W, WIN_H = sc(672), sc(420)
+BASE_W, BASE_H = 798, 430
+WIN_W, WIN_H = sc(BASE_W), sc(BASE_H)
 
 user32   = ctypes.windll.user32
 gdi32    = ctypes.windll.gdi32
@@ -273,10 +294,15 @@ ID_FOLD_OUTPUT    = 41
 ID_FOLD_INPUT     = 42
 ID_FOLD_WORKFLOWS = 43
 ID_FOLD_MODELS    = 44
+ID_FOLD_SNAPSHOTS = 45
+
+ID_SNAP_SAVE      = 60
+ID_SNAP_LAST      = 61
+ID_SNAP_PICK      = 62
 
 ID_MODE_BROWSER   = 50
 ID_MODE_HYBRID    = 51
-ID_TRITON         = 45
+ID_TRITON         = 46
 
 ID_SC_EZI_DESK     = 110
 ID_SC_SAGE_DESK    = 111
@@ -318,6 +344,10 @@ g_tooltip_hwnd   = None
 g_creating_shortcut = False
 g_hwnd           = None
 g_adv            = False
+g_modal          = False
+g_snaps          = []
+g_latest         = None
+g_snap_note      = ''
 
 class TOOLINFOW(ctypes.Structure):
     _fields_ = [
@@ -353,6 +383,10 @@ BTN_META = {
     ID_FOLD_INPUT:     ('Input',           'fld'),
     ID_FOLD_WORKFLOWS: ('Workflows',       'fld'),
     ID_FOLD_MODELS:    ('Models',          'fld'),
+    ID_FOLD_SNAPSHOTS: ('Snapshots',       'fld'),
+    ID_SNAP_SAVE:      ('Save snapshot',   'upd'),
+    ID_SNAP_LAST:      ('Restore latest',  'upd'),
+    ID_SNAP_PICK:      ('Restore other',   'upd'),
 }
 
 INSTALL_BTN_STATE = {
@@ -373,6 +407,9 @@ DIMMED_BTN_STATE = {
     ID_SC_UPD_COMFY:   lambda: not HAS_UPD_COMFY_NIGHTLY,
     ID_KITCHEN_DESK:   lambda: not HAS_DESK_KITCHEN,
     ID_KITCHEN_BROW:   lambda: not HAS_BROW_KITCHEN,
+    ID_SNAP_SAVE:      lambda: not HAS_SNAP_TOOL,
+    ID_SNAP_LAST:      lambda: g_latest is None,
+    ID_SNAP_PICK:      lambda: not g_snaps,
 }
 
 def is_dimmed_state(btn_id):
@@ -644,17 +681,657 @@ def toggle_triton():
             cwd=ROOT_DIR, capture_output=True, text=True,
             timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
     except (OSError, subprocess.SubprocessError) as error:
-        user32.MessageBoxW(g_hwnd, str(error), 'Triton Toggle Failed', 0x10)
+        _notice(str(error), title='Triton Toggle Failed')
         return
     message = (result.stdout + result.stderr).strip()
     if result.returncode:
-        # Show the tool's own message (e.g. "ComfyUI is running"), not just the exit status.
-        user32.MessageBoxW(g_hwnd, message[-1500:] or f'Exit code {result.returncode}', 'Triton Toggle Failed', 0x10)
+        # Show the tool's own message (e.g. "ComfyUI is running"), not just the exit status. The launcher's own popup,
+        # not a MessageBox: the launcher closes when a MessageBox takes the focus.
+        _notice(message[-1500:] or f'Exit code {result.returncode}', title='Triton Toggle Failed')
         return
     spec = list(g_control_specs[ID_TRITON]); spec[4] = triton_label(); g_control_specs[ID_TRITON] = tuple(spec)
     user32.SetWindowTextW(g_controls[ID_TRITON], spec[4])
     user32.InvalidateRect(g_controls[ID_TRITON], None, False)
-    user32.MessageBoxW(g_hwnd, message, 'Triton Backend', 0x40)
+    _notice(message, title='Triton Backend')
+
+
+SNAP_NAME_RE = re.compile(r'^(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})_(.+)$')
+SNAP_MENU_MAX = 15
+
+
+def _snapshots_dir():
+    return os.path.join(os.path.dirname(_get_comfy_user_dir()), '__manager', 'snapshots')
+
+
+def _resolve_snapshots_dir():
+    d = _snapshots_dir()
+    try:
+        os.makedirs(d, exist_ok=True)
+    except OSError:
+        return None
+    return d
+
+
+def _list_snapshots():
+    d = _snapshots_dir()
+    found = []
+    try:
+        for name in os.listdir(d):
+            full = os.path.join(d, name)
+            if name.lower().endswith('.json') and os.path.isfile(full):
+                found.append((os.path.getmtime(full), full))
+    except OSError:
+        return []
+    found.sort(reverse=True)
+    return [full for _, full in found]
+
+
+def _snapshot_title(path):
+    stem = os.path.splitext(os.path.basename(path))[0]
+    m = SNAP_NAME_RE.match(stem)
+    if m:
+        return m.group(1) + ' ' + m.group(2).replace('-', ':'), m.group(3)
+    try:
+        stamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(path)))
+    except OSError:
+        stamp = ''
+    return stamp, stem
+
+
+def _snapshot_age(path, now=None):
+    match = SNAP_NAME_RE.match(os.path.splitext(os.path.basename(path))[0])
+    try:
+        stamp = time.mktime(time.strptime(match.group(1)+' '+match.group(2), '%Y-%m-%d %H-%M-%S')) if match else os.path.getmtime(path)
+    except (OSError, ValueError, OverflowError):
+        try:
+            stamp = os.path.getmtime(path)
+        except OSError:
+            return ''
+    seconds = max(0, int((time.time() if now is None else now)-stamp))
+    for duration, unit in [(31536000,'year'),(2592000,'month'),(604800,'week'),
+                           (86400,'day'),(3600,'hour'),(60,'min')]:
+        count = seconds//duration
+        if count:
+            return str(count)+' '+unit+('s' if count!=1 and unit!='min' else '')+' ago'
+    return 'just now'
+
+
+def _snapshot_torch(path):
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            pips = json.load(f).get('pips', {})
+        for key in pips:
+            if str(key).lower().startswith('torch=='):
+                return str(key).split('==', 1)[1]
+    except (OSError, ValueError, AttributeError, TypeError):
+        pass
+    return None
+
+
+def _installed_torch():
+    site = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages')
+    try:
+        for name in os.listdir(site):
+            m = re.match(r'(?i)^torch-(.+)\.dist-info$', name)
+            if m:
+                return m.group(1)
+    except OSError:
+        pass
+    return None
+
+
+def refresh_snapshots():
+    global g_snaps, g_snap_note, g_latest
+    g_snaps = _list_snapshots() if HAS_SNAP_TOOL else []
+    g_latest = next((p for p in g_snaps if _snapshot_title(p)[1] != 'pre-restore'), None)
+    if not HAS_SNAP_TOOL:
+        g_snap_note = 'Manager (cm-cli) not found'
+    elif not g_snaps:
+        g_snap_note = 'No snapshots yet'
+    else:
+        count = len(g_snaps)
+        g_snap_note = str(count) + (' snapshot' if count == 1 else ' snapshots')
+        UPDATE_DESCRIPTIONS[ID_SNAP_LAST] = _snapshot_title(g_latest)[0] if g_latest else 'Only backups left'
+        UPDATE_DESCRIPTIONS[ID_SNAP_PICK] = 'Choose from ' + str(min(count, SNAP_MENU_MAX))
+
+
+def _quote(value):
+    return '"' + value + '"'
+
+
+def _cm_cmd(*args):
+    return ' '.join([_quote(EMBEDDED_PY), _quote(CM_CLI)] + list(args))
+
+
+def _run_in_console(title, steps):
+    env = os.environ.copy()
+    env['COMFYUI_PATH'] = root('ComfyUI')
+    env['PYTHONIOENCODING'] = 'utf-8'
+    line = 'chcp 65001 >nul & title ' + title + ' & ' + ' && '.join(steps) + ' & echo. & pause'
+    subprocess.Popen('cmd.exe /d /s /c "' + line + '"', cwd=ROOT_DIR, env=env,
+                     creationflags=subprocess.CREATE_NEW_CONSOLE)
+    user32.PostMessageW(g_hwnd, WM_APP_CLOSE, 0, 0)
+
+
+SNAP_RESTORE_SCRIPT = r'''import json
+import os
+import re
+import subprocess
+import sys
+from importlib import metadata
+
+PROTECTED = {'torch', 'torchvision', 'torchaudio', 'triton', 'triton-windows', 'pip', 'setuptools', 'wheel'}
+
+
+def git(repo, *args):
+    try:
+        done = subprocess.run(['git', '-C', repo] + list(args), capture_output=True, text=True,
+                              encoding='utf-8', errors='replace')
+    except OSError as error:
+        return 1, '', str(error)
+    return done.returncode, done.stdout.strip(), done.stderr.strip()
+
+
+def head_of(repo):
+    code, out, _ = git(repo, 'rev-parse', 'HEAD')
+    return out if code == 0 else None
+
+
+def same_commit(a, b):
+    return bool(a) and bool(b) and (a.startswith(b) or b.startswith(a))
+
+
+def switch_commit(repo, target):
+    code, _, err = git(repo, 'checkout', target)
+    if code == 0:
+        return True, ''
+    for fetch in (['--unshallow', '--tags', 'origin'], ['--tags', 'origin'],
+                  ['origin', '+refs/heads/master:refs/remotes/origin/master']):
+        if git(repo, 'fetch', *fetch)[0] == 0:
+            code, _, err = git(repo, 'checkout', target)
+            if code == 0:
+                return True, ''
+    return False, '\n'.join(err.splitlines()[-6:])
+
+
+def restore_core(snapshot, comfy_dir):
+    target = snapshot.get('comfyui')
+    if not target or not re.fullmatch(r'[0-9a-f]{7,40}', str(target)):
+        print('ComfyUI: no commit in the snapshot, left unchanged')
+        return 0
+    head = head_of(comfy_dir)
+    if same_commit(head, target):
+        print('ComfyUI: already at ' + target[:7])
+        return 0
+    if not os.path.isdir(os.path.join(comfy_dir, '.git')):
+        print('ComfyUI: .git folder not found, the commit cannot be restored')
+        return 1
+    print('ComfyUI: ' + str(head)[:7] + ' -> ' + target[:7])
+    ok, detail = switch_commit(comfy_dir, target)
+    if not ok:
+        print('ComfyUI: git checkout failed')
+        if detail:
+            print(detail)
+        return 1
+    print('ComfyUI: now at ' + str(head_of(comfy_dir))[:7])
+    return 0
+
+
+def norm_url(url):
+    url = re.sub(r'^[a-z+]+://', '', url.strip().lower())
+    url = re.sub(r'^[^@/]*@', '', url)
+    url = url.replace(':', '/', 1)
+    url = re.sub(r'^www\.', '', url)
+    return re.sub(r'(\.git)?/*$', '', url)
+
+
+def origin_url(repo):
+    try:
+        with open(os.path.join(repo, '.git', 'config'), 'r', encoding='utf-8', errors='ignore') as f:
+            text = f.read()
+    except OSError:
+        return None
+    match = re.search(r'\[remote "origin"\][^\[]*?url\s*=\s*(\S+)', text)
+    return match.group(1) if match else None
+
+
+def local_repos(nodes_dir):
+    found = []
+    for folder, off in ((nodes_dir, False), (os.path.join(nodes_dir, '.disabled'), True)):
+        try:
+            names = sorted(os.listdir(folder))
+        except OSError:
+            continue
+        for name in names:
+            path = os.path.join(folder, name)
+            if name != '.disabled' and os.path.isdir(os.path.join(path, '.git')):
+                found.append((path, off or name.endswith('.disabled')))
+    return found
+
+
+def restore_nodes(snapshot, nodes_dir):
+    wanted_nodes = snapshot.get('git_custom_nodes') or {}
+    local = {}
+    for path, off in local_repos(nodes_dir):
+        url = origin_url(path)
+        if url:
+            local.setdefault(norm_url(url), []).append((path, off))
+    ok, fixed, problems = 0, [], []
+    for url, info in wanted_nodes.items():
+        if 'comfyui-manager' in url.lower():
+            continue
+        target = info.get('hash')
+        wanted_off = bool(info.get('disabled'))
+        name = re.sub(r'\.git$', '', url.rstrip('/').split('/')[-1])
+        entries = local.get(norm_url(url), [])
+        if not entries:
+            if wanted_off:
+                continue
+            code, _, err = git(nodes_dir, 'clone', url, name)
+            if code != 0:
+                problems.append(name + ': missing, clone failed: ' + (err.splitlines() or [''])[-1])
+                continue
+            path = os.path.join(nodes_dir, name)
+            done, detail = switch_commit(path, target)
+            if done:
+                fixed.append(name + ': cloned at ' + str(target)[:7])
+            else:
+                problems.append(name + ': cloned, checkout failed: ' + (detail.splitlines() or [''])[-1])
+            continue
+        entries.sort(key=lambda e: e[1] != wanted_off)
+        path, off = entries[0]
+        good = True
+        if target and not same_commit(head_of(path), target):
+            before = str(head_of(path))[:7]
+            done, detail = switch_commit(path, target)
+            if done:
+                fixed.append(name + ': ' + before + ' -> ' + target[:7])
+            else:
+                problems.append(name + ': checkout of ' + target[:7] + ' failed: ' + (detail.splitlines() or [''])[-1])
+                good = False
+        if off != wanted_off:
+            problems.append(name + ': is ' + ('disabled' if off else 'enabled') +
+                            ', snapshot has it ' + ('disabled' if wanted_off else 'enabled'))
+            good = False
+        if good and not any(f.startswith(name + ':') for f in fixed):
+            ok += 1
+    print('Custom nodes: ' + str(ok) + ' ok, ' + str(len(fixed)) + ' fixed, ' + str(len(problems)) + ' problems')
+    for line in fixed:
+        print('  fixed ' + line)
+    for line in problems:
+        print('  PROBLEM ' + line)
+    return 1 if problems else 0
+
+
+def norm(name):
+    return re.sub(r'[-_.]+', '-', name).lower()
+
+
+def same(a, b):
+    for module in ('packaging.version', 'pip._vendor.packaging.version'):
+        try:
+            version = __import__(module, fromlist=['Version']).Version
+            return version(a) == version(b)
+        except Exception:
+            continue
+    return a.lower() == b.lower()
+
+
+def installed():
+    found = {}
+    for dist in metadata.distributions():
+        name = dist.metadata['Name']
+        if name:
+            found[norm(name)] = dist.version
+    return found
+
+
+def build_plan(pips, current):
+    todo, skipped, absent, unchanged, direct = [], [], [], 0, 0
+    for key, value in pips.items():
+        name = norm(key.split('==')[0])
+        have = current.get(name)
+        if value:
+            direct += 1
+            if have is None:
+                absent.append(name)
+            continue
+        if '==' not in key:
+            continue
+        wanted = key.split('==', 1)[1]
+        if have is not None and same(have, wanted):
+            unchanged += 1
+        elif name in PROTECTED:
+            skipped.append((name, have, wanted))
+        else:
+            todo.append((name, key, have))
+    return todo, skipped, absent, unchanged, direct
+
+
+def run_pip(specs):
+    command = [sys.executable, '-m', 'pip', 'install', '--no-deps', '--no-input',
+               '--disable-pip-version-check'] + specs
+    return subprocess.call(command) == 0
+
+
+def restore_pips(pips):
+    current = installed()
+    todo, skipped, absent, unchanged, direct = build_plan(pips, current)
+    names = {norm(k.split('==')[0]) for k in pips}
+    extras = sorted(n for n in current if n not in names)
+    print('Python packages: ' + str(len(todo)) + ' to change, ' + str(unchanged) + ' unchanged, ' +
+          str(direct) + ' direct references left as they are')
+    for name, spec, have in todo:
+        print('  ' + name + ' (' + (have or 'not installed') + ') -> ' + spec)
+    for name, have, wanted in skipped:
+        print('  skipped ' + name + ': installed ' + str(have) + ', snapshot ' + str(wanted))
+    for name in absent:
+        print('  not installed: ' + name + ' (direct reference, reinstall it from Add-ons)')
+    failed = []
+    specs = [spec for _, spec, _ in todo]
+    if specs and not run_pip(specs):
+        print('Batch install failed, retrying one by one')
+        for name, spec, _ in todo:
+            if not run_pip([spec]):
+                failed.append(name)
+    print('')
+    print('Changed: ' + str(len(todo) - len(failed)) + ' | failed: ' + str(len(failed)) +
+          ' | skipped: ' + str(len(skipped)) + ' | direct references not installed: ' + str(len(absent)))
+    if extras:
+        print(str(len(extras)) + ' installed packages are not in the snapshot and were left in place: ' +
+              ', '.join(extras[:15]) + (' ...' if len(extras) > 15 else ''))
+    if failed:
+        print('Failed: ' + ', '.join(failed))
+    return 1 if failed else 0
+
+
+PRE_RESTORE = r'^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_pre-restore\.json$'
+PRE_UPDATE = r'^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_pre-update-.+\.json$'
+KEEP_PRE_RESTORE = 5
+KEEP_PRE_UPDATE = 10
+
+
+def load(path):
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def snapshot_files(folder):
+    found = []
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return []
+    for name in names:
+        path = os.path.join(folder, name)
+        if name.lower().endswith('.json') and os.path.isfile(path):
+            found.append((os.path.getmtime(path), path))
+    found.sort(reverse=True)
+    return [path for _, path in found]
+
+
+def prune(folder, pattern, keep, protected):
+    own = [p for p in snapshot_files(folder) if re.match(pattern, os.path.basename(p))]
+    removed = 0
+    for path in own[keep:]:
+        if path in protected:
+            continue
+        try:
+            os.remove(path)
+            removed += 1
+        except OSError:
+            pass
+    return removed
+
+
+def tidy_restore(target_path, backup_path):
+    target = load(target_path)
+    if target is not None and target == load(backup_path):
+        try:
+            os.remove(backup_path)
+            print('Backup removed: the restore changed nothing')
+        except OSError:
+            pass
+    else:
+        print('Backup kept as an undo point: ' + os.path.basename(backup_path))
+    removed = prune(os.path.dirname(backup_path), PRE_RESTORE, KEEP_PRE_RESTORE, {target_path})
+    if removed:
+        print('Removed ' + str(removed) + ' old restore backup(s)')
+    return 0
+
+
+def tidy_update(new_path):
+    state = load(new_path)
+    if state is None:
+        print('Snapshot file is unreadable: ' + os.path.basename(new_path))
+        return 0
+    folder = os.path.dirname(new_path)
+    others = [p for p in snapshot_files(folder) if p != new_path]
+    if others and load(others[0]) == state:
+        try:
+            os.remove(new_path)
+            print('No new snapshot needed: the state is identical to ' + os.path.basename(others[0]))
+        except OSError:
+            pass
+    else:
+        print('Snapshot saved: ' + os.path.basename(new_path))
+    prune(folder, PRE_UPDATE, KEEP_PRE_UPDATE, set())
+    return 0
+
+
+def snap_update(out_path, cm_cli, user_dir, comfy_dir):
+    env = dict(os.environ, COMFYUI_PATH=comfy_dir, PYTHONIOENCODING='utf-8')
+    code = subprocess.call([sys.executable, cm_cli, 'save-snapshot', '--output', out_path,
+                            '--user-directory', user_dir], env=env)
+    if code != 0 or not os.path.isfile(out_path):
+        print('Snapshot failed, continuing with the update')
+        return 0
+    return tidy_update(out_path)
+
+
+def run_manager_restore(snapshot_path, cm_cli, user_dir):
+    env = dict(os.environ, PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
+    command = [sys.executable, cm_cli, 'restore-snapshot', snapshot_path, '--user-directory', user_dir]
+    failed_prefix = '[  FAILED   ] '
+    held = []
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                               encoding='utf-8', errors='replace', env=env)
+    for line in process.stdout:
+        text = line.rstrip('\r\n')
+        if text.startswith(failed_prefix):
+            held.append(text[len(failed_prefix):])
+        elif text != 'Installation failed for pip packages: []':
+            print(text, flush=True)
+    return process.wait(), held
+
+
+def apply_snapshot(snapshot, snapshot_path, nodes_dir, cm_cli, user_dir):
+    code, held = run_manager_restore(snapshot_path, cm_cli, user_dir)
+    if code != 0:
+        for name in held:
+            print('[  FAILED   ] ' + name)
+        print('ComfyUI-Manager restore failed, exit code ' + str(code))
+        return code
+    problems = restore_nodes(snapshot, nodes_dir)
+    if held and problems:
+        print('ComfyUI-Manager reported FAILED: ' + ', '.join(held))
+    elif held:
+        print('ComfyUI-Manager listed ' + str(len(held)) + ' node(s) as FAILED, the disk check found no problems')
+    return restore_pips(snapshot.get('pips') or {}) or problems
+
+
+def main():
+    mode, first = sys.argv[1], sys.argv[2]
+    args = sys.argv[3:]
+    if mode == 'info':
+        print('Restoring snapshot: ' + os.path.basename(first))
+        print('')
+        return 0
+    if mode == 'tidy-restore':
+        return tidy_restore(first, args[0])
+    if mode == 'tidy-update':
+        return tidy_update(first)
+    if mode == 'snap-update':
+        return snap_update(first, args[0], args[1], args[2])
+    snapshot = load(first)
+    if snapshot is None:
+        print('Cannot read the snapshot: ' + first)
+        return 1
+    if mode == 'core':
+        return restore_core(snapshot, args[0])
+    if mode == 'apply':
+        return apply_snapshot(snapshot, first, args[0], args[1], args[2])
+    print('Unknown mode: ' + mode)
+    return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
+'''
+
+
+def _restore_script_path():
+    script = os.path.join(tempfile.gettempdir(), 'ezi_snapshot_restore.py')
+    with open(script, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(SNAP_RESTORE_SCRIPT)
+    return script
+
+
+def _user_dir_args():
+    return ['--user-directory', _quote(os.path.dirname(_get_comfy_user_dir()))]
+
+
+def _confirm(text):
+    return bool(_SnapshotPopup(text=text).show())
+
+
+def _stamped(tag):
+    d = _snapshots_dir()
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, time.strftime('%Y-%m-%d_%H-%M-%S') + '_' + tag + '.json')
+
+
+def snapshot_save():
+    out = _stamped('manual')
+    _run_in_console('Snapshot', [_cm_cmd('save-snapshot', '--output', _quote(out), *_user_dir_args())])
+
+
+def _get_comfy_port():
+    port = 8188
+    try:
+        with open(_get_bat_file(), 'r', encoding='utf-8', errors='replace') as f:
+            comfy_line = _find_bat_comfy_line(f.read())
+        match = re.search(r'python_embeded[/\\]python\.exe["\']?\s+(.*)', comfy_line or '', re.IGNORECASE)
+        if match:
+            tokens = shlex.split(match.group(1).strip(), posix=False)
+            for i, tok in enumerate(tokens):
+                value = None
+                if tok == '--port' and i + 1 < len(tokens):
+                    value = tokens[i + 1]
+                elif tok.startswith('--port='):
+                    value = tok.split('=', 1)[1]
+                if value is not None:
+                    port = int(value.strip('"\''))
+                    break
+    except (OSError, ValueError):
+        pass
+    return port
+
+
+def _port_busy(port):
+    try:
+        result = subprocess.run(
+            ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+             f'if (Get-NetTCPConnection -LocalPort {port} -State Listen '
+             f'-ErrorAction SilentlyContinue) {{ 1 }} else {{ 0 }}'],
+            capture_output=True, timeout=5, creationflags=0x08000000)
+        return result.stdout.decode().strip() == '1'
+    except Exception:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.settimeout(0.5)
+            return probe.connect_ex(('127.0.0.1', port)) == 0
+
+
+def _notice(text, title='ComfyUI EZi Launcher'):
+    _SnapshotPopup(text=str(text), notice=True, title=title).show()
+
+
+def _restore_blocked():
+    port = _get_comfy_port()
+    if not _port_busy(port):
+        return False
+    _notice('Port ' + str(port) + ' is in use, so ComfyUI or EZi looks like it is already running.\n\n'
+            'Close it first, then try the restore again.')
+    return True
+
+
+def snapshot_restore(path):
+    when, tag = _snapshot_title(path)
+    lines = [
+        'Restore snapshot?', '',
+        when + '   ' + tag, '',
+        'ComfyUI is switched to the snapshot commit.',
+        'Custom nodes are restored by ComfyUI-Manager and then verified.',
+        'Python packages are set to the snapshot versions without',
+        'dependency resolution. Torch is not changed.',
+        'Close ComfyUI before continuing.',
+        'The current state is saved as a backup snapshot first.',
+    ]
+    wanted, current = _snapshot_torch(path), _installed_torch()
+    if wanted and current and wanted != current:
+        lines += ['', 'Torch differs: installed ' + current + ', snapshot ' + wanted + '.',
+                  'Use Torch Pack to change it.']
+    if not _confirm('\n'.join(lines)):
+        return
+    backup = _stamped('pre-restore')
+    helper = _quote(EMBEDDED_PY) + ' ' + _quote(_restore_script_path())
+    _run_in_console('Restore snapshot', [
+        helper + ' info ' + _quote(path),
+        _cm_cmd('save-snapshot', '--output', _quote(backup), *_user_dir_args()),
+        helper + ' core ' + _quote(path) + ' ' + _quote(root('ComfyUI')),
+        helper + ' apply ' + ' '.join(_quote(v) for v in (path, CUSTOM_NODES_DIR, CM_CLI, os.path.dirname(_get_comfy_user_dir()))),
+        helper + ' tidy-restore ' + _quote(path) + ' ' + _quote(backup),
+    ])
+
+
+def snapshot_restore_latest():
+    if g_latest and not _restore_blocked():
+        snapshot_restore(g_latest)
+
+
+def snapshot_pick():
+    snaps = g_snaps[:SNAP_MENU_MAX]
+    if not snaps or _restore_blocked():
+        return
+    choice = _SnapshotPopup(snaps=snaps).show()
+    if choice is not None:
+        snapshot_restore(snaps[choice])
+
+
+def _auto_snapshot_enabled():
+    try:
+        with open(_settings_path(), encoding='utf-8') as f:
+            return json.load(f).get('auto_snapshot', True) is not False
+    except (OSError, ValueError, AttributeError):
+        return True
+
+
+def launch_update(name, tag):
+    bat = root(name)
+    if not (os.path.exists(bat) and HAS_SNAP_TOOL and _auto_snapshot_enabled()):
+        launch_bat(name)
+        return
+    out = _stamped('pre-update-' + tag)
+    helper = _quote(EMBEDDED_PY) + ' ' + _quote(_restore_script_path())
+    snap = ' '.join([helper, 'snap-update', _quote(out), _quote(CM_CLI),
+                     _quote(os.path.dirname(_get_comfy_user_dir())), _quote(root('ComfyUI'))])
+    line = 'title ' + name[:-4] + ' & ' + snap + ' & call ' + _quote(bat)
+    subprocess.Popen('cmd.exe /d /s /c "' + line + '"', cwd=ROOT_DIR,
+                     creationflags=subprocess.CREATE_NEW_CONSOLE)
+    user32.PostMessageW(g_hwnd, WM_APP_CLOSE, 0, 0)
 
 
 ACTIONS = {
@@ -687,15 +1364,20 @@ ACTIONS = {
         else (lambda: install_addon(INSTALL_FLASH_BAT))
     ),
 
-    ID_UPD_COMFY:      lambda: launch_bat('Update ComfyUI.bat'),
-    ID_UPD_COMFY_NODE: lambda: launch_bat('Update ComfyUI and Nodes.bat'),
-    ID_UPD_EASY:       lambda: launch_bat('Update Easy-Install.bat'),
-    ID_SC_UPD_COMFY:   lambda: launch_bat('Update ComfyUI Nightly.bat'),
+    ID_UPD_COMFY:      lambda: launch_update('Update ComfyUI.bat', 'comfyui-stable'),
+    ID_UPD_COMFY_NODE: lambda: launch_update('Update ComfyUI and Nodes.bat', 'comfyui-and-nodes'),
+    ID_UPD_EASY:       lambda: launch_update('Update Easy-Install.bat', 'easy-install'),
+    ID_SC_UPD_COMFY:   lambda: launch_update('Update ComfyUI Nightly.bat', 'comfyui-latest'),
 
     ID_FOLD_OUTPUT:    lambda: open_folder_async(_resolve_output_dir),
     ID_FOLD_INPUT:     lambda: open_folder_async(_resolve_input_dir),
     ID_FOLD_WORKFLOWS: lambda: open_folder_async(_resolve_workflows_dir),
     ID_FOLD_MODELS:    lambda: open_folder_async(_resolve_models_dir),
+    ID_FOLD_SNAPSHOTS: lambda: open_folder_async(_resolve_snapshots_dir),
+
+    ID_SNAP_SAVE:      snapshot_save,
+    ID_SNAP_LAST:      snapshot_restore_latest,
+    ID_SNAP_PICK:      snapshot_pick,
 }
 
 
@@ -806,7 +1488,8 @@ for name, result, args in [
     ('TrackPopupMenu', U, [P,U,I,I,I,P,P]), ('DestroyMenu', I, [P]),
     ('IsDialogMessageW', I, [P,ctypes.POINTER(wt.MSG)]),
     ('GetNextDlgTabItem', P, [P,P,I]), ('GetKeyState', ctypes.c_short, [I]),
-    ('MessageBoxW', I, [P,wt.LPCWSTR,wt.LPCWSTR,U]),
+    ('MonitorFromWindow', P, [P,U]),
+    ('GetMonitorInfoW', I, [P,P]),
     ('GetMessageW', I, [ctypes.POINTER(wt.MSG),P,U,U]),
     ('TranslateMessage', I, [ctypes.POINTER(wt.MSG)]),
     ('DispatchMessageW', LRESULT, [ctypes.POINTER(wt.MSG)]),
@@ -851,6 +1534,9 @@ for name, args in [
 ]:
     _bind(gp, name, I, *args)
 _bind(gp, 'GdiplusShutdown', None, P)
+_bind(gp, 'GdipCreateBitmapFromScan0', I, I,I,I,I,P,ctypes.POINTER(P))
+_bind(gp, 'GdipGetImageGraphicsContext', I, P,ctypes.POINTER(P))
+_bind(gp, 'GdipGraphicsClear', I, P,U)
 
 def color(hexcode, alpha=255):
     return (alpha << 24) | int(hexcode.lstrip('#'), 16)
@@ -1012,6 +1698,11 @@ def _derive_theme(name, v):
     }
     if name == 'aurora': t.update(AURORA_EXACT)
     if name == 'amd': t.update(AMD_EXACT)
+    a, b = _rgb(t['g1']), _rgb(t['g2'])
+    def separated(source):
+        return '#%02x%02x%02x' % tuple(max(0,min(255,round((x+y)/2 + 1.25*(c-(x+y)/2))))
+                                      for c,x,y in zip(source,a,b))
+    t['g1'], t['g2'] = separated(a), separated(b)
     return t
 
 def _tint_png(data, hexcolor):
@@ -1039,6 +1730,8 @@ g_tip_texts = []
 g_scene_dc = None
 g_scene_bitmap = None
 g_scene_old = None
+g_panel_layer = P()
+g_panel_layer_key = None
 g_logo = P()
 g_logo_path = None
 g_token = P()
@@ -1051,8 +1744,11 @@ ROW_ICONS = ['nodes', 'blocks', 'leaf', 'bolt']
 UPDATE_DESCRIPTIONS = {
     ID_UPD_EASY: 'EZi and Add-ons',
     ID_UPD_COMFY: 'Latest stable release',
-    ID_SC_UPD_COMFY: 'Latest development version',
+    ID_SC_UPD_COMFY: 'Latest dev build',
     ID_UPD_COMFY_NODE: 'Stable + all custom nodes',
+    ID_SNAP_SAVE: 'Current state, manual',
+    ID_SNAP_LAST: 'No snapshots',
+    ID_SNAP_PICK: 'No snapshots',
 }
 DESK_IDS = [ID_EZI_DESK, ID_KITCHEN_DESK, ID_SAGE_DESK, ID_FLASH_DESK]
 BROW_IDS = [ID_EZI_BROW, ID_KITCHEN_BROW, ID_SAGE_BROW, ID_FLASH_BROW]
@@ -1125,6 +1821,10 @@ def icon(g, kind, x,y,size=24, col=MUTED):
     if kind in ('nodes','hybrid'):
         line(12,5,4,19); line(4,19,20,19); line(20,19,12,5)
         for a,b in [(12,5),(4,19),(20,19)]: circle(a,b,3,kind=='nodes')
+    elif kind=='info':
+        circle(12,12,10)
+        circle(12,7,1,True)
+        line(12,11,12,18)
     elif kind=='desktop':
         rounded(g,x+size/12,y+size/12,size*5/6,size*.6,None,col,2)
         line(12,17,12,21); line(7,22,17,22)
@@ -1133,6 +1833,21 @@ def icon(g, kind, x,y,size=24, col=MUTED):
         gp.GdipDrawEllipse(g,pen,*pt(8,2),sc(size/3),sc(size*5/6))
     elif kind=='folder':
         poly([(2,6),(8,6),(11,9),(22,9),(22,21),(2,21),(2,6)])
+    elif kind=='save':
+        poly([(3,3),(18,3),(21,6),(21,21),(3,21),(3,3)])
+        poly([(7,3),(7,10),(17,10),(17,3)])
+        poly([(7,21),(7,14),(17,14),(17,21)])
+        line(14,5,14,8)
+    elif kind=='restore':
+        path=P(); gp.GdipCreatePath(0,ctypes.byref(path))
+        gp.GdipAddPathArc(path,*pt(4,4),sc(16*size/24),sc(16*size/24),-135,300)
+        gp.GdipDrawPath(g,pen,path); gp.GdipDeletePath(path)
+        poly([(4,3),(4,8),(9,8)])
+        line(12,7,12,12); line(12,12,16,14)
+    elif kind=='snapshot_pick':
+        poly([(7,3),(21,3),(21,17)])
+        poly([(3,7),(17,7),(17,21),(3,21),(3,7)])
+        line(6,11,14,11); line(6,14,14,14); line(6,17,11,17)
     elif kind=='shortcut':
         poly([(11,4),(21,4),(21,14)]); line(9,16,21,4)
         poly([(8,7),(3,7),(3,22),(18,22),(18,17)])
@@ -1145,6 +1860,10 @@ def icon(g, kind, x,y,size=24, col=MUTED):
             gp.GdipDrawPath(g,pen,path); gp.GdipDeletePath(path)
         poly([(20.84,9.52),(20.2,3.8),(15.11,8.89)],True)
         poly([(3.16,14.48),(3.8,20.2),(8.89,15.11)],True)
+    elif kind=='snapshot':
+        rounded(g,x+size/12,y+size*.28,size*5/6,size*.58,None,col,3)
+        poly([(8,7),(9.5,4),(14.5,4),(16,7)])
+        circle(12,14,3.5)
     elif kind=='blocks':
         for a,b in [(3,2),(3,11),(12,11),(12,20),(21,20)]:
             rounded(g,x+a*size/28,y+b*size/28,size/4,size/4,col,None,1)
@@ -1176,6 +1895,41 @@ def _save_mode():
         with open(_settings_path(),'w',encoding='utf-8') as f: json.dump(data,f,indent=4,ensure_ascii=False)
     except OSError: pass
 
+def _paint_panels(g):
+    global g_panel_layer, g_panel_layer_key
+    key = (WIN_W, WIN_H, UI_SCALE)
+    if key != g_panel_layer_key:
+        image, layer = P(), P()
+        status = gp.GdipCreateBitmapFromScan0(WIN_W,WIN_H,0,0x26200A,None,ctypes.byref(image))
+        if status: raise RuntimeError('Cannot create panel layer: '+str(status))
+        try:
+            status = gp.GdipGetImageGraphicsContext(image,ctypes.byref(layer))
+            if status: raise RuntimeError('Cannot draw panel layer: '+str(status))
+            gp.GdipGraphicsClear(layer,0)
+            gp.GdipSetSmoothingMode(layer,4)
+            panels = [(10,50,364,308,TC['panel'],150),
+                      (384,50,194,308,TC['modal'],130),
+                      (588,50,200,308,TC['modal'],130),
+                      (10,368,778,52,TC['panel'],235)]
+            for x,y,w,h,fill,alpha in panels:
+                for spread in range(6,0,-1):
+                    rounded(layer,x-spread,y+3-spread,w+2*spread,h+2*spread,
+                            color('#000000',3+2*(7-spread)),None,12+spread)
+            for x,y,w,h,fill,alpha in panels:
+                rounded(layer,x,y,w,h,color(fill,alpha),BORDER,12)
+        except Exception:
+            if layer:
+                gp.GdipDeleteGraphics(layer)
+                layer = P()
+            gp.GdipDisposeImage(image)
+            raise
+        finally:
+            if layer: gp.GdipDeleteGraphics(layer)
+        if g_panel_layer: gp.GdipDisposeImage(g_panel_layer)
+        g_panel_layer, g_panel_layer_key = image, key
+    gp.GdipDrawImageRect(g,g_panel_layer,0,0,WIN_W,WIN_H)
+
+
 def paint_scene():
     global g_scene_dc,g_scene_bitmap,g_scene_old
     if not g_scene_dc:
@@ -1187,41 +1941,47 @@ def paint_scene():
     dc=g_scene_dc
     g=graphics(dc)
     shift=-(time.time()%5)/5*2*WIN_W
-    for first,last,direction,rect in [(color(TC['g1']),color(TC['g2']),0,GPRECT(shift,0,WIN_W,WIN_H)),
-                                       (color(TC['bg'],0),color(TC['bg']),1,GPRECT(0,0,WIN_W,WIN_H))]:
+    half=WIN_H//2
+    gp.GdipSetSmoothingMode(g,3)
+    for y,height,offset,first,last in [
+            (0,half,shift,color(TC['bg'],0),color(TC['bg'])),
+            (half,WIN_H-half,-shift,color(TC['bg']),color(TC['bg'],0))]:
         brush=P()
-        gp.GdipCreateLineBrushFromRect(ctypes.byref(rect),first,last,direction,0,ctypes.byref(brush))
-        if direction==0: gp.GdipSetLineWrapMode(brush,1)
-        gp.GdipFillRectangle(g,brush,0,0,WIN_W,WIN_H)
+        rect=GPRECT(offset,y,WIN_W,height)
+        gp.GdipCreateLineBrushFromRect(ctypes.byref(rect),color(TC['g1']),color(TC['g2']),0,0,ctypes.byref(brush))
+        gp.GdipSetLineWrapMode(brush,1)
+        gp.GdipFillRectangle(g,brush,0,y,WIN_W,height)
         gp.GdipDeleteBrush(brush)
-    rounded(g,1,1,670,418,None,color(TC['border_outer']),16)
-    rounded(g,12,52,412,308,color(TC['panel'],150),BORDER,12)
-    rounded(g,436,52,224,308,color(TC['modal'],130),BORDER,12)
+        rect=GPRECT(0,y-1,WIN_W,height+2)
+        gp.GdipCreateLineBrushFromRect(ctypes.byref(rect),first,last,1,0,ctypes.byref(brush))
+        gp.GdipFillRectangle(g,brush,0,y,WIN_W,height)
+        gp.GdipDeleteBrush(brush)
+    gp.GdipSetSmoothingMode(g,4)
+    rounded(g,1,1,BASE_W-2,BASE_H-2,None,color(TC['border_outer']),16)
+    _paint_panels(g)
     if g_logo: gp.GdipDrawImageRect(g,g_logo,sc(22),sc(10),sc(30),sc(30))
     gp.GdipDeleteGraphics(g)
     text_at(dc,'ComfyUI EZi',64,8,153,34,'title')
     text_at(dc,'Launcher - AMD',195,10,150,30,'heading',MUTED)
-    old=gdi32.SelectObject(dc,g_fonts['title']); rc=wt.RECT()
-    user32.DrawTextW(dc,'Update',-1,ctypes.byref(rc),0x400|DT_SINGLELINE); gdi32.SelectObject(dc,old)
-    ux=448+(200-(rc.right/UI_SCALE+28))/2
-    g=graphics(dc); icon(g,'update',ux,69,20,WHITE); gp.GdipDeleteGraphics(g)
-    text_at(dc,'Update',ux+28,64,170,30,'title')
+    for hx,head,head_icon,content_width in [(394,'Update','update',174),(598,'Snapshots','snapshot',180)]:
+        old=gdi32.SelectObject(dc,g_fonts['title']); rc=wt.RECT()
+        user32.DrawTextW(dc,head,-1,ctypes.byref(rc),0x400|DT_SINGLELINE); gdi32.SelectObject(dc,old)
+        ux=hx+(content_width-(rc.right/UI_SCALE+28))/2
+        g=graphics(dc); icon(g,head_icon,ux,66,20,WHITE); gp.GdipDeleteGraphics(g)
+        text_at(dc,head,ux+28,60,content_width-28,32,'title')
     for n,name in enumerate(ROW_NAMES):
-        y=108+n*62
+        y=102+n*64
         bid=source_id(n)
         missing=is_install_state(bid)
         status='Not installed' if missing else ('Unavailable' if not available(bid) else ('Default' if n==0 else 'Ready'))
         g=graphics(dc)
-        rounded(g,22,y,392,54,color(TC['row'],155),color(TC['row_border']),10)
-        rounded(g,32,y+11,32,32,color(TC['icon_bg'],190),None,10)
-        icon(g,ROW_ICONS[n],38,y+17,20,MINT)
-        rounded(g,80,y+36,6,6,MINT if status in ('Default','Ready') else MUTED,None,3)
+        rounded(g,20,y,344,54,color(TC['row'],155),color(TC['row_border']),10)
+        rounded(g,30,y+10,34,34,color(TC['icon_bg'],190),None,10)
+        icon(g,ROW_ICONS[n],37,y+17,20,MINT)
+        rounded(g,78,y+36,6,6,MINT if status in ('Default','Ready') else MUTED,None,3)
         gp.GdipDeleteGraphics(g)
-        text_at(dc,name,78,y+3,174,27,'heading')
-        text_at(dc,status,92,y+29,160,20,'small',MINT)
-    g=graphics(dc)
-    rounded(g,22,367,628,1,color(TC['sep']),None,0)
-    gp.GdipDeleteGraphics(g)
+        text_at(dc,name,76,y+3,144,27,'heading')
+        text_at(dc,status,90,y+29,130,20,'small',MINT)
 
 def draw_control(hdc,hw):
     bid=user32.GetDlgCtrlID(hw)
@@ -1253,13 +2013,242 @@ def draw_control(hdc,hw):
         icon(g,kind,(w-20)/2,(h-20)/2,20,col)
     gp.GdipDeleteGraphics(g)
     if kind in ('shortcut','close'): return
+    if kind=='snapshot_folder' or bid in (ID_SNAP_SAVE,ID_SNAP_LAST,ID_SNAP_PICK):
+        snapshot_icons={ID_SNAP_SAVE:'save', ID_SNAP_LAST:'restore', ID_SNAP_PICK:'snapshot_pick'}
+        if kind=='snapshot_folder': label='Snapshots ('+str(len(g_snaps))+')'
+        old=gdi32.SelectObject(hdc,g_fonts['body']); rc=wt.RECT()
+        user32.DrawTextW(hdc,label,-1,ctypes.byref(rc),0x400|DT_SINGLELINE)
+        gdi32.SelectObject(hdc,old)
+        label_width=rc.right/UI_SCALE
+        start=(w-label_width-24)/2
+        g=graphics(hdc); icon(g,snapshot_icons.get(bid,'folder'),start,9,18,col); gp.GdipDeleteGraphics(g)
+        text_at(hdc,label,start+24,5,label_width+1,25,'body',col)
+        note=('Open snapshots folder' if HAS_SNAP_TOOL else g_snap_note) if kind=='snapshot_folder' else UPDATE_DESCRIPTIONS[bid]
+        text_at(hdc,note,8,29,w-16,19,'small',MINT if enabled else col,True)
+        return
     if kind=='update':
         text_at(hdc,label,8,5,w-16,25,'heading',col,True)
         secondary=color(TC['secondary']) if primary and enabled else (MINT if enabled else col)
         text_at(hdc,UPDATE_DESCRIPTIONS[bid],8,29,w-16,19,'small',secondary,True)
         return
-    if kind in ('desktop','browser','hybrid','folder'): text_at(hdc,label,34,0,w-40,h,'body',col,True)
+    if kind in ('desktop','browser','hybrid','folder'): text_at(hdc,label,34,0,w-40,h,'body',col)
     else: text_at(hdc,label,0,0,w,h,'small' if kind=='version' else 'body',MINT if kind=='version' and enabled else col,True)
+
+class _SnapshotPopup:
+    def __init__(self, text=None, snaps=None, notice=False, title=None):
+        self.picker = snaps is not None
+        self.notice = notice
+        self.title = title or ('Choose a snapshot' if self.picker else 'Restore snapshot?')
+        self.snaps = snaps or []
+        self.width = 440 if self.picker else 550
+        picker_height = min(400, BASE_H)
+        self.visible = min(max(1, (picker_height-116)//54), len(self.snaps))
+        self.offset = 0
+        self.focus = 1 if self.notice else 0
+        self.hover = None
+        self.result = None
+        self.done = False
+        self.hwnd = None
+        self.hits = []
+        self.lines = []
+        self.entries = []
+        if self.picker:
+            for path in self.snaps:
+                when, tag = _snapshot_title(path)
+                torch = _snapshot_torch(path)
+                self.entries.append((when or os.path.basename(path),
+                                     tag + ('  ·  Torch ' + torch if torch else ''),
+                                     _snapshot_age(path)))
+            self.height = picker_height
+        else:
+            parts = str(text or '').split('\n')
+            self.detail = '' if self.notice else parts[2]
+            dc = user32.GetDC(g_hwnd)
+            old = gdi32.SelectObject(dc, g_fonts['body'])
+            y = 72 if self.notice else 126
+            try:
+                for paragraph in (parts if self.notice else parts[4:]):
+                    if not paragraph:
+                        y += 8
+                        continue
+                    rc = wt.RECT(0, 0, sc(self.width-48), 0)
+                    user32.DrawTextW(dc, paragraph, -1, ctypes.byref(rc), 0x400 | 0x10 | 0x800)
+                    height = max(20, math.ceil(rc.bottom/UI_SCALE))
+                    self.lines.append((paragraph, y, height))
+                    y += height + 5
+            finally:
+                gdi32.SelectObject(dc, old)
+                user32.ReleaseDC(g_hwnd, dc)
+            self.height = y + 70
+
+    def _button(self, dc, key, label, x, y, w, primary=False):
+        active = self.hover == key
+        focused = self.focus == key
+        g = graphics(dc)
+        fill = color(TC['p_hover']) if active and primary else ((color(TC['p1']),color(TC['p2'])) if primary else color(TC['btn_hover'] if active else TC['btn']))
+        rounded(g,x,y,w,34,fill,MINT if primary or focused else BORDER,7)
+        if focused: rounded(g,x+3,y+3,w-6,28,None,DARK if primary else MINT,5)
+        gp.GdipDeleteGraphics(g)
+        text_at(dc,label,x,y,w,34,'body',DARK if primary else WHITE,True)
+        self.hits.append((key,x,y,w,34))
+
+    def paint(self, dc):
+        self.hits = []
+        g = graphics(dc)
+        rounded(g,0,0,self.width,self.height,color(TC['modal']),BORDER,14)
+        rounded(g,1,1,self.width-2,52,color(TC['panel']),None,14)
+        icon(g,'snapshot_pick' if self.picker else ('info' if self.notice else 'restore'),20,17,22,MINT)
+        gp.GdipDeleteGraphics(g)
+        text_at(dc,self.title,52,10,self.width-108,36,'title')
+        self._button(dc,-1,'×',self.width-44,12,30)
+        if self.picker:
+            for row, index in enumerate(range(self.offset,min(len(self.entries),self.offset+self.visible))):
+                y = 62 + row*54
+                active = self.hover == index or self.focus == index
+                g = graphics(dc)
+                rounded(g,12,y,self.width-24,48,color(TC['btn_hover'] if active else TC['row']),MINT if active else BORDER,8)
+                icon(g,'restore' if self.focus==index else 'snapshot',24,y+14,20,MINT)
+                gp.GdipDeleteGraphics(g)
+                title, note, age = self.entries[index]
+                old = gdi32.SelectObject(dc,g_fonts['small']); age_rc = wt.RECT()
+                user32.DrawTextW(dc,age,-1,ctypes.byref(age_rc),0x400|DT_SINGLELINE)
+                gdi32.SelectObject(dc,g_fonts['body']); title_rc = wt.RECT()
+                user32.DrawTextW(dc,title,-1,ctypes.byref(title_rc),0x400|DT_SINGLELINE)
+                gdi32.SelectObject(dc,old)
+                age_width = age_rc.right/UI_SCALE
+                title_width = min(title_rc.right/UI_SCALE,self.width-82-age_width-12) if age else self.width-82
+                text_at(dc,title,56,y+3,title_width,24,'body')
+                if age: text_at(dc,age,56+title_width+12,y+3,age_width+1,24,'small',MINT)
+                text_at(dc,note,56,y+25,self.width-82,19,'small',MUTED)
+                self.hits.append((index,12,y,self.width-24,48))
+            footer = str(self.offset+1)+'–'+str(min(len(self.entries),self.offset+self.visible))+' of '+str(len(self.entries))+'  ·  ↑ ↓ choose · Enter restore'
+            text_at(dc,footer,20,self.height-46,self.width-40,30,'small',MUTED)
+        else:
+            if not self.notice:
+                g = graphics(dc)
+                rounded(g,20,66,self.width-40,46,color(TC['row']),BORDER,8)
+                icon(g,'snapshot',32,79,20,MINT)
+                gp.GdipDeleteGraphics(g)
+                text_at(dc,self.detail,64,70,self.width-96,38,'body',MINT)
+            for paragraph,y,height in self.lines:
+                old = gdi32.SelectObject(dc,g_fonts['body'])
+                rgb = WHITE & 0xffffff
+                gdi32.SetBkMode(dc,1)
+                gdi32.SetTextColor(dc,((rgb & 255)<<16)|(rgb & 0xff00)|(rgb>>16))
+                rc = wt.RECT(sc(24),sc(y),sc(self.width-24),sc(y+height))
+                user32.DrawTextW(dc,paragraph,-1,ctypes.byref(rc),0x10|0x800)
+                gdi32.SelectObject(dc,old)
+            if self.notice:
+                self._button(dc,1,'OK',(self.width-108)/2,self.height-52,108,True)
+            else:
+                self._button(dc,0,'Cancel',self.width-236,self.height-52,96)
+                self._button(dc,1,'Restore',self.width-128,self.height-52,108,True)
+
+    def choose(self, key):
+        self.result = key if self.picker and key >= 0 else (True if not self.picker and key == 1 else None)
+        user32.DestroyWindow(self.hwnd)
+
+    def move(self, delta):
+        self.focus = max(0,min(len(self.entries)-1,self.focus+delta))
+        self.offset = max(0,min(self.offset,self.focus))
+        if self.focus >= self.offset+self.visible: self.offset = self.focus-self.visible+1
+
+    def procedure(self, hwnd, msg, wp, lp):
+        if msg == WM_PAINT:
+            ps = PAINTSTRUCT(); dc = user32.BeginPaint(hwnd,ctypes.byref(ps))
+            memory = gdi32.CreateCompatibleDC(dc)
+            bitmap = gdi32.CreateCompatibleBitmap(dc,sc(self.width),sc(self.height))
+            old = gdi32.SelectObject(memory,bitmap)
+            self.paint(memory)
+            gdi32.BitBlt(dc,0,0,sc(self.width),sc(self.height),memory,0,0,SRCCOPY)
+            gdi32.SelectObject(memory,old); gdi32.DeleteObject(bitmap); gdi32.DeleteDC(memory)
+            user32.EndPaint(hwnd,ctypes.byref(ps)); return 0
+        if msg == WM_ERASEBKGND: return 1
+        if msg in (WM_MOUSEMOVE,WM_LBUTTONDOWN):
+            x = ctypes.c_short(lp & 0xffff).value/UI_SCALE
+            y = ctypes.c_short((lp>>16)&0xffff).value/UI_SCALE
+            hit = next((key for key,hx,hy,w,h in self.hits if hx<=x<hx+w and hy<=y<hy+h),None)
+            if msg == WM_LBUTTONDOWN and hit is not None:
+                self.choose(hit); return 0
+            self.hover = hit
+            user32.TrackMouseEvent(ctypes.byref(TRACKMOUSEEVENT(ctypes.sizeof(TRACKMOUSEEVENT),2,hwnd,0)))
+            user32.InvalidateRect(hwnd,None,False); return 0
+        if msg == WM_MOUSELEAVE:
+            self.hover = None; user32.InvalidateRect(hwnd,None,False); return 0
+        if msg == 0x20A and self.picker:
+            self.move(-1 if ctypes.c_short((wp>>16)&0xffff).value>0 else 1)
+            user32.InvalidateRect(hwnd,None,False); return 0
+        if msg == 0x100:
+            if wp == 27: self.choose(-1)
+            elif wp in (13,32): self.choose(self.focus)
+            elif self.picker:
+                if wp in (38,40,33,34): self.move({38:-1,40:1,33:-self.visible,34:self.visible}[wp])
+                elif wp == 36: self.move(-len(self.entries))
+                elif wp == 35: self.move(len(self.entries))
+            elif not self.notice and wp in (9,37,39): self.focus = 1-self.focus
+            user32.InvalidateRect(hwnd,None,False); return 0
+        if msg == WM_ACTIVATE and (wp & 0xffff)==0 and self.picker:
+            self.choose(-1); return 0
+        if msg == WM_NCHITTEST and not self.picker:
+            rc = wt.RECT(); user32.GetWindowRect(hwnd,ctypes.byref(rc))
+            x = ctypes.c_short(lp & 0xffff).value-rc.left
+            y = ctypes.c_short((lp>>16)&0xffff).value-rc.top
+            if 0<=y<sc(52) and 0<=x<sc(self.width-48): return HTCAPTION
+        if msg == 0x10: self.choose(-1); return 0
+        if msg == WM_DESTROY: self.done = True; return 0
+        return user32.DefWindowProcW(hwnd,msg,wp,lp)
+
+    def show(self):
+        global g_modal
+        previous = user32.GetFocus()
+        self.callback = WNDPROC(self.procedure)
+        instance = kernel32.GetModuleHandleW(None)
+        class_name = 'EZiSnapshotPopup_'+str(id(self))
+        wc = WNDCLASSEX(); wc.cbSize = ctypes.sizeof(wc)
+        wc.lpfnWndProc = self.callback; wc.hInstance = instance
+        wc.hCursor = user32.LoadCursorW(None,IDC_ARROW); wc.lpszClassName = class_name
+        if not user32.RegisterClassExW(ctypes.byref(wc)): raise ctypes.WinError()
+        anchor = wt.RECT(); work = wt.RECT()
+        user32.GetWindowRect(g_hwnd,ctypes.byref(anchor))
+        class MONITORINFO(ctypes.Structure):
+            _fields_ = [('cbSize',U),('rcMonitor',wt.RECT),('rcWork',wt.RECT),('dwFlags',U)]
+        monitor = MONITORINFO(); monitor.cbSize = ctypes.sizeof(monitor)
+        if user32.GetMonitorInfoW(user32.MonitorFromWindow(g_hwnd,2),ctypes.byref(monitor)):
+            work = monitor.rcWork
+        else:
+            user32.SystemParametersInfoW(0x30,0,ctypes.byref(work),0)
+        x = (anchor.left+anchor.right-sc(self.width))//2
+        y = (anchor.top+anchor.bottom-sc(self.height))//2
+        x = max(work.left+8,min(x,work.right-sc(self.width)-8))
+        y = max(work.top+8,min(y,work.bottom-sc(self.height)-8))
+        was_modal = g_modal
+        was_enabled = user32.IsWindowEnabled(g_hwnd)
+        g_modal = True
+        try:
+            self.hwnd = user32.CreateWindowExW(WS_EX_TOPMOST|WS_EX_TOOLWINDOW,class_name,
+                self.title,WS_POPUP,
+                x,y,sc(self.width),sc(self.height),g_hwnd,None,instance,None)
+            if not self.hwnd: raise ctypes.WinError()
+            user32.SetWindowRgn(self.hwnd,gdi32.CreateRoundRectRgn(0,0,sc(self.width)+1,sc(self.height)+1,sc(28),sc(28)),True)
+            user32.EnableWindow(g_hwnd,False)
+            user32.ShowWindow(self.hwnd,SW_SHOW); user32.SetForegroundWindow(self.hwnd)
+            user32.SetFocus(self.hwnd)
+            msg = wt.MSG()
+            while not self.done:
+                status = user32.GetMessageW(ctypes.byref(msg),None,0,0)
+                if status<=0:
+                    if status==0: user32.PostQuitMessage(msg.wParam)
+                    break
+                user32.TranslateMessage(ctypes.byref(msg)); user32.DispatchMessageW(ctypes.byref(msg))
+            return self.result
+        finally:
+            if self.hwnd and not self.done: user32.DestroyWindow(self.hwnd)
+            user32.EnableWindow(g_hwnd,was_enabled)
+            user32.SetForegroundWindow(g_hwnd)
+            if previous: user32.SetFocus(previous)
+            g_modal = was_modal
+            _bind(user32,'UnregisterClassW',I,wt.LPCWSTR,P)(class_name,instance)
+
 
 def add_tip(hw, text):
     buf=ctypes.create_unicode_buffer(text); g_tip_texts.append(buf)
@@ -1327,6 +2316,9 @@ def refresh_controls():
     user32.EnableWindow(g_controls[ID_SC_UPD_COMFY],available(ID_SC_UPD_COMFY))
     user32.EnableWindow(g_controls[ID_UPD_COMFY_NODE],available(ID_UPD_COMFY_NODE))
     user32.EnableWindow(g_controls[ID_UPD_EASY],available(ID_UPD_EASY))
+    for bid in (ID_SNAP_SAVE,ID_SNAP_LAST,ID_SNAP_PICK):
+        user32.EnableWindow(g_controls[bid],available(bid))
+    user32.SetWindowTextW(g_controls[ID_FOLD_SNAPSHOTS],'Snapshots ('+str(len(g_snaps))+') — '+g_snap_note)
     for bid,name in [(ID_MODE_DESKTOP,'Desktop'),(ID_MODE_BROWSER,'Browser'),(ID_MODE_HYBRID,'Hybrid')]:
         user32.SetWindowTextW(g_controls[bid],name+(' (selected)' if name==g_mode else ''))
     paint_scene()
@@ -1363,17 +2355,17 @@ def wnd_proc(hwnd,msg,wp,lp):
     if msg==WM_COMMAND:
         try: handle_command(wp & 0xffff)
         except Exception as exc:
-            user32.MessageBoxW(hwnd,str(exc),'ComfyUI EZi Launcher',0x10)
+            _notice(str(exc), title='Error')
         return 0
     if msg==WM_NCHITTEST:
         rc=wt.RECT(); user32.GetWindowRect(hwnd,ctypes.byref(rc))
         x=ctypes.c_short(lp & 0xffff).value-rc.left
         y=ctypes.c_short((lp>>16)&0xffff).value-rc.top
-        if 0<=y<sc(48) and 0<=x<sc(552): return HTCAPTION
+        if 0<=y<sc(48) and 0<=x<sc(BASE_W-120): return HTCAPTION
     if msg==WM_APP_CLOSE: user32.DestroyWindow(hwnd); return 0
     if msg==0x100 and wp==27: user32.DestroyWindow(hwnd); return 0
     if msg==WM_ACTIVATE and (wp & 0xffff)==0:
-        if not g_creating_shortcut: user32.DestroyWindow(hwnd)
+        if not g_creating_shortcut and not g_modal: user32.DestroyWindow(hwnd)
         return 0
     if msg==0x0113:
         paint_scene()
@@ -1385,21 +2377,44 @@ def wnd_proc(hwnd,msg,wp,lp):
         user32.PostQuitMessage(0); return 0
     return user32.DefWindowProcW(hwnd,msg,wp,lp)
 
+def _extend_path():
+    windir = os.environ.get('windir', r'C:\Windows')
+    local = os.environ.get('localappdata', '')
+    git_dir = ''
+    try:
+        found = subprocess.run([os.path.join(windir, 'System32', 'where.exe'), 'git.exe'],
+                               capture_output=True, text=True, timeout=5,
+                               creationflags=0x08000000).stdout.splitlines()
+        found = [line.strip() for line in found if line.strip()]
+        if found:
+            git_dir = os.path.dirname(found[-1]) + os.sep
+    except (OSError, subprocess.SubprocessError):
+        pass
+    parts = [git_dir,
+             os.path.join(windir, 'System32'),
+             os.path.join(windir, 'System32', 'WindowsPowerShell', 'v1.0'),
+             os.path.join(local, 'Microsoft', 'WindowsApps') if local else '',
+             os.environ.get('PATH', '')]
+    os.environ['PATH'] = ';'.join(part for part in parts if part)
+
+
 def main():
     global g_hwnd,g_tooltip_hwnd,g_mode,g_adv,g_logo_path,WIN_W,WIN_H,UI_SCALE
+    _extend_path()
     work=wt.RECT()
     user32.SystemParametersInfoW(0x30,0,ctypes.byref(work),0)
     if work.right>work.left:
-        UI_SCALE=min(UI_SCALE,(work.right-work.left-32)/672,(work.bottom-work.top-32)/420)
-    WIN_W,WIN_H=sc(672),sc(420)
+        UI_SCALE=min(UI_SCALE,(work.right-work.left-32)/BASE_W,(work.bottom-work.top-32)/BASE_H)
+    WIN_W,WIN_H=sc(BASE_W),sc(BASE_H)
     gp.GdiplusStartup(ctypes.byref(g_token),ctypes.byref(GPSTART(1,None,0,0)),None)
     try:
         with tempfile.NamedTemporaryFile(suffix='.png',delete=False) as f:
             g_logo_path=f.name; f.write(_tint_png(base64.b64decode(LOGO_PNG),TC['mint']))
         gp.GdipLoadImageFromFile(g_logo_path,ctypes.byref(g_logo))
-        for name,size,weight in [('title',20,650),('heading',16,600),('body',14,600),('small',12,400)]:
+        for name,size,weight in [('title',20,700),('heading',16,600),('body',14,600),('small',12,400)]:
             g_fonts[name]=make_font(sc(-size),weight)
         g_mode=_load_mode(); g_adv=g_mode=='Hybrid'
+        refresh_snapshots()
         wc=WNDCLASSEX(); wc.cbSize=ctypes.sizeof(wc); wc.style=CS_HREDRAW|CS_VREDRAW
         wc.lpfnWndProc=wnd_proc; wc.hInstance=kernel32.GetModuleHandleW(None)
         wc.hCursor=user32.LoadCursorW(None,IDC_ARROW); wc.lpszClassName='ComfyUI_EZi_Aurora'
@@ -1415,21 +2430,27 @@ def main():
             0,0,0,0,g_hwnd,None,wc.hInstance,None)
         user32.SendMessageW(g_tooltip_hwnd,TTM_SETMAXTIPWIDTH,0,sc(320))
         paint_scene()
-        create_control(ID_VERSION,552,12,72,24,'v'+VERSION,'version','Open project page')
-        create_control(ID_CLOSE,632,10,28,28,'Close','close')
-        create_control(ID_TRITON,438,12,106,24,triton_label(),'button','Turn the Triton backend on or off')
-        for bid,x,label,kind in [(ID_MODE_DESKTOP,22,'Desktop','desktop'),(ID_MODE_BROWSER,154,'Browser','browser'),(ID_MODE_HYBRID,286,'Hybrid','hybrid')]:
-            create_control(bid,x,64,128,32,label,kind)
+        create_control(ID_VERSION,BASE_W-120,12,72,24,'v'+VERSION,'version','Open project page')
+        create_control(ID_CLOSE,BASE_W-40,10,28,28,'Close','close')
+        create_control(ID_TRITON,BASE_W-234,12,106,24,triton_label(),'button','Turn the Triton backend on or off')
+        for bid,x,label,kind in [(ID_MODE_DESKTOP,20,'Desktop','desktop'),(ID_MODE_BROWSER,138,'Browser','browser'),(ID_MODE_HYBRID,256,'Hybrid','hybrid')]:
+            create_control(bid,x,60,108,32,label,kind)
         for n,bid in enumerate(ROW_IDS):
-            create_control(ROW_HIT_IDS[n],22,108+n*62,392,54,ROW_NAMES[n],'row')
-            create_control(bid,266,119+n*62,94,32,'Launch')
-            create_control(SC_IDS[n],368,119+n*62,34,32,'Create shortcut for '+ROW_NAMES[n],'shortcut','Create desktop shortcut for the selected mode')
+            create_control(ROW_HIT_IDS[n],20,102+n*64,344,54,ROW_NAMES[n],'row')
+            create_control(bid,226,112+n*64,84,34,'Launch')
+            create_control(SC_IDS[n],320,112+n*64,34,34,'Create shortcut for '+ROW_NAMES[n],'shortcut','Create desktop shortcut for the selected mode')
         for n,(bid,label) in enumerate([(ID_UPD_EASY,'Easy-Install'),(ID_UPD_COMFY,'ComfyUI Stable'),
                                        (ID_SC_UPD_COMFY,'ComfyUI Latest'),(ID_UPD_COMFY_NODE,'ComfyUI + Nodes')]):
-            hw=create_control(bid,448,108+n*62,200,54,label,'update')
+            hw=create_control(bid,394,102+n*64,174,54,label,'update')
             user32.SetWindowTextW(hw,label+' — '+UPDATE_DESCRIPTIONS[bid])
+        for n,(bid,label,tip) in enumerate([(ID_SNAP_SAVE,'Save snapshot','Save the current state with ComfyUI-Manager'),
+                                           (ID_SNAP_LAST,'Restore latest','Restore the newest snapshot, restore backups excluded'),
+                                           (ID_SNAP_PICK,'Restore other','Choose a snapshot to restore')]):
+            hw=create_control(bid,598,102+n*64,180,54,label,'update',tip)
+            user32.SetWindowTextW(hw,label+' — '+UPDATE_DESCRIPTIONS[bid])
+        create_control(ID_FOLD_SNAPSHOTS,598,102+3*64,180,54,'Snapshots','snapshot_folder','Open Snapshots folder')
         for n,(bid,label) in enumerate([(ID_FOLD_OUTPUT,'Output'),(ID_FOLD_INPUT,'Input'),(ID_FOLD_WORKFLOWS,'Workflows'),(ID_FOLD_MODELS,'Models')]):
-            create_control(bid,22+n*159,374,151,32,label,'folder','Open '+label+' folder')
+            create_control(bid,20+n*192,378,182,32,label,'folder','Open '+label+' folder')
         refresh_controls()
         user32.ShowWindow(g_hwnd,SW_SHOW)
         user32.UpdateWindow(g_hwnd); user32.SetForegroundWindow(g_hwnd)
@@ -1447,6 +2468,7 @@ def main():
     finally:
         if g_scene_dc:
             gdi32.SelectObject(g_scene_dc,g_scene_old); gdi32.DeleteObject(g_scene_bitmap); gdi32.DeleteDC(g_scene_dc)
+        if g_panel_layer: gp.GdipDisposeImage(g_panel_layer)
         for font in g_fonts.values(): gdi32.DeleteObject(font)
         if g_logo: gp.GdipDisposeImage(g_logo)
         if g_logo_path:
