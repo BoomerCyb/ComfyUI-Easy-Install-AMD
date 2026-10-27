@@ -176,6 +176,12 @@ The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
 
+### EZi 3.26.0 and a blank default workflow - 2026-10-26
+
+The AMD edition now includes Ivo's ComfyUI-Easy-Install 3.25.0 to 3.26.0: a Snapshots section in the launcher (save, restore latest, restore other), console search (Ctrl+F, Enter / Shift+Enter), Ctrl+S to save the console log, and quiet update checks every 6 hours that show each new version once. The installer now restarts itself without Administrator rights, refuses network paths, system folders and folders it cannot write to, warns about non-English characters in the install path or user folder, and checks the Python download against its SHA-256. Triton's messages in the launcher no longer close it.
+
+New and untitled workflows now start empty instead of ComfyUI's default workflow (the new Blank Default Workflow extension). To get the default workflow back, open Settings, search for Blank Default and switch it off.
+
 ### Restart button in EZi - 2026-10-19
 
 EZi's top bar has a **Restart** button: it asks first, then stops ComfyUI and starts it again (anything running stops and the queue is cleared). Reload and Restart sit in one button group with the console toggle and Detach, as icons: console, detach, reload, restart. Reload shows in the ComfyUI view, as before.

@@ -185,8 +185,9 @@ BUNDLED_EXTENSIONS = 'preset-files/ComfyUI/custom_nodes'
 
 
 def sync_bundled_extensions(root):
-    """Copy the frontend extensions Easy Install ships (ComfyUI-Shape, ComfyUI-RunBar-AMD) into
-    ComfyUI/custom_nodes, so an update reaches ComfyUI without running Update ComfyUI first."""
+    """Copy the frontend extensions Easy Install ships (ComfyUI-Shape, ComfyUI-RunBar-AMD,
+    ComfyUI-Blank-Default-AMD) into ComfyUI/custom_nodes, so an update reaches ComfyUI without running Update
+    ComfyUI first."""
     source, target = root / BUNDLED_EXTENSIONS, root / 'ComfyUI/custom_nodes'
     if not source.is_dir() or not target.is_dir():
         return []
