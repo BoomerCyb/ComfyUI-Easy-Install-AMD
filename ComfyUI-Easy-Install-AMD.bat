@@ -1,6 +1,8 @@
 @echo off
 cd /d "%~dp0"
 setlocal
+rem Fix from upstream 3.27.2: PowerShell 7 modules broke the checks below.
+set "PSModulePath="
 rem Checks from upstream 3.26.0: no Administrator rights, no network path, no system or read-only folder.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if(([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){exit 10}else{exit 0}"
 if %errorlevel% equ 10 goto drop_admin
@@ -80,8 +82,15 @@ echo ::::::::::::::: Installing portable Python :::::::::::::::
 curl.exe --fail -L --retry 5 -o "%AMD_ROOT%\python-bootstrap.zip" "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip"
 if errorlevel 1 goto download_failed
 rem SHA-256 of python.org's python-3.12.10-embed-amd64.zip (its MD5, fe8ef205f2e9c3ba44d0cf9954e1abd3, is on python.org)
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if((Get-FileHash -LiteralPath ($env:AMD_ROOT + '\python-bootstrap.zip') -Algorithm SHA256).Hash -eq '4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3'){exit 0}else{exit 1}"
-if errorlevel 1 (
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "try{$h=(Get-FileHash -LiteralPath ($env:AMD_ROOT + '\python-bootstrap.zip') -Algorithm SHA256 -ErrorAction Stop).Hash}catch{Write-Host $_.Exception.Message;exit 2};if($h -eq '4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3'){exit 0}else{Write-Host ('Actual SHA256: '+$h);exit 1}"
+set "HASH_RC=%errorlevel%"
+if %HASH_RC% equ 2 (
+    echo.
+    echo Could not calculate the checksum of the Python download. The download itself may be fine.
+    echo Check your PowerShell and antivirus settings, then run this installer again from a normal CMD window.
+    goto failed
+)
+if %HASH_RC% neq 0 (
     del "%AMD_ROOT%\python-bootstrap.zip" >nul 2>&1
     echo.
     echo Python archive checksum does not match: the download may be corrupted or modified.
@@ -108,9 +117,17 @@ if not exist "%AMD_ROOT%\python_embeded\python.exe" (
 )
 if exist "%AMD_ROOT%\python_embeded\Lib\site-packages\pip" goto pip_ready
 curl.exe --fail -L --retry 5 -o "%AMD_ROOT%\get-pip.py" "https://bootstrap.pypa.io/get-pip.py"
+if errorlevel 1 curl.exe --fail -L --retry 5 -o "%AMD_ROOT%\get-pip.py" "https://raw.githubusercontent.com/pypa/get-pip/main/public/get-pip.py"
 if errorlevel 1 goto download_failed
 "%AMD_ROOT%\python_embeded\python.exe" "%AMD_ROOT%\get-pip.py"
 if errorlevel 1 goto failed
+rem Fix from upstream 3.27.3: stop here if pip did not end up working.
+"%AMD_ROOT%\python_embeded\python.exe" -I -m pip --version
+if errorlevel 1 (
+    echo.
+    echo Pip did not install correctly. Check the messages above and your internet connection.
+    goto failed
+)
 :pip_ready
 echo.
 echo ::::::::::::::: Setting up ComfyUI-Easy-Install-AMD :::::::::::::::

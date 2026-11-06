@@ -176,6 +176,16 @@ The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
 
+### EZi 3.28.0 and a tidier top bar - 2026-11-05
+
+The AMD edition now includes Ivo's ComfyUI-Easy-Install 3.26.0 to 3.28.0.
+
+Folders, Capture and the menu button now sit together in one group at the top right, matching the group on the left.
+
+In Settings, the ComfyUI Version dropdown is greyed out and shows the installed version, because the AMD build cannot switch ComfyUI releases there. Use Update ComfyUI instead. The frontend version can still be changed.
+
+The Interface setting for ComfyUI-Manager now also works on the AMD start files.
+
 ### EZi 3.26.0 and a blank default workflow - 2026-10-26
 
 The AMD edition now includes Ivo's ComfyUI-Easy-Install 3.25.0 to 3.26.0: a Snapshots section in the launcher (save, restore latest, restore other), console search (Ctrl+F, Enter / Shift+Enter), Ctrl+S to save the console log, and quiet update checks every 6 hours that show each new version once. The installer now restarts itself without Administrator rights, refuses network paths, system folders and folders it cannot write to, warns about non-English characters in the install path or user folder, and checks the Python download against its SHA-256. Triton's messages in the launcher no longer close it.
