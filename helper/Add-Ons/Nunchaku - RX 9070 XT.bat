@@ -1,4 +1,5 @@
 @echo off
+set "PSModulePath="
 cd /d "%~dp0..\"
 title ComfyUI-Easy-Install-AMD - Nunchaku Add-On
 echo.

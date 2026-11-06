@@ -1,4 +1,5 @@
 @echo off
+set "PSModulePath="
 cd /d "%~dp0"
 set "PIP_CONSTRAINT=%~dp0amd\amd-constraints.txt"
 set "UV_CONSTRAINT=%PIP_CONSTRAINT%"

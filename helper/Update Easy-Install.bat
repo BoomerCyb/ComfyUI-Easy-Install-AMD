@@ -1,4 +1,5 @@
 @echo off
+set "PSModulePath="
 setlocal
 set "RC=1"
 title ComfyUI-Easy-Install-AMD - Update Easy Install

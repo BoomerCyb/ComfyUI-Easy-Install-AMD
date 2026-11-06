@@ -1,4 +1,4 @@
-VERSION = '0.1.31-amd'
+VERSION = '0.1.32-amd'
 
 import glob
 import os
@@ -48,21 +48,8 @@ HAS_UPD_COMFY_NIGHTLY = os.path.exists(root('Update ComfyUI Nightly.bat'))
 CUSTOM_NODES_DIR = root(os.path.join('ComfyUI', 'custom_nodes'))
 EMBEDDED_PY      = root(os.path.join('python_embeded', 'python.exe'))
 
-def _find_cm_cli():
-    default = os.path.join(CUSTOM_NODES_DIR, 'ComfyUI-Manager', 'cm-cli.py')
-    if os.path.isfile(default):
-        return default
-    try:
-        for name in sorted(os.listdir(CUSTOM_NODES_DIR)):
-            candidate = os.path.join(CUSTOM_NODES_DIR, name, 'cm-cli.py')
-            if 'manager' in name.lower() and os.path.isfile(candidate):
-                return candidate
-    except OSError:
-        pass
-    return None
-
-CM_CLI        = _find_cm_cli()
-HAS_SNAP_TOOL = bool(CM_CLI) and os.path.isfile(EMBEDDED_PY)
+CM_CLI_MAIN   = root(os.path.join('python_embeded', 'Lib', 'site-packages', 'cm_cli', '__main__.py'))
+HAS_SNAP_TOOL = os.path.isfile(EMBEDDED_PY) and os.path.isfile(CM_CLI_MAIN)
 
 INSTALL_SAGE_BAT  = os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..', 'SageAttention AMD.bat'))
 INSTALL_FLASH_BAT = os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..', 'FlashAttention AMD.bat'))
@@ -699,8 +686,12 @@ SNAP_NAME_RE = re.compile(r'^(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})_(.+)$')
 SNAP_MENU_MAX = 15
 
 
+def _manager_dir():
+    return os.path.join(os.path.dirname(_get_comfy_user_dir()), '__manager')
+
+
 def _snapshots_dir():
-    return os.path.join(os.path.dirname(_get_comfy_user_dir()), '__manager', 'snapshots')
+    return os.path.join(_manager_dir(), 'snapshots')
 
 
 def _resolve_snapshots_dir():
@@ -785,7 +776,7 @@ def refresh_snapshots():
     g_snaps = _list_snapshots() if HAS_SNAP_TOOL else []
     g_latest = next((p for p in g_snaps if _snapshot_title(p)[1] != 'pre-restore'), None)
     if not HAS_SNAP_TOOL:
-        g_snap_note = 'Manager (cm-cli) not found'
+        g_snap_note = 'Manager (cm_cli) not found'
     elif not g_snaps:
         g_snap_note = 'No snapshots yet'
     else:
@@ -800,7 +791,7 @@ def _quote(value):
 
 
 def _cm_cmd(*args):
-    return ' '.join([_quote(EMBEDDED_PY), _quote(CM_CLI)] + list(args))
+    return ' '.join([_quote(EMBEDDED_PY), '-I', '-m', 'cm_cli'] + list(args))
 
 
 def _run_in_console(title, steps):
@@ -1010,7 +1001,10 @@ def build_plan(pips, current):
 
 def run_pip(specs):
     command = [sys.executable, '-m', 'pip', 'install', '--no-deps', '--no-input',
-               '--disable-pip-version-check'] + specs
+               '--disable-pip-version-check']
+    if not os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'keep_cache.flag')):
+        command.append('--no-cache-dir')
+    command += specs
     return subprocess.call(command) == 0
 
 
@@ -1122,9 +1116,9 @@ def tidy_update(new_path):
     return 0
 
 
-def snap_update(out_path, cm_cli, user_dir, comfy_dir):
+def snap_update(out_path, user_dir, comfy_dir):
     env = dict(os.environ, COMFYUI_PATH=comfy_dir, PYTHONIOENCODING='utf-8')
-    code = subprocess.call([sys.executable, cm_cli, 'save-snapshot', '--output', out_path,
+    code = subprocess.call([sys.executable, '-I', '-m', 'cm_cli', 'save-snapshot', '--output', out_path,
                             '--user-directory', user_dir], env=env)
     if code != 0 or not os.path.isfile(out_path):
         print('Snapshot failed, continuing with the update')
@@ -1132,9 +1126,9 @@ def snap_update(out_path, cm_cli, user_dir, comfy_dir):
     return tidy_update(out_path)
 
 
-def run_manager_restore(snapshot_path, cm_cli, user_dir):
+def run_manager_restore(snapshot_path, user_dir):
     env = dict(os.environ, PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
-    command = [sys.executable, cm_cli, 'restore-snapshot', snapshot_path, '--user-directory', user_dir]
+    command = [sys.executable, '-I', '-m', 'cm_cli', 'restore-snapshot', snapshot_path, '--user-directory', user_dir]
     failed_prefix = '[  FAILED   ] '
     held = []
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
@@ -1148,8 +1142,8 @@ def run_manager_restore(snapshot_path, cm_cli, user_dir):
     return process.wait(), held
 
 
-def apply_snapshot(snapshot, snapshot_path, nodes_dir, cm_cli, user_dir):
-    code, held = run_manager_restore(snapshot_path, cm_cli, user_dir)
+def apply_snapshot(snapshot, snapshot_path, nodes_dir, user_dir):
+    code, held = run_manager_restore(snapshot_path, user_dir)
     if code != 0:
         for name in held:
             print('[  FAILED   ] ' + name)
@@ -1175,7 +1169,7 @@ def main():
     if mode == 'tidy-update':
         return tidy_update(first)
     if mode == 'snap-update':
-        return snap_update(first, args[0], args[1], args[2])
+        return snap_update(first, args[0], args[1])
     snapshot = load(first)
     if snapshot is None:
         print('Cannot read the snapshot: ' + first)
@@ -1183,7 +1177,7 @@ def main():
     if mode == 'core':
         return restore_core(snapshot, args[0])
     if mode == 'apply':
-        return apply_snapshot(snapshot, first, args[0], args[1], args[2])
+        return apply_snapshot(snapshot, first, args[0], args[1])
     print('Unknown mode: ' + mode)
     return 1
 
@@ -1201,7 +1195,7 @@ def _restore_script_path():
 
 
 def _user_dir_args():
-    return ['--user-directory', _quote(os.path.dirname(_get_comfy_user_dir()))]
+    return ['--user-directory', _quote(_manager_dir())]
 
 
 def _confirm(text):
@@ -1292,7 +1286,7 @@ def snapshot_restore(path):
         helper + ' info ' + _quote(path),
         _cm_cmd('save-snapshot', '--output', _quote(backup), *_user_dir_args()),
         helper + ' core ' + _quote(path) + ' ' + _quote(root('ComfyUI')),
-        helper + ' apply ' + ' '.join(_quote(v) for v in (path, CUSTOM_NODES_DIR, CM_CLI, os.path.dirname(_get_comfy_user_dir()))),
+        helper + ' apply ' + ' '.join(_quote(v) for v in (path, CUSTOM_NODES_DIR, _manager_dir())),
         helper + ' tidy-restore ' + _quote(path) + ' ' + _quote(backup),
     ])
 
@@ -1326,8 +1320,7 @@ def launch_update(name, tag):
         return
     out = _stamped('pre-update-' + tag)
     helper = _quote(EMBEDDED_PY) + ' ' + _quote(_restore_script_path())
-    snap = ' '.join([helper, 'snap-update', _quote(out), _quote(CM_CLI),
-                     _quote(os.path.dirname(_get_comfy_user_dir())), _quote(root('ComfyUI'))])
+    snap = ' '.join([helper, 'snap-update', _quote(out), _quote(_manager_dir()), _quote(root('ComfyUI'))])
     line = 'title ' + name[:-4] + ' & ' + snap + ' & call ' + _quote(bat)
     subprocess.Popen('cmd.exe /d /s /c "' + line + '"', cwd=ROOT_DIR,
                      creationflags=subprocess.CREATE_NEW_CONSOLE)
@@ -2048,6 +2041,7 @@ class _SnapshotPopup:
         self.hover = None
         self.result = None
         self.done = False
+        self.closing = False
         self.hwnd = None
         self.hits = []
         self.lines = []
@@ -2145,6 +2139,9 @@ class _SnapshotPopup:
                 self._button(dc,1,'Restore',self.width-128,self.height-52,108,True)
 
     def choose(self, key):
+        if self.closing:
+            return
+        self.closing = True
         self.result = key if self.picker and key >= 0 else (True if not self.picker and key == 1 else None)
         user32.DestroyWindow(self.hwnd)
 

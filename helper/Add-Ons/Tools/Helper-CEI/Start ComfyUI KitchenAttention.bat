@@ -1,4 +1,5 @@
 @echo off
+set "PSModulePath="
 cd /d "%~dp0"
 .\python_embeded\python.exe amd\runtime.py --auto-launch --disable-api-nodes --cache-lru 20 --disable-smart-memory --disable-pinned-memory --enable-manager --enable-manager-legacy-ui --disable-triton-backend --enable-dynamic-vram --use-ck-attention
 if errorlevel 1 goto failed

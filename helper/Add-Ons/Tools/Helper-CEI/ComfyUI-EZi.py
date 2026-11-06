@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.31-amd"
+APP_VERSION = "0.1.32-amd"
 
 import sys
 import os
@@ -66,6 +66,26 @@ if not _ezi_wv2_registered:
     )
     os.startfile(url)
     sys.exit(1)
+
+def _apply_cache_env():
+    keep = os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'keep_cache.flag'))
+    for name in ('PIP_NO_CACHE_DIR', 'UV_NO_CACHE'):
+        if keep:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = '1'
+
+_apply_cache_env()
+
+import subprocess as _sp
+_popen_init = _sp.Popen.__init__
+
+def _popen_init_safe(self, *args, **kwargs):
+    if len(args) < 4 and kwargs.get('stdin') is None and (kwargs.get('stdout') is not None or kwargs.get('stderr') is not None):
+        kwargs['stdin'] = _sp.DEVNULL
+    _popen_init(self, *args, **kwargs)
+
+_sp.Popen.__init__ = _popen_init_safe
 
 try:
     import webview
@@ -301,6 +321,7 @@ def _ezi_setup_main_window(window):
             comfy_webview.BringToFront()
             shell.BringToFront()
             _EZI_WINDOW_REF["comfy_webview"] = comfy_webview
+            _EZI_WINDOW_REF["shell_webview"] = shell
 
             def _ezi_init_comfy_webview(sender=None, args=None):
                 try:
@@ -399,32 +420,8 @@ def _ezi_setup_main_window(window):
                     except Exception:
                         pass
 
-                    def _ezi_on_comfy_new_window(s4=None, e4=None):
-                        try:
-                            uri = str(getattr(e4, 'Uri', '') or '')
-                        except Exception:
-                            uri = ''
-                        if _ezi_is_auth_popup(e4, uri):
-                            return
-                        try:
-                            e4.Handled = True
-                        except Exception:
-                            pass
-
-                        def _do_new_window():
-                            try:
-                                if uri:
-                                    if not _ezi_claim_download(uri):
-                                        return
-                                    import webbrowser
-                                    webbrowser.open(uri)
-                            except Exception:
-                                pass
-
-                        threading.Thread(target=_do_new_window, daemon=True).start()
-
                     try:
-                        comfy_webview.CoreWebView2.NewWindowRequested += _ezi_on_comfy_new_window
+                        comfy_webview.CoreWebView2.NewWindowRequested += _ezi_on_new_window
                     except Exception:
                         pass
 
@@ -438,6 +435,81 @@ def _ezi_setup_main_window(window):
 
 
                     comfy_webview.CoreWebView2.NavigationCompleted += _ezi_comfy_nav_completed
+
+                    _zoom_state = {"applying": False, "ignore_until": 0.0, "timer": None}
+
+                    def _ezi_zoom_clamp(value):
+                        try:
+                            return max(0.25, min(5.0, float(value)))
+                        except Exception:
+                            return 1.0
+
+                    def _ezi_zoom_saved():
+                        api_ref = _EZI_WINDOW_REF.get("api")
+                        if api_ref is None:
+                            return 1.0
+                        return _ezi_zoom_clamp(api_ref._settings.get("comfy_zoom_factor", 1.0))
+
+                    def _ezi_zoom_hold(seconds=1.5):
+                        _zoom_state["ignore_until"] = time.time() + seconds
+
+                    def _ezi_zoom_apply(sender3=None, args3=None):
+                        try:
+                            target = _ezi_zoom_saved()
+                            _ezi_zoom_hold()
+                            if abs(float(comfy_webview.ZoomFactor) - target) > 0.001:
+                                _zoom_state["applying"] = True
+                                try:
+                                    comfy_webview.ZoomFactor = target
+                                finally:
+                                    _zoom_state["applying"] = False
+                        except Exception:
+                            _log_error('_ezi_zoom_apply')
+
+                    def _ezi_zoom_nav_starting(sender3=None, args3=None):
+                        _ezi_zoom_hold()
+
+                    def _ezi_zoom_flush():
+                        try:
+                            api_ref = _EZI_WINDOW_REF.get("api")
+                            if api_ref is not None:
+                                _save_settings(api_ref._settings)
+                        except Exception:
+                            _log_error('_ezi_zoom_flush')
+
+                    def _ezi_zoom_changed(sender3=None, args3=None):
+                        try:
+                            if _zoom_state["applying"] or time.time() < _zoom_state["ignore_until"]:
+                                return
+                            api_ref = _EZI_WINDOW_REF.get("api")
+                            if api_ref is None:
+                                return
+                            current = _ezi_zoom_clamp(comfy_webview.ZoomFactor)
+                            if abs(_ezi_zoom_saved() - current) < 0.001:
+                                return
+                            api_ref._settings["comfy_zoom_factor"] = round(current, 4)
+                            if _zoom_state["timer"] is not None:
+                                _zoom_state["timer"].cancel()
+                            timer = threading.Timer(0.6, _ezi_zoom_flush)
+                            timer.daemon = True
+                            _zoom_state["timer"] = timer
+                            timer.start()
+                        except Exception:
+                            _log_error('_ezi_zoom_changed')
+
+                    _ezi_zoom_apply()
+                    try:
+                        comfy_webview.ZoomFactorChanged += _ezi_zoom_changed
+                    except Exception:
+                        try:
+                            comfy_webview.CoreWebView2Controller.ZoomFactorChanged += _ezi_zoom_changed
+                        except Exception:
+                            _log_error('_ezi_zoom_subscribe')
+                    try:
+                        comfy_webview.CoreWebView2.NavigationStarting += _ezi_zoom_nav_starting
+                        comfy_webview.CoreWebView2.NavigationCompleted += _ezi_zoom_apply
+                    except Exception:
+                        pass
 
                     pending_url = _EZI_WINDOW_REF.get("comfy_pending_url")
                     if pending_url:
@@ -480,6 +552,10 @@ def _ezi_setup_main_window(window):
                     comfy_x = int(round(target_w * (1.0 - _prog))) if _prog < 1.0 else 0
                     comfy_webview.SetBounds(comfy_x, ctop - overlap, target_w,
                                             max(0, form.ClientSize.Height - ctop + overlap))
+                    _ext = _EZI_WINDOW_REF.get("ext_webview")
+                    if _ext is not None:
+                        _ext.SetBounds(comfy_x, ctop - overlap, target_w,
+                                       max(0, form.ClientSize.Height - ctop + overlap))
                     shell.SetBounds(0, 0, target_w,
                                            max(bar_h, shell_h))
                     shell.BringToFront()
@@ -542,13 +618,17 @@ _EZI_AUTH_URL_MARKERS = (
 )
 
 
-def _ezi_is_auth_popup(args, uri):
+def _ezi_is_auth_url(uri):
     try:
         low = (uri or '').lower()
-        if any(m in low for m in _EZI_AUTH_URL_MARKERS):
-            return True
+        return any(m in low for m in _EZI_AUTH_URL_MARKERS)
     except Exception:
-        pass
+        return False
+
+
+def _ezi_is_auth_popup(args, uri):
+    if _ezi_is_auth_url(uri):
+        return True
     try:
         feats = getattr(args, 'WindowFeatures', None)
         if feats is not None and bool(getattr(feats, 'HasSize', False)):
@@ -556,6 +636,309 @@ def _ezi_is_auth_popup(args, uri):
     except Exception:
         pass
     return False
+
+
+def _ezi_open_external(uri):
+    def _do():
+        try:
+            if uri:
+                if not _ezi_claim_download(uri):
+                    return
+                import webbrowser
+                webbrowser.open(uri)
+        except Exception:
+            pass
+    threading.Thread(target=_do, daemon=True).start()
+
+
+def _ezi_ext_pages_enabled():
+    api_ref = _EZI_WINDOW_REF.get("api")
+    try:
+        return bool(api_ref._settings.get("ext_pages_inside", True))
+    except Exception:
+        return True
+
+
+def _ezi_local_ports():
+    ports = set()
+    cw = _EZI_WINDOW_REF.get("comfy_webview")
+    try:
+        if cw is not None and cw.CoreWebView2 is not None:
+            from urllib.parse import urlparse
+            p = urlparse(str(cw.CoreWebView2.Source or '')).port
+            if p:
+                ports.add(int(p))
+    except Exception:
+        pass
+    api_ref = _EZI_WINDOW_REF.get("api")
+    try:
+        p = getattr(api_ref, '_proxy_port', None)
+        if p:
+            ports.add(int(p))
+    except Exception:
+        pass
+    return ports
+
+
+_EZI_EXT_FILE_PATHS = ('/view', '/api/view', '/api/userdata', '/download', '/api/download')
+
+
+def _ezi_local_page_kind(uri):
+    try:
+        from urllib.parse import urlparse
+        u = urlparse(uri or '')
+        if u.scheme not in ('http', 'https'):
+            return None
+        if (u.hostname or '').lower() not in ('127.0.0.1', 'localhost', '::1'):
+            return None
+        if u.port is None or int(u.port) not in _ezi_local_ports():
+            return None
+    except Exception:
+        return None
+    path = (u.path or '/').lower()
+    if path in ('/', '/index.html'):
+        return 'root'
+    if any(path == p or path.startswith(p + '/') for p in _EZI_EXT_FILE_PATHS):
+        return 'file'
+    if 'filename=' in (u.query or '').lower():
+        return 'file'
+    last = path.rstrip('/').rsplit('/', 1)[-1]
+    if '.' in last and not last.endswith(('.html', '.htm')):
+        return 'file'
+    return 'page'
+
+
+def _ezi_on_new_window(s4=None, e4=None):
+    try:
+        uri = str(getattr(e4, 'Uri', '') or '')
+    except Exception:
+        uri = ''
+    if _ezi_is_auth_url(uri):
+        return
+    if uri and _ezi_ext_pages_enabled() and _ezi_local_page_kind(uri) == 'page':
+        try:
+            e4.Handled = True
+        except Exception:
+            pass
+        try:
+            if _ezi_ext_open(uri):
+                return
+        except Exception:
+            _log_error('_ezi_on_new_window')
+        _ezi_open_external(uri)
+        return
+    if _ezi_is_auth_popup(e4, uri):
+        return
+    try:
+        e4.Handled = True
+    except Exception:
+        pass
+    _ezi_open_external(uri)
+
+
+def _ezi_ext_notify_shell():
+    shell = _EZI_WINDOW_REF.get("shell_webview")
+    if shell is None:
+        return
+    active = bool(_EZI_WINDOW_REF.get("ext_active"))
+    title = ''
+    ext = _EZI_WINDOW_REF.get("ext_webview")
+    try:
+        if active and ext is not None and ext.CoreWebView2 is not None:
+            title = str(ext.CoreWebView2.DocumentTitle or '')
+    except Exception:
+        title = ''
+    try:
+        shell.CoreWebView2.ExecuteScriptAsync(
+            "if (typeof __eziExtViewState === 'function') __eziExtViewState(%s, %s);"
+            % ('true' if active else 'false', json.dumps(title))
+        )
+    except Exception:
+        pass
+
+
+def _ezi_ext_on_message(sender=None, args=None):
+    try:
+        raw = args.WebMessageAsJson
+        parsed = json.loads(raw) if raw else None
+    except Exception:
+        return
+    if not isinstance(parsed, dict) or parsed.get("type") != "ezi_save_blob":
+        return
+    shell = _EZI_WINDOW_REF.get("shell_webview")
+    try:
+        shell.CoreWebView2.ExecuteScriptAsync("window.postMessage(" + raw + ", '*');")
+    except Exception:
+        pass
+
+
+def _ezi_ext_nav_starting(sender=None, e=None):
+    try:
+        uri = str(getattr(e, 'Uri', '') or '')
+    except Exception:
+        return
+    low = uri.lower()
+    if not uri or low.startswith(('about:', 'data:', 'blob:', 'javascript:')):
+        return
+    kind = _ezi_local_page_kind(uri)
+    if kind in ('page', 'file'):
+        return
+    if kind is None and _ezi_is_auth_url(uri):
+        return
+    try:
+        e.Cancel = True
+    except Exception:
+        return
+    if kind == 'root':
+        api_ref = _EZI_WINDOW_REF.get("api")
+        if api_ref is not None:
+            api_ref._ui_invoke(_ezi_ext_close)
+        return
+    _ezi_open_external(uri)
+
+
+def _ezi_ext_on_ready(sender=None, args=None):
+    ref = _EZI_WINDOW_REF
+    if not getattr(args, 'IsSuccess', True):
+        _log_error('_ezi_ext_on_ready')
+        pending = ref.pop("ext_pending_url", None)
+        try:
+            import System
+            ref.get("winforms_form").BeginInvoke(System.Action(_ezi_ext_dispose))
+        except Exception:
+            _ezi_ext_dispose()
+        if pending:
+            _ezi_open_external(pending)
+        return
+    ext = ref.get("ext_webview")
+    if ext is None:
+        return
+    try:
+        core = ext.CoreWebView2
+        try:
+            core.Settings.UserAgent = CHROME_UA
+        except Exception:
+            pass
+        core.DownloadStarting += _ezi_on_download_starting
+        core.NewWindowRequested += _ezi_on_new_window
+        core.NavigationStarting += _ezi_ext_nav_starting
+        core.WebMessageReceived += _ezi_ext_on_message
+        try:
+            core.DocumentTitleChanged += lambda s=None, a=None: _ezi_ext_notify_shell()
+        except Exception:
+            pass
+        ref["ext_ready"] = True
+        pending = ref.pop("ext_pending_url", None)
+        if pending:
+            core.Navigate(pending)
+    except Exception:
+        _log_error('_ezi_ext_on_ready')
+
+
+def _ezi_ext_dispose():
+    ref = _EZI_WINDOW_REF
+    ext = ref.pop("ext_webview", None)
+    ref["ext_ready"] = False
+    ref["ext_active"] = False
+    if ext is not None:
+        try:
+            form = ref.get("winforms_form")
+            if form is not None:
+                form.Controls.Remove(ext)
+            ext.Dispose()
+        except Exception:
+            pass
+    _ezi_ext_notify_shell()
+
+
+def _ezi_ext_ensure():
+    ref = _EZI_WINDOW_REF
+    ext = ref.get("ext_webview")
+    if ext is not None:
+        return ext
+    form = ref.get("winforms_form")
+    shell = ref.get("shell_webview")
+    comfy = ref.get("comfy_webview")
+    if form is None or shell is None or comfy is None or not ref.get("comfy_ready"):
+        return None
+    import System.Windows.Forms as _WinForms
+    ext = type(comfy)()
+    ext.Anchor = _WinForms.AnchorStyles.Top | _WinForms.AnchorStyles.Left
+    try:
+        from System.Drawing import Color as _EziSysColor
+        ext.DefaultBackgroundColor = _EziSysColor.FromArgb(255, 32, 32, 32)
+    except Exception:
+        pass
+    try:
+        from Microsoft.Web.WebView2.WinForms import CoreWebView2CreationProperties as _EziCWV2CP
+        _cprops = _EziCWV2CP()
+        _cprops.UserDataFolder = os.path.join(CURRENT_SCRIPT_DIR, "EZi_cache")
+        ext.CreationProperties = _cprops
+    except Exception:
+        _log_error('_ezi_ext_ensure')
+    form.Controls.Add(ext)
+    ext.BringToFront()
+    shell.BringToFront()
+    ref["ext_webview"] = ext
+    ref["ext_ready"] = False
+    fn = ref.get("apply_bounds")
+    if fn:
+        fn()
+    ext.CoreWebView2InitializationCompleted += _ezi_ext_on_ready
+    ext.EnsureCoreWebView2Async(None)
+    return ext
+
+
+def _ezi_ext_open(uri):
+    ref = _EZI_WINDOW_REF
+    ext = _ezi_ext_ensure()
+    if ext is None:
+        return False
+    if ref.get("ext_ready") and ext.CoreWebView2 is not None:
+        try:
+            cur = str(ext.CoreWebView2.Source or '')
+        except Exception:
+            cur = ''
+        if cur != uri:
+            ext.CoreWebView2.Navigate(uri)
+    else:
+        ref["ext_pending_url"] = uri
+    ref["ext_active"] = True
+    ext.Visible = True
+    fn = ref.get("apply_bounds")
+    if fn:
+        fn()
+    try:
+        ext.Focus()
+    except Exception:
+        pass
+    _ezi_ext_notify_shell()
+    return True
+
+
+def _ezi_ext_close(reset=False):
+    ref = _EZI_WINDOW_REF
+    ext = ref.get("ext_webview")
+    ref["ext_active"] = False
+    if ext is not None:
+        try:
+            ext.Visible = False
+        except Exception:
+            pass
+        if reset:
+            ref.pop("ext_pending_url", None)
+            try:
+                if ref.get("ext_ready") and ext.CoreWebView2 is not None:
+                    ext.CoreWebView2.Navigate("about:blank")
+            except Exception:
+                pass
+    comfy = ref.get("comfy_webview")
+    try:
+        if comfy is not None and not reset:
+            comfy.Focus()
+    except Exception:
+        pass
+    _ezi_ext_notify_shell()
 
 
 
@@ -815,7 +1198,7 @@ EZI_RELEASES_REPO = "BoomerCyb/ComfyUI-Easy-Install-AMD"
 # Ivo's original ComfyUI-Easy-Install, and the release of it this AMD edition is built on
 # (tools/sync_upstream.py sets it). A newer one there is shown as a notice, not installed.
 UPSTREAM_REPO = "Tavris1/ComfyUI-Easy-Install"
-UPSTREAM_VERSION = "3.26.0"
+UPSTREAM_VERSION = "3.28.0"
 
 
 def _ezi_version_key(version):
@@ -1623,6 +2006,77 @@ def _bat_flag_value(tokens, flag):
     return None
 
 
+_MANAGER_BAT_FLAGS = ('--enable-manager', '--enable-manager-legacy-ui')
+_MANAGER_SECURITY_LEVELS = ('weak', 'normal-', 'normal', 'strong')
+
+
+def _bat_manager_ui(bat_content):
+    tokens = _bat_args(bat_content)
+    if '--enable-manager-legacy-ui' in tokens:
+        return 'legacy'
+    if '--enable-manager' in tokens:
+        return 'new'
+    return 'off'
+
+
+def _apply_manager_ui_to_bats(mode):
+    if mode not in ('classic', 'legacy', 'new'):
+        return False
+    flags = {'legacy': ['--enable-manager', '--enable-manager-legacy-ui'], 'new': ['--enable-manager']}.get(mode, [])
+    changed = False
+    for bat_name in BAT_NAMES:
+        bat_path = os.path.join(ROOT_DIR, bat_name)
+        if not os.path.exists(bat_path):
+            continue
+        try:
+            with open(bat_path, 'r', encoding='utf-8', errors='replace', newline='') as f:
+                content = f.read()
+            lines = content.splitlines(keepends=True)
+            start_idx = end_idx = logical_line = None
+            i = 0
+            while i < len(lines):
+                accumulated = lines[i].rstrip('\r\n')
+                j = i
+                while accumulated.rstrip().endswith('^') and j + 1 < len(lines):
+                    accumulated = accumulated.rstrip()[:-1] + ' ' + lines[j + 1].lstrip().rstrip('\r\n')
+                    j += 1
+                acc_s = accumulated.strip()
+                if (acc_s and
+                        not acc_s.startswith('::') and
+                        not re.match(r'(?i)^rem(\s|$)', acc_s) and
+                        re.search(r'python_embeded[/\\]python\.exe', acc_s, re.IGNORECASE) and
+                        re.search(r'(?:ComfyUI[/\\]main|amd[/\\]runtime)\.py', acc_s, re.IGNORECASE)):
+                    start_idx, end_idx, logical_line = i, j, acc_s
+                    break
+                i += 1
+            if logical_line is None:
+                continue
+            m = re.search(r'(.*python_embeded[/\\]python\.exe[\"\']?)\s+(.*)', logical_line, re.IGNORECASE | re.DOTALL)
+            if not m:
+                continue
+            tokens = shlex.split(m.group(2).strip(), posix=False)
+            script_idx = None
+            for idx, tok in enumerate(tokens):
+                if re.search(r'(?:main|runtime)\.py', tok, re.IGNORECASE):
+                    script_idx = idx
+                    break
+            if script_idx is None:
+                continue
+            head = tokens[:script_idx + 1]
+            tail = [t for t in tokens[script_idx + 1:] if t not in _MANAGER_BAT_FLAGS]
+            insert_at = tail.index('--windows-standalone-build') + 1 if '--windows-standalone-build' in tail else 0
+            tail[insert_at:insert_at] = flags
+            new_line = ' '.join([m.group(1)] + head + tail)
+            ending = '\r\n' if lines[start_idx].endswith('\r\n') else '\n'
+            new_lines = lines[:start_idx] + [new_line + ending] + lines[end_idx + 1:]
+            with open(bat_path, 'w', encoding='utf-8', newline='') as f:
+                f.write(''.join(new_lines))
+            changed = True
+        except Exception:
+            _log_error('_apply_manager_ui_to_bats')
+    return changed
+
+
 def _get_comfy_user_dir():
     user_dir = None
     try:
@@ -2050,6 +2504,87 @@ def _persist_comfy_theme_vars():
     except Exception:
         _log_error('_persist_comfy_theme_vars')
 
+EZI_AURORA_PALETTE_ID = "ezi_aurora"
+EZI_AURORA_PALETTE_VERSION = 1
+
+EZI_AURORA_PALETTE = {
+    "id": EZI_AURORA_PALETTE_ID,
+    "name": "EZi Aurora",
+    "light_theme": False,
+    "colors": {
+        "node_slot": {
+            "CLIP": "#ffd166", "CLIP_VISION": "#8fd3e0", "CLIP_VISION_OUTPUT": "#c08a64",
+            "CONDITIONING": "#ffa65c", "CONTROL_NET": "#6ee7b7", "IMAGE": "#6cb8ff",
+            "LATENT": "#f29cff", "MASK": "#8ddc9a", "MODEL": "#b49cf0",
+            "STYLE_MODEL": "#c2ffae", "VAE": "#ff7a8a", "NOISE": "#b0bccd",
+            "GUIDER": "#66f0e6", "SAMPLER": "#e8b4c4", "SIGMAS": "#cdf5d0", "TAESD": "#dcc274",
+        },
+        "litegraph_base": {
+            "CLEAR_BACKGROUND_COLOR": "#0b1926", "NODE_TITLE_COLOR": "#a1b3cc",
+            "NODE_SELECTED_TITLE_COLOR": "#ffffff", "NODE_TEXT_COLOR": "#b7c6dc",
+            "NODE_TEXT_HIGHLIGHT_COLOR": "#ffffff", "NODE_DEFAULT_COLOR": "#304b63",
+            "NODE_DEFAULT_BGCOLOR": "#22374b", "NODE_DEFAULT_BOXCOLOR": "#49758a",
+            "NODE_DEFAULT_SHAPE": 2, "NODE_BOX_OUTLINE_COLOR": "#82dfcd",
+            "NODE_BYPASS_BGCOLOR": "#FF00FF", "NODE_ERROR_COLOUR": "#ff3b4e",
+            "DEFAULT_SHADOW_COLOR": "rgba(0,0,0,0.5)", "WIDGET_BGCOLOR": "#0d2433",
+            "WIDGET_OUTLINE_COLOR": "#49758a", "WIDGET_TEXT_COLOR": "#e3ecfb",
+            "WIDGET_SECONDARY_TEXT_COLOR": "#a1b3cc", "WIDGET_DISABLED_TEXT_COLOR": "#5f7893",
+            "LINK_COLOR": "#7fc9bd", "EVENT_LINK_COLOR": "#e0a96d", "CONNECTING_LINK_COLOR": "#9be9d9",
+            "BADGE_FG_COLOR": "#edf3ff", "BADGE_BG_COLOR": "#12303f",
+        },
+        "comfy_base": {
+            "fg-color": "#edf3ff", "bg-color": "#0f2233", "comfy-menu-bg": "#102638",
+            "comfy-menu-secondary-bg": "#122438", "comfy-input-bg": "#09232d",
+            "input-text": "#e3ecfb", "descrip-text": "#a1b3cc", "drag-text": "#c3d1e6",
+            "error-text": "#ff5d6c", "border-color": "#304659",
+            "tr-even-bg-color": "#0d2230", "tr-odd-bg-color": "#162c40",
+            "content-bg": "#304659", "content-fg": "#edf3ff",
+            "content-hover-bg": "#203649", "content-hover-fg": "#ffffff",
+            "bar-shadow": "rgba(4, 12, 20, 0.6) 0 0 0.5rem",
+            "interface-stroke": "#3b566f", "interface-panel-surface": "#102638",
+            "interface-panel-hover-surface": "#203649", "interface-panel-selected-surface": "#304b63",
+            "interface-button-hover-surface": "#304b63",
+        },
+    },
+}
+
+
+def _ensure_ezi_aurora_palette(settings):
+    try:
+        if not isinstance(settings, dict):
+            return
+        try:
+            done = int(settings.get("ezi_aurora_palette_ver", 0) or 0)
+        except (TypeError, ValueError):
+            done = 0
+        if done >= EZI_AURORA_PALETTE_VERSION:
+            return
+        user_dir = _get_comfy_user_dir()
+        settings_file = os.path.join(user_dir, "comfy.settings.json")
+        data = {}
+        if os.path.exists(settings_file):
+            with open(settings_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                return
+        palettes = data.get("Comfy.CustomColorPalettes")
+        if palettes is None:
+            palettes = {}
+        if not isinstance(palettes, dict):
+            return
+        palettes[EZI_AURORA_PALETTE_ID] = json.loads(json.dumps(EZI_AURORA_PALETTE))
+        data["Comfy.CustomColorPalettes"] = palettes
+        os.makedirs(user_dir, exist_ok=True)
+        tmp = settings_file + ".ezi.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+        os.replace(tmp, settings_file)
+        settings["ezi_aurora_palette_ver"] = EZI_AURORA_PALETTE_VERSION
+        _save_settings(settings)
+    except Exception:
+        _log_error('_ensure_ezi_aurora_palette')
+
+
 def _load_settings():
     defaults = {
         "last_save_dir": _get_desktop(),
@@ -2072,6 +2607,8 @@ def _load_settings():
         "sel_ai_lang": _ezi_system_lang(),
         "console_zoom_attached": 12,
         "console_zoom_detached": 12,
+        "comfy_zoom_factor": 1.0,
+        "ext_pages_inside": True,
     }
     try:
         if os.path.exists(SETTINGS_PATH):
@@ -2104,8 +2641,9 @@ def _save_settings(settings):
             "window_placement", "custom_file_browser", "theme", "launcher_theme", "console_detached", "launcher_mode", "console_placement",
             "adv_console_placement", "adv_console_zoom_detached", "_dpi_aware_version", "rec_fps", "console_bg_image",
             "console_bg_fit", "console_bg_opacity", "console_bg_animate", "sel_pop_copy", "sel_pop_google", "sel_pop_chatgpt",
-            "sel_pop_claude", "sel_pop_save", "sel_ai_lang", "console_zoom_attached", "console_zoom_detached",
-            "cached_comfy_stable_version", "pinned_packages", "proxy_port", "ezi_updated_from", "ezi_zip_failed_sig", "auto_snapshot", "ezi_zip_tag"
+            "sel_pop_claude", "sel_pop_save", "sel_ai_lang", "console_zoom_attached", "console_zoom_detached", "comfy_zoom_factor",
+            "cached_comfy_stable_version", "pinned_packages", "proxy_port", "ezi_updated_from", "ezi_zip_failed_sig", "auto_snapshot", "ezi_zip_tag", "ezi_aurora_palette_ver",
+            "ext_pages_inside"
         )
         existing = {}
         try:
@@ -3113,6 +3651,287 @@ def _is_rect_on_active_monitor(left, top, right, bottom):
         return True
 
 
+_MP_LOCK = threading.Lock()
+_MP_KNOWN_DIRS = frozenset((
+    'checkpoints', 'diffusion_models', 'unet', 'loras', 'vae', 'text_encoders', 'clip',
+    'controlnet', 'upscale_models', 'latent_upscale_models', 'embeddings', 'clip_vision',
+    'vae_approx', 'hypernetworks', 'gligen', 'style_models', 'configs', 'diffusers',
+    'photomaker', 'classifiers', 'model_patches', 'audio_encoders',
+))
+_MP_SKIP_DIRS = frozenset(('system volume information', 'recycler', 'lost+found', 'base_path', 'is_default'))
+_MP_MARK_RE = re.compile(r'^# --- (.+?) ---\s*$')
+_MP_KEY_RE = re.compile(r'^([A-Za-z0-9_\-]+)\s*:\s*(#.*)?$')
+_MP_ENTRY_RE = re.compile(r"^\s+(?:'((?:[^']|'')*)'|([^\s:#'][^:]*?))\s*:\s*\S")
+_MP_HEADER = ('# Powered by Easy-Models-Linker, developed by Ivo', '# Pixaroma Community Edition')
+
+
+def _mp_yaml_path():
+    return os.path.join(ROOT_DIR, 'ComfyUI', 'extra_model_paths.yaml')
+
+
+def _mp_norm(p):
+    return os.path.normcase(os.path.normpath(p))
+
+
+def _mp_read_text(path):
+    try:
+        with open(path, 'r', encoding='utf-8-sig', errors='replace') as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def _mp_subdirs(root):
+    names = []
+    try:
+        with os.scandir(root) as it:
+            for e in it:
+                try:
+                    if not e.is_dir():
+                        continue
+                    n = e.name
+                    if n.startswith('.') or n.startswith('$') or n.lower() in _MP_SKIP_DIRS:
+                        continue
+                    if getattr(e.stat(), 'st_file_attributes', 0) & 0x6:
+                        continue
+                except OSError:
+                    continue
+                names.append(n)
+    except OSError:
+        return None
+    names.sort(key=lambda s: s.lower())
+    return names
+
+
+def _mp_known_count(p):
+    subs = _mp_subdirs(p)
+    if not subs:
+        return 0
+    return sum(1 for s in subs if s.lower() in _MP_KNOWN_DIRS)
+
+
+def _mp_parse(text):
+    lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+    if lines and lines[-1] == '':
+        lines.pop()
+    raw = []
+    blocks = []
+    n = len(lines)
+    i = 0
+    while i < n:
+        m = _MP_MARK_RE.match(lines[i])
+        if m and i + 1 < n and _MP_KEY_RE.match(lines[i + 1]):
+            j = i + 2
+            while j < n and (lines[j][:1] in (' ', '\t') or lines[j].strip() == ''):
+                j += 1
+            base_line = None
+            entries = []
+            is_default = False
+            keys = set()
+            for ln in lines[i + 2:j]:
+                s = ln.strip()
+                if not s or s.startswith('#'):
+                    continue
+                if re.match(r'(?i)^base_path\s*:', s):
+                    base_line = ln.rstrip()
+                elif re.match(r'(?i)^is_default\s*:\s*true', s):
+                    is_default = True
+                elif re.match(r'(?i)^is_default\s*:', s):
+                    continue
+                else:
+                    entries.append(ln.rstrip())
+                    km = _MP_ENTRY_RE.match(ln)
+                    if km:
+                        k = km.group(1).replace("''", "'") if km.group(1) is not None else km.group(2)
+                        keys.add(k.strip().lower())
+            blocks.append({'root': m.group(1), 'default': is_default, 'keys': keys,
+                           'keep': (base_line, entries)})
+            i = j
+            continue
+        raw.append(lines[i])
+        i += 1
+    blocks.sort(key=lambda b: 0 if b['default'] else 1)
+    return raw, blocks
+
+
+def _mp_q(s):
+    return s.replace("'", "''")
+
+
+def _mp_block_lines(root, key, is_default, subs=None, keep=None):
+    rootn = os.path.normpath(root)
+    name = os.path.basename(rootn)
+    if name:
+        parent = os.path.dirname(rootn)
+        rel = name + '\\'
+    else:
+        parent = rootn
+        rel = ''
+    out = ['# --- %s ---' % root, key + ':']
+    if keep is not None and keep[0]:
+        out.append(keep[0])
+    else:
+        out.append("    base_path: '%s'" % _mp_q(parent))
+    if is_default:
+        out.append('    is_default: true')
+    out.append('')
+    if keep is not None:
+        out.extend(keep[1])
+    else:
+        for s in subs:
+            k = s.lower()
+            if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.\-]*', k):
+                k = "'" + _mp_q(k) + "'"
+            out.append("    %s: '%s%s\\'" % (k, _mp_q(rel), _mp_q(s)))
+    out.append('')
+    return out
+
+
+def _mp_section_keys(raw, count):
+    used = set()
+    for ln in raw:
+        m = _MP_KEY_RE.match(ln)
+        if m:
+            used.add(m.group(1).lower())
+    keys = []
+    n = 0
+    while len(keys) < count:
+        n += 1
+        k = 'comfyui' if n == 1 else 'comfyui%d' % n
+        if k not in used:
+            keys.append(k)
+    return keys
+
+
+def _mp_render(raw, specs):
+    raw = list(raw)
+    while raw and raw[-1].strip() == '':
+        raw.pop()
+    meaningful = any(l.strip() and not l.lstrip().startswith('#') for l in raw)
+    if not specs and not meaningful:
+        return ''
+    out = []
+    if raw:
+        out.extend(raw)
+        if specs:
+            out.append('')
+    elif specs:
+        out.extend(_MP_HEADER)
+        out.append('')
+    keys = _mp_section_keys(raw, len(specs))
+    for idx, sp in enumerate(specs):
+        out.extend(_mp_block_lines(sp['root'], keys[idx], idx == 0, sp.get('subs'), sp.get('keep')))
+    return '\n'.join(out) + '\n'
+
+
+def _mp_backup(path):
+    import shutil
+    d = os.path.dirname(path)
+    stamp = time.strftime('%Y-%m-%d_%H-%M-%S')
+    shutil.copy2(path, os.path.join(d, 'extra_model_paths_Backup_%s.yaml' % stamp))
+    olds = sorted((f for f in os.listdir(d)
+                   if f.startswith('extra_model_paths_Backup_') and f.endswith('.yaml')), reverse=True)
+    for f in olds[5:]:
+        try:
+            os.remove(os.path.join(d, f))
+        except OSError:
+            pass
+
+
+def _mp_sync(roots=None, backup=False):
+    with _MP_LOCK:
+        path = _mp_yaml_path()
+        old_text = _mp_read_text(path)
+        raw, blocks = _mp_parse(old_text) if old_text is not None else ([], [])
+        result = {'changed': False, 'added': [], 'missing': [], 'count': 0}
+        if not blocks and not roots:
+            return result
+        by_norm = {_mp_norm(b['root']): b for b in blocks}
+        if roots is None:
+            roots = [b['root'] for b in blocks]
+        else:
+            roots = [os.path.normpath(r) for r in roots]
+        seen = set()
+        specs = []
+        for r in roots:
+            n = _mp_norm(r)
+            if n in seen:
+                continue
+            seen.add(n)
+            old = by_norm.get(n)
+            subs = _mp_subdirs(r)
+            if subs is None:
+                result['missing'].append(r)
+                if old is not None:
+                    specs.append({'root': r, 'keep': old['keep']})
+                continue
+            specs.append({'root': r, 'subs': subs})
+            if old is not None:
+                new = [s for s in subs if s.lower() not in old['keys']]
+                if new:
+                    result['added'].append((r, new))
+        result['count'] = len(specs)
+        new_text = _mp_render(raw, specs)
+        old_norm = None if old_text is None else old_text.replace('\r\n', '\n').replace('\r', '\n')
+        if new_text == (old_norm or ''):
+            return result
+        if backup and old_text is not None:
+            try:
+                _mp_backup(path)
+            except Exception:
+                _log_error('_mp_backup')
+        if not new_text:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        else:
+            tmp = path + '.tmp'
+            with open(tmp, 'w', encoding='utf-8', newline='\r\n') as f:
+                f.write(new_text)
+            os.replace(tmp, path)
+        result['changed'] = True
+        return result
+
+
+def _mp_validate(path, current):
+    p = (path or '').strip().strip('"')
+    if not p:
+        return {'ok': False, 'error': 'Select a folder.'}
+    p = os.path.normpath(p)
+    if not os.path.isdir(p):
+        return {'ok': False, 'error': 'Folder not found.'}
+    note = ''
+    if _mp_known_count(p) == 0:
+        child = None
+        for s in (_mp_subdirs(p) or []):
+            if s.lower() == 'models':
+                c = os.path.join(p, s)
+                if _mp_known_count(c) > 0:
+                    child = c
+                break
+        if child:
+            p = os.path.normpath(child)
+            note = 'Using the "models" sub-folder.'
+        else:
+            parent = os.path.dirname(p)
+            if os.path.basename(p).lower() in _MP_KNOWN_DIRS and parent and _mp_known_count(parent) > 0:
+                return {'ok': False, 'error': 'This is a single model type folder. Select its parent: ' + parent}
+            return {'ok': False, 'error': 'This is NOT a MODELS folder.'}
+    n = _mp_norm(p)
+    if n == _mp_norm(os.path.join(ROOT_DIR, 'ComfyUI', 'models')):
+        return {'ok': False, 'error': 'This is your NEW MODELS folder. Select your EXISTING models folder.'}
+    sep = os.sep
+    for r in current:
+        rn = _mp_norm(r)
+        if rn == n:
+            return {'ok': False, 'error': 'This folder was already added.'}
+        if n.startswith(rn.rstrip('\\/') + sep) or rn.startswith(n.rstrip('\\/') + sep):
+            return {'ok': False, 'error': 'This folder overlaps with an already added folder: ' + r}
+    subs = _mp_subdirs(p) or []
+    return {'ok': True, 'path': p, 'count': len(subs), 'note': note}
+
+
 class Api:
     _NO_WIN        = 0x08000000
     _ezi_check_lock = threading.Lock()
@@ -3127,7 +3946,7 @@ class Api:
     def get_easy_menu_js(self):
         try:
             html = SHELL_HTML
-            pre = html[html.index('const settingsDefaults'):html.index('function applyTheme(theme)')]
+            pre = html[html.index('const EZI_THEME_LIST'):html.index('function applyTheme(theme)')]
             modal = html[html.index('function showModal('):html.index('function show_close_confirm()')]
             body = html[html.index('let _settingsOpenId = 0;'):html.index('function set_dot_ready()')]
             return (pre + _EASY_MENU_SHIM + modal + body).replace("{EZI_VERSION}", APP_VERSION)
@@ -4423,6 +5242,7 @@ class Api:
                 os.remove(KEEP_CACHE_FLAG_PATH)
         except Exception:
             _log_error('set_keep_cache')
+        _apply_cache_env()
         return os.path.exists(KEEP_CACHE_FLAG_PATH)
 
     def clear_cache(self, cache_type):
@@ -4728,7 +5548,11 @@ class Api:
             if out:
                 self._println(out)
             if r.returncode == 0:
-                self._println(f"\033[92m=== Switched to {tag}. Restarting ComfyUI... ===\033[0m")
+                self._println(f"\033[92m=== Switched to {tag} ===\033[0m")
+                if not self._pip_install_requirements():
+                    self._println("\033[91m=== Requirements install failed ===\033[0m")
+                    return
+                self._println("\033[92m=== Restarting ComfyUI... ===\033[0m")
                 self._safe_eval("switchToConsole()")
                 self._restart_comfy()
                 self._updating = False
@@ -4759,6 +5583,9 @@ class Api:
                 self._println(f"\033[91m=== Checkout failed (exit {r.returncode}) ===\033[0m")
                 return
             self._println(f"\033[92m=== Switched to {tag} ===\033[0m")
+            if not self._pip_install_requirements():
+                self._println("\033[91m=== Requirements install failed ===\033[0m")
+                return
             if not fe_version:
                 req_path = os.path.join(self.COMFY_DIR, 'requirements.txt')
                 try:
@@ -4785,6 +5612,24 @@ class Api:
             self._updating = False
         except Exception as e:
             self._println(f"\033[91mError: {e}\033[0m")
+
+    def _pip_install_requirements(self):
+        req_path = os.path.join(self.COMFY_DIR, 'requirements.txt')
+        if not os.path.exists(req_path):
+            self._println("\033[93m=== requirements.txt not found, skipping ===\033[0m")
+            return True
+        self._println("\033[93m=== Installing ComfyUI requirements ===\033[0m")
+        if self._stream_cmd(
+                [self.PY_EXE, '-I', '-m', 'pip', 'install', '-r', req_path, '--no-warn-script-location'],
+                cwd=ROOT_DIR, use_pty=True) != 0:
+            return False
+        mgr_req_path = os.path.join(self.COMFY_DIR, 'manager_requirements.txt')
+        if os.path.exists(mgr_req_path):
+            self._println("\033[93m=== Installing ComfyUI-Manager requirements ===\033[0m")
+            return self._stream_cmd(
+                [self.PY_EXE, '-I', '-m', 'pip', 'install', '-r', mgr_req_path, '--no-warn-script-location'],
+                cwd=ROOT_DIR, use_pty=True) == 0
+        return True
 
     def _pip_install_frontend(self, version):
         self._println(f"\033[93m=== Installing comfyui-frontend-package=={version} ===\033[0m")
@@ -4833,6 +5678,21 @@ class Api:
                 self._updating = False
         threading.Thread(target=_run, daemon=True).start()
         return True
+
+    def get_bat_state(self, rel_paths):
+        exists = []
+        for rel in rel_paths or []:
+            rel_clean = str(rel).lstrip('./\\').replace('\\\\', '\\')
+            exists.append(os.path.exists(os.path.normpath(os.path.join(ROOT_DIR, rel_clean))))
+        torch_ver = ''
+        try:
+            version_file = os.path.join(ROOT_DIR, 'python_embeded', 'Lib', 'site-packages', 'torch', 'version.py')
+            with open(version_file, 'r', encoding='utf-8', errors='replace') as f:
+                m = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', f.read())
+            torch_ver = m.group(1) if m else ''
+        except Exception:
+            torch_ver = ''
+        return {'exists': exists, 'torch': torch_ver}
 
     def run_bat(self, rel_path):
         if self._updating:
@@ -5160,7 +6020,7 @@ class Api:
             MANAGED_WITH_VAL = {
                 '--input-directory', '--output-directory', '--user-directory',
             }
-            MANAGED_FLAG = {'--windows-standalone-build'}
+            MANAGED_FLAG = {'--windows-standalone-build', *_MANAGER_BAT_FLAGS}
             _req_attn = _required_attn_flag(BAT_FILE)
             if _req_attn:
                 MANAGED_FLAG = MANAGED_FLAG | {_req_attn}
@@ -5194,7 +6054,7 @@ class Api:
         MANAGED_WITH_VAL = {
             '--input-directory', '--output-directory', '--user-directory',
         }
-        MANAGED_FLAG = {'--windows-standalone-build'}
+        MANAGED_FLAG = {'--windows-standalone-build', *_MANAGER_BAT_FLAGS}
 
         for bat_name in BAT_NAMES:
             bat_path = os.path.join(ROOT_DIR, bat_name)
@@ -5302,6 +6162,10 @@ class Api:
                         filtered_extra.append(_flag)
                     if _val is not None:
                         filtered_extra.append(_val)
+                if '--disable-manager-ui' in filtered_extra and '--enable-manager-legacy-ui' in kept_managed:
+                    kept_managed = [_t for _t in kept_managed if _t != '--enable-manager-legacy-ui']
+                    if '--enable-manager' not in kept_managed:
+                        kept_managed.append('--enable-manager')
                 rebuilt = kept_managed + filtered_extra
                 new_cmd_parts = [py_prefix] + pre_script + rebuilt
                 new_line = ' '.join(new_cmd_parts)
@@ -5463,6 +6327,57 @@ class Api:
         self._kill_running_proc()
         self._restart_comfy(check_update=False)
 
+    def _sync_model_paths(self):
+        try:
+            res = _mp_sync()
+        except Exception:
+            _log_error('_sync_model_paths')
+            return
+        for r in res.get('missing', []):
+            self._println(f"\033[93m[Models] Folder not found: {r}\033[0m")
+        if res.get('changed'):
+            self._println("\033[92m[Models] extra_model_paths.yaml updated\033[0m")
+            for r, names in res.get('added', []):
+                self._println(f"\033[2m  {r}: +{', '.join(names)}\033[0m")
+
+    def get_model_roots(self):
+        try:
+            text = _mp_read_text(_mp_yaml_path())
+            roots = []
+            if text is not None:
+                _raw, blocks = _mp_parse(text)
+                for b in blocks:
+                    subs = _mp_subdirs(b['root'])
+                    roots.append({'path': b['root'], 'exists': subs is not None, 'count': len(subs or [])})
+            return json.dumps({'yaml': text is not None, 'roots': roots})
+        except Exception:
+            _log_error('get_model_roots')
+            return json.dumps({'yaml': False, 'roots': []})
+
+    def validate_model_root(self, path, current_json):
+        try:
+            current = json.loads(current_json) or []
+        except Exception:
+            current = []
+        try:
+            return json.dumps(_mp_validate(path, current))
+        except Exception:
+            _log_error('validate_model_root')
+            return json.dumps({'ok': False, 'error': 'Could not read this folder.'})
+
+    def set_model_roots(self, roots_json):
+        try:
+            roots = [str(r) for r in (json.loads(roots_json) or []) if str(r).strip()]
+            res = _mp_sync(roots=roots, backup=True)
+            for r in res.get('missing', []):
+                self._println(f"\033[93m[Models] Folder not found: {r}\033[0m")
+            if res.get('changed'):
+                self._println(f"\033[92m[Models] extra_model_paths.yaml saved ({res.get('count', 0)} folder(s))\033[0m")
+            return json.dumps({'ok': True, 'changed': bool(res.get('changed'))})
+        except Exception:
+            _log_error('set_model_roots')
+            return json.dumps({'ok': False})
+
     def manager_config_exists(self):
         return os.path.exists(_get_manager_config_path())
 
@@ -5504,6 +6419,89 @@ class Api:
             self._restart_comfy(check_update=False)
             return True
         except Exception:
+            return False
+
+    def get_manager_settings(self):
+        result = {
+            "configExists": False,
+            "ui": "classic",
+            "securityLevel": "normal",
+            "allowGitUrl": False,
+            "allowPip": False,
+            "classicAvailable": os.path.isdir(os.path.join(ROOT_DIR, 'ComfyUI', 'custom_nodes', 'comfyui-manager')),
+        }
+        try:
+            bat_content = _read_bat()
+            if bat_content is not None:
+                ui_now = _bat_manager_ui(bat_content)
+                result["ui"] = 'classic' if ui_now == 'off' else ui_now
+            config_path = _get_manager_config_path()
+            if os.path.exists(config_path):
+                import configparser
+                cfg = configparser.ConfigParser()
+                cfg.read(config_path, encoding='utf-8')
+                level = cfg.get('default', 'security_level', fallback='normal').strip().lower()
+                if level not in _MANAGER_SECURITY_LEVELS:
+                    level = 'normal'
+                result["configExists"] = True
+                result["securityLevel"] = level
+                result["allowGitUrl"] = cfg.get('default', 'allow_git_url_install', fallback='False').strip().lower() == 'true'
+                result["allowPip"] = cfg.get('default', 'allow_pip_install', fallback='False').strip().lower() == 'true'
+        except Exception:
+            _log_error('get_manager_settings')
+        return json.dumps(result)
+
+    def set_manager_settings(self, payload_json):
+        try:
+            payload = json.loads(payload_json)
+            if not isinstance(payload, dict):
+                return False
+        except Exception:
+            return False
+        try:
+            ui = payload.get('ui')
+            level = payload.get('securityLevel')
+            if ui not in ('classic', 'legacy', 'new', None):
+                return False
+            if ui == 'classic' and not os.path.isdir(os.path.join(ROOT_DIR, 'ComfyUI', 'custom_nodes', 'comfyui-manager')):
+                current_ui = _bat_manager_ui(_read_bat() or '')
+                if current_ui != 'off':
+                    return False
+            if level is not None and level not in _MANAGER_SECURITY_LEVELS:
+                return False
+            config_path = _get_manager_config_path()
+            if os.path.exists(config_path):
+                import configparser
+                cfg = configparser.ConfigParser()
+                cfg.read(config_path, encoding='utf-8')
+                if not cfg.has_section('default'):
+                    cfg.add_section('default')
+                if level is not None:
+                    cfg.set('default', 'security_level', level)
+                for key, name in (('allowGitUrl', 'allow_git_url_install'), ('allowPip', 'allow_pip_install')):
+                    if isinstance(payload.get(key), bool):
+                        cfg.set('default', name, 'True' if payload[key] else 'False')
+                tmp = config_path + '.tmp'
+                with open(tmp, 'w', encoding='utf-8') as f:
+                    cfg.write(f)
+                os.replace(tmp, config_path)
+            ui_changed = False
+            if ui is not None:
+                bat_content = _read_bat()
+                current = _bat_manager_ui(bat_content) if bat_content is not None else 'off'
+                current = 'classic' if current == 'off' else current
+                if ui != current:
+                    ui_changed = _apply_manager_ui_to_bats(ui)
+            self._println("\n[Manager] Settings updated. Restarting ComfyUI...\n")
+            if ui_changed:
+                self.restart_ezi()
+                return True
+            self._safe_eval("switchToConsole('Restarting...')")
+            self._kill_running_proc()
+            self._restart_comfy(check_update=False)
+            return True
+        except Exception:
+            _log_error('set_manager_settings')
             return False
 
     def get_pinned_packages(self):
@@ -6226,6 +7224,7 @@ class Api:
             custom_paths = json.loads(custom_paths_json) if custom_paths_json else {'input': '', 'output': '', 'user': ''}
             return json.dumps({
                 "showTooltips": bool(self._settings.get("show_tooltips", True)),
+                "extPagesInside": bool(self._settings.get("ext_pages_inside", True)),
                 "customFileBrowser": fb,
                 "theme": theme,
                 "launcherTheme": self._settings.get("launcher_theme", "amd") if self._settings.get("launcher_theme", "amd") in LAUNCHER_THEME_NAMES else "amd",
@@ -6263,6 +7262,10 @@ class Api:
             if "showTooltips" in data:
                 self._settings["show_tooltips"] = bool(data["showTooltips"])
                 self._console_push_tooltips()
+            if "extPagesInside" in data:
+                self._settings["ext_pages_inside"] = bool(data["extPagesInside"])
+                if not self._settings["ext_pages_inside"]:
+                    self._ui_invoke(_ezi_ext_close)
             if "customFileBrowser" in data:
                 self._settings["custom_file_browser"] = str(data["customFileBrowser"]).strip()
             if "theme" in data and data["theme"] in EZI_THEME_NAMES:
@@ -6706,6 +7709,8 @@ class Api:
             if not main_path:
                 self._println("Error: main.py not found!"); return
 
+            self._sync_model_paths()
+
             extra_args = []
             py_flags = ['-X', 'utf8=1']
             if not os.path.exists(BAT_FILE):
@@ -6827,9 +7832,18 @@ class Api:
                     except ValueError: pass
 
             def _port_busy(port):
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connection:
-                    connection.settimeout(0.5)
-                    return connection.connect_ex(('127.0.0.1', port)) == 0
+                try:
+                    result = subprocess.run(
+                        ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+                         f'if (Get-NetTCPConnection -LocalPort {port} -State Listen '
+                         f'-ErrorAction SilentlyContinue) {{ 1 }} else {{ 0 }}'],
+                        capture_output=True, stdin=subprocess.DEVNULL, timeout=5, creationflags=0x08000000
+                    )
+                    return result.stdout.decode().strip() == '1'
+                except Exception:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as _s:
+                        _s.settimeout(0.5)
+                        return _s.connect_ex(('127.0.0.1', port)) == 0
 
             if _port_busy(target_port):
                 self._println(
@@ -6875,7 +7889,7 @@ class Api:
                     _chk = subprocess.run(
                         [self.PY_EXE, '-c',
                          f'import sys, importlib.metadata as _im; v=_im.version({_pkg!r}); sys.exit(0 if v=={_ver!r} else 1)'],
-                        capture_output=True, timeout=10, creationflags=self._NO_WIN,
+                        capture_output=True, stdin=subprocess.DEVNULL, timeout=10, creationflags=self._NO_WIN,
                         env=run_env
                     )
                     if _chk.returncode != 0:
@@ -6896,6 +7910,7 @@ class Api:
             _COMFY_SCHEME[0] = "https" if ('--tls-keyfile' in extra_args and '--tls-certfile' in extra_args) else "http"
             self._proc = subprocess.Popen(
                 [self.PY_EXE] + final_args,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 cwd=ROOT_DIR, env=run_env,
                 creationflags=0x08000000|0x00000200
@@ -7064,7 +8079,7 @@ class Api:
                 return pty.exitstatus or 0
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 cwd=cwd, env=env,
-                                stdin=subprocess.DEVNULL if stdin_devnull else None,
+                                stdin=subprocess.DEVNULL,
                                 creationflags=self._NO_WIN)
         try:
             self._forward_pipe(proc)
@@ -7179,14 +8194,23 @@ class Api:
             cw = _EZI_WINDOW_REF.get("comfy_webview")
             if cw is None:
                 return
+            _ezi_ext_close(reset=True)
             if _EZI_WINDOW_REF.get("comfy_ready") and cw.CoreWebView2 is not None:
                 cw.CoreWebView2.Navigate(url)
             else:
                 _EZI_WINDOW_REF["comfy_pending_url"] = url
         self._ui_invoke(_do)
 
+    def close_ext_view(self):
+        self._ui_invoke(_ezi_ext_close)
+
     def reload_comfy_view(self):
         def _do():
+            if _EZI_WINDOW_REF.get("ext_active"):
+                ext = _EZI_WINDOW_REF.get("ext_webview")
+                if ext is not None and ext.CoreWebView2 is not None:
+                    ext.CoreWebView2.Reload()
+                    return
             cw = _EZI_WINDOW_REF.get("comfy_webview")
             if cw is not None and cw.CoreWebView2 is not None:
                 cw.CoreWebView2.Reload()
@@ -7307,6 +8331,7 @@ if __name__ == '__main__':
     settings = _load_settings()
     settings["_dpi_aware_version"] = 1
     _settings_ref["obj"] = settings
+    _ensure_ezi_aurora_palette(settings)
     p_port = find_free_port(settings.get("proxy_port"))
     if settings.get("proxy_port") != p_port:
         settings["proxy_port"] = p_port
