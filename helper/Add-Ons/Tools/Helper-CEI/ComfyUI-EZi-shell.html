@@ -604,6 +604,35 @@
     cursor: pointer; transition: all .2s; line-height: 1; box-sizing: border-box; height: 22px;
   }
   #settings-btn:hover { background: var(--accent-bg); border-color: var(--accent-hover); color: #fff; }
+  /* Folders, Capture and the menu sit in one group, like console | detach | reload | restart */
+  #right-group { display: inline-flex; align-items: center; }
+  #out-btn { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  #scr-btn { border-radius: 0; margin-left: -1px; }
+  #out-btn-wrap:not(.visible) + #scr-btn-wrap #scr-btn { margin-left: 0; border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+  #settings-btn { margin-left: -1px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  #out-btn:hover, #scr-btn:hover, #settings-btn:hover { position: relative; z-index: 1; }
+  #reload-btn {
+    display: inline-flex; align-items: center;
+    padding: 0 8px; font-family: inherit; font-size: 14px; font-weight: bold;
+    border: 1px solid var(--accent); border-radius: 4px; background: var(--btn-bg); color: var(--text3);
+    cursor: pointer; transition: all .2s; line-height: 1; box-sizing: border-box; height: 22px;
+  }
+  #reload-btn:hover { background: var(--accent-bg); border-color: var(--accent-hover); color: #fff; }
+  #reload-btn:hover span { display: inline-block; transition: transform 0.3s ease; transform: rotate(90deg); }
+  #reload-btn span { display: inline-block; transition: transform 0.3s ease; }
+  #reload-btn.spinning span { animation: reloadSpin 0.5s ease; }
+  #ext-back-btn {
+    display: inline-flex; align-items: center;
+    padding: 0 10px; font-family: inherit; font-size: 11px; font-weight: bold;
+    border: 1px solid var(--accent); border-radius: 4px; background: var(--accent-bg); color: #fff;
+    cursor: pointer; transition: all .2s; line-height: 1; box-sizing: border-box; height: 22px; white-space: nowrap;
+  }
+  #ext-back-btn:hover { border-color: var(--accent-hover); filter: brightness(1.15); }
+  #ext-title {
+    color: var(--text2); font-size: 11px; max-width: 260px; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  @keyframes reloadSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .settings-row {
     display: flex; align-items: center; gap: 10px;
     padding: 8px 0; border-bottom: 1px solid var(--border);
@@ -966,6 +995,15 @@
   }
   .cs-content .bat-clickable:hover::after { background: var(--accent-bg); color: var(--text-on-accent, #fff); border-color: var(--accent-hover); }
   .cs-content .bat-label { font-size: 12px; }
+  .cs-content .bat-clickable[data-action]::after { content: attr(data-action); }
+  .bat-cur { display: none; margin-left: 8px; font-size: 11px; font-weight: 600; color: #50fa7b; }
+  .bat-clickable.bat-current .bat-cur { display: inline; }
+  .cs-content .bat-clickable.bat-missing { opacity: 0.4; cursor: not-allowed; }
+  .cs-content .bat-clickable.bat-missing:hover { background: transparent; }
+  .cs-content .bat-clickable.bat-missing:hover .bat-label { color: var(--accent); }
+  .cs-content .bat-clickable.bat-missing:hover::after { background: var(--btn-bg); color: var(--accent); border-color: var(--accent); }
+  .bat-sep { font-size: 12px; font-weight: 600; color: var(--text2); text-align: center; padding: 10px 4px 8px;
+    border-bottom: 1px solid var(--border); }
 
   #modal-box.ezi-settings { --cs-font: Inter, "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; }
   #modal-box.ezi-settings,
@@ -1309,9 +1347,13 @@
     data-tip="Current text size">100%</span><button type="button" class="sm-zb" data-tip="Increase text size (Ctrl and +)"
     onmousedown="event.preventDefault()" onclick="__eziStepTermFont(1)">+</button><button type="button" class="sm-zb sm-zreset"
     data-tip="Reset text size to 100% (Ctrl and 0)" onmousedown="event.preventDefault()"
-    onclick="__eziResetTermFont()">Reset</button></div></div></div>
+    onclick="__eziResetTermFont()">Reset</button></div></div></div><button id="ext-back-btn" style="display:none" data-tip="Back to ComfyUI"
+    onmousedown="event.preventDefault()" onclick="pywebview.api.close_ext_view()">◀ ComfyUI</button><span id="ext-title"
+    style="display:none"></span>
   <div id="titlebar-drag" class="titlebar-drag"></div>
   <div style="display:flex;align-items:center;gap:8px;height:32px;">
+    <div id="rec-indicator" style="display:none"></div>
+    <div id="right-group">
     <div id="out-btn-wrap"><button id="out-btn" onclick="toggleOutDropdown(event)" title="Folders"><svg class="btn-icon"
           viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -1341,7 +1383,8 @@
             src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f3a5.svg"> Record Video</div>
       </div>
     </div>
-    <div id="rec-indicator" style="display:none"></div><button id="settings-btn" title="Easy Menu">&#x2630;</button>
+    <button id="settings-btn" title="Easy Menu">&#x2630;</button>
+    </div>
     <div id="win-controls">
       <button class="wctl-btn" title="Minimize" onclick="winMinimize()"><svg viewBox="0 0 10 10"><path
             d="M0 5H10" stroke="currentColor" stroke-width="1"/></svg></button>
@@ -1499,7 +1542,7 @@ function eziThemeOptions(current, isLauncher) {
 }
 const settingsDefaults = {
   showTooltips: true, customFileBrowser: '', theme: 'amd', launcherTheme: 'amd', selCopy: true, selGoogle: true,
-  selChatgpt: true, selClaude: false, selSave: true, selLang: 'en'
+  selChatgpt: true, selClaude: false, selSave: true, selLang: 'en', extPagesInside: true
 };
 let eziSettings = Object.assign({}, settingsDefaults);
 function saveEziSettings() {
@@ -1559,7 +1602,30 @@ function show_settings() {
   }
 
   const _tabDisplay = {advanced:'flex', appearance:'block'};
+  function _refreshBatState(tab) {
+    const pane = document.getElementById('stab-' + tab);
+    if (!pane || !window.pywebview || !pywebview.api || !pywebview.api.get_bat_state) return;
+    const rows = Array.from(pane.querySelectorAll('.bat-clickable'));
+    if (!rows.length) return;
+    pywebview.api.get_bat_state(rows.map(function(r) { return r.dataset.bat; })).then(function(st) {
+      if (!st || !st.exists) return;
+      rows.forEach(function(r, i) {
+        const ok = !!st.exists[i];
+        if (r.dataset.title0 === undefined) r.dataset.title0 = r.title;
+        r.classList.toggle('bat-missing', !ok);
+        r.title = ok ? r.dataset.title0 : 'File not found: ' + r.dataset.bat.replace(/\\+/g, '\\').replace(/^\.\\/, '');
+        if (r.dataset.torch) {
+          const cur = !!st.torch && st.torch === r.dataset.torch;
+          r.classList.toggle('bat-current', cur);
+          r.dataset.action = cur ? 'Reinstall' : 'Switch';
+          if (ok) r.title = (cur ? 'Reinstall Torch ' : 'Switch to Torch ') + r.dataset.torch;
+        }
+      });
+    }).catch(function() {});
+  }
+
   function _showTab(name) {
+    if (name === 'addons' || name === 'torch' || name === 'tools') _refreshBatState(name);
     ['general','addons','torch','tools','appearance','advanced','pixaroma','wtivo','about'].forEach(t => {
       document.getElementById('stab-'+t).style.display = (t===name)?(_tabDisplay[t]||'block'):'none';
       document.getElementById('stabtn-'+t).classList.toggle('active', t===name);
@@ -1571,8 +1637,11 @@ function show_settings() {
   }
 
   const _tabIds = ['general','addons','torch','tools','appearance','advanced','pixaroma','wtivo','about'];
-  const _tabTitles = {general:'System Info', addons:'Add-ons', torch:'Torch Pack', tools:'Tools', appearance:'Appearance', advanced:'Advanced', pixaroma:'Pixaroma Workflows', wtivo:'WTiVo AMD', about:'About EZi'};
-  const _UNIT_SEL = '.settings-row, .bat-clickable';
+  const _tabTitles = {
+    general:'System Info', addons:'Add-ons', torch:'Torch Pack', tools:'Tools', appearance:'Appearance', advanced:'Advanced',
+    pixaroma:'Pixaroma Workflows', wtivo:'WTiVo AMD', about:'About EZi'
+  };
+  const _UNIT_SEL = '.settings-row, .bat-clickable, .bat-sep';
 
   function _csCurTab() {
     return _tabIds.find(t => document.getElementById('stabtn-'+t).classList.contains('active')) || 'general';
@@ -1690,9 +1759,11 @@ function show_settings() {
     </div>
   </div>`;
 
-  function _batBtn(label, path, desc) {
-    return `<div class="bat-clickable" data-bat="${path.replace(/"/g,'&quot;')}" title="${desc.replace(/"/g,'&quot;')}">
-      <span class="bat-label">${label}</span>
+  function _batBtn(label, path, desc, torchId) {
+    const tAttr = torchId ? ` data-torch="${torchId}" data-action="Switch"` : '';
+    const badge = torchId ? '<span class="bat-cur">\u25CF current</span>' : '';
+    return `<div class="bat-clickable" data-bat="${path.replace(/"/g,'&quot;')}" title="${desc.replace(/"/g,'&quot;')}"${tAttr}>
+      <span class="bat-label">${label}${badge}</span>
     </div>`;
   }
   const tabAddons = `<div id="stab-addons" style="display:none">
@@ -1701,6 +1772,10 @@ function show_settings() {
     ${_batBtn('Nunchaku - RX 9070 XT', '.\\\\Add-Ons\\\\Nunchaku - RX 9070 XT.bat', 'Installs Qwen, FLUX.1, FLUX.2, Z-Image, SDXL, SANA, T5 and LTX2 workflows; choose model downloads')}
   </div>`;
 
+  function _torchBtn(id, extra) {
+    const file = 'Torch ' + id + (extra || '') + '.bat';
+    return _batBtn('Torch ' + id + (extra || ''), '.\\\\Add-Ons\\\\Torch-Pack\\\\' + file, 'Switch to Torch ' + id, id);
+  }
   const tabTorch = `<div id="stab-torch" style="display:none">
     ${_batBtn('PyTorch / ROCm Bundle Manager', '.\\\\Add-Ons\\\\Torch-Pack\\\\ROCm Bundle Manager.bat', 'Choose exact AMD package versions or restore a saved bundle')}
     ${_batBtn('Latest AMD Nightly (GPU Detected Automatically)', '.\\\\Add-Ons\\\\Torch-Pack\\\\Latest AMD Nightly.bat', 'Build and verify the latest patientx AMD bundle')}
@@ -1763,6 +1838,12 @@ function show_settings() {
           <input type="checkbox" id="set-show-tooltips" ${eziSettings.showTooltips !== false ? 'checked' : ''}>
           <label for="set-show-tooltips">Show Tooltips</label>
         </div>
+        <div class="settings-row">
+          <input type="checkbox" id="set-ext-pages" ${eziSettings.extPagesInside !== false ? 'checked' : ''}>
+          <label for="set-ext-pages">Open ComfyUI extension pages inside EZi</label>
+        </div>
+        <div
+          style="padding:2px 0 6px 25px;font-size:11px;color:var(--text2)">e.g. LoRA Manager. External sites still open in the browser.</div>
         <div class="settings-row">
           <label for="set-theme" style="cursor:default">EZi Theme</label>
           <select id="set-theme" style="max-width:180px">${eziThemeOptions(eziSettings.theme||'amd', false)}</select>
@@ -1841,15 +1922,31 @@ function show_settings() {
   const tabAdvanced = `<div id="stab-advanced" style="display:none;flex-direction:column;gap:8px">
 
     <div id="sec-level-section" class="cs-section">
-      <div class="cs-sec-head">ComfyUI-Manager Security Level</div>
+      <div class="cs-sec-head">ComfyUI-Manager</div>
       <div class="cs-sec-body" style="gap:2px">
         <div class="settings-row" style="gap:8px">
-          <label for="set-security-level" style="cursor:default;flex:none;white-space:nowrap">Security Level</label>
-          <select id="set-security-level" style="flex-shrink:0;max-width:130px;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;cursor:pointer" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
-            <option value="weak"    id="sec-opt-weak">Weak</option>
-            <option value="normal-" id="sec-opt-normalminus">Normal-</option>
-            <option value="normal"  id="sec-opt-normal">Normal</option>
-            <option value="strong"  id="sec-opt-strong">Strong</option>
+          <label for="set-manager-ui" style="cursor:default;flex:none;white-space:nowrap">Interface</label>
+          <select id="set-manager-ui"
+            title="Classic: the ComfyUI-Manager custom node (as in the Pixaroma tutorials). Legacy UI / New UI: the Manager built into ComfyUI"
+            style="flex-shrink:0;max-width:130px;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);
+              border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;cursor:pointer"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+            <option value="classic">Classic</option>
+            <option value="legacy">Legacy UI</option>
+            <option value="new">New UI</option>
+          </select>
+        </div>
+        <div id="sec-level-rows" style="display:flex;flex-direction:column;gap:2px">
+        <div class="settings-row" style="gap:8px">
+          <label for="set-security-level" style="cursor:default;flex:none;white-space:nowrap">Security level</label>
+          <select id="set-security-level"
+            style="flex-shrink:0;max-width:130px;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);
+              border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;cursor:pointer"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+            <option value="weak"   >weak</option>
+            <option value="normal-">normal-</option>
+            <option value="normal" >normal</option>
+            <option value="strong" >strong</option>
           </select>
           <span id="set-security-loading" style="font-size:10px;color:var(--text2);font-style:italic">loading…</span>
           <button id="sec-info-btn" title="Security Level Info"
@@ -1866,6 +1963,15 @@ function show_settings() {
               style="color:#f1fa8c">--listen</code> is set outside 127.x<br>
             <b style="color:var(--accent)">weak</b> - all features are available
           </div>
+        </div>
+        <div class="settings-row">
+          <input type="checkbox" id="set-allow-git-url">
+          <label for="set-allow-git-url">Allow install from Git URL</label>
+        </div>
+        <div class="settings-row">
+          <input type="checkbox" id="set-allow-pip">
+          <label for="set-allow-pip">Allow pip install</label>
+        </div>
         </div>
       </div>
     </div>
@@ -1932,6 +2038,28 @@ function show_settings() {
     </div>
 
     <div class="cs-section">
+      <div class="cs-sec-head">Models Folders</div>
+      <div class="cs-sec-body" style="gap:4px">
+        <div id="mp-list" style="display:flex;flex-direction:column;gap:3px"></div>
+        <div class="settings-row" style="gap:6px;border-bottom:none" title="Models folders extra_model_paths.yaml link existing models">
+          <input type="text" id="mp-new-input" placeholder="Add an existing MODELS folder, e.g. D:\\AI\\models"
+            style="flex:1;min-width:0;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);
+              border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;outline:none;"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+          ${_cpBrowseBtn('mp-browse-btn')}
+          <button id="mp-add-btn"
+            style="flex-shrink:0;padding:3px 12px;font-family:inherit;font-size:11px;font-weight:bold;
+              border:1px solid var(--accent);border-radius:4px;background:var(--btn-bg);color:var(--accent);cursor:pointer;
+              transition:all .15s;line-height:1.4;"
+            onmouseover="this.style.background='var(--accent-bg)';this.style.borderColor='var(--accent-hover)';this.style.color='var(--accent-hover)';"
+            onmouseout="this.style.background='var(--btn-bg)';this.style.borderColor='var(--accent)';this.style.color='var(--accent)';">Add</button>
+        </div>
+        <div id="mp-msg" style="display:none;font-size:10px;line-height:1.5"></div>
+        <div style="font-size:10px;color:var(--text2);line-height:1.6">Saved to extra_model_paths.yaml. Sub-folders are rescanned on each start. The first is the default.</div>
+      </div>
+    </div>
+
+    <div class="cs-section">
       <div class="cs-sec-head" style="display:flex;align-items:center;gap:6px">
         <span>Server — Startup Arguments</span>
         <button id="startup-args-info-btn" title="Show All Available Startup Arguments"
@@ -1943,7 +2071,7 @@ function show_settings() {
         <div style="display:flex;gap:6px;align-items:center">
           <input type="text" id="set-startup-args"
             value="${(eziSettings.startupArgs||'').replace(/"/g,'&quot;')}"
-            placeholder="e.g. --port 8601 --max-upload-size 4000"
+            placeholder="e.g. --port 8601 --max-upload-size 4000 --listen"
             style="flex:1;min-width:0;background:var(--input-bg);color:var(--text);border:1px solid var(--border2);
               border-radius:4px;font-family:inherit;font-size:11px;padding:3px 6px;outline:none;"
             onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
@@ -2087,6 +2215,9 @@ function show_settings() {
           <label for="set-comfy-ver" style="cursor:default">ComfyUI Version</label>
           <select id="set-comfy-ver" disabled><option>Loading...</option></select>
         </div>
+        <div style="padding:2px 0 4px 0;font-size:11px;color:#8b949e">
+          &#x2139; Locked on the AMD build. Use Update ComfyUI to change it.
+        </div>
         <div id="comfy-fe-hint" style="display:none;padding:2px 0 4px 0;font-size:11px;color:#8b949e">
           &#x2139; Requires frontend: <span id="comfy-fe-hint-ver" style="color:#f1fa8c;font-weight:bold"></span>
           <br><span style="color:#555">(your selected frontend version is older than required)</span>
@@ -2105,6 +2236,7 @@ function show_settings() {
   </div>`;
 
   let _initialShowTooltips = eziSettings.showTooltips !== false;
+  let _initialExtPages = eziSettings.extPagesInside !== false;
   let _initialFileBrowser = eziSettings.customFileBrowser || '';
   let _initialTheme = eziSettings.theme || 'amd';
   let _initialLauncherTheme = eziSettings.launcherTheme || 'amd';
@@ -2122,11 +2254,39 @@ function show_settings() {
   let _initialSelClaude = eziSettings.selClaude === true;
   let _initialSelLang = eziSettings.selLang || 'en';
   let _initialSecurityLevel = '';
+  let _initialManager = null;
+  function _collectManagerSettings() {
+    const ui = document.getElementById('set-manager-ui');
+    const sec = document.getElementById('set-security-level');
+    const git = document.getElementById('set-allow-git-url');
+    const pip = document.getElementById('set-allow-pip');
+    return {
+      ui: ui ? ui.value : null,
+      securityLevel: sec ? sec.value : null,
+      allowGitUrl: git ? git.checked : null,
+      allowPip: pip ? pip.checked : null
+    };
+  }
+  function _managerSettingsChanged() {
+    if (!_initialManager) return false;
+    const cur = _collectManagerSettings();
+    if (cur.ui !== _initialManager.ui) return true;
+    if (!_initialManager.configExists) return false;
+    return cur.securityLevel !== _initialManager.securityLevel ||
+      cur.allowGitUrl !== _initialManager.allowGitUrl ||
+      cur.allowPip !== _initialManager.allowPip;
+  }
   let _initialStartupArgs = null;
   let _initialPinned = null;
   var _pinnedPackages = [];
   function _pinnedPendingChanged() {
     return _initialPinned !== null && JSON.stringify(_pinnedPackages) !== _initialPinned;
+  }
+  let _mpInitial = null;
+  var _mpRoots = [];
+  var _mpInfo = {};
+  function _mpPendingChanged() {
+    return _mpInitial !== null && JSON.stringify(_mpRoots) !== _mpInitial;
   }
 
   function browseForFileBrowser() {
@@ -2216,7 +2376,7 @@ function show_settings() {
     const feHint    = document.getElementById('fe-comfy-hint');
     const feHintVer = document.getElementById('fe-comfy-hint-ver');
 
-    if (!selComfy || selComfy.disabled) return;
+    if (!selComfy || !selComfy.dataset.current) return;
     if (!selFe    || selFe.disabled)    return;
 
     if (comfyHint)    { comfyHint.style.display = 'none'; }
@@ -2295,6 +2455,8 @@ function show_settings() {
 
   function _checkChanges() {
     const tipsChanged = document.getElementById('set-show-tooltips').checked !== _initialShowTooltips;
+    const extPagesEl = document.getElementById('set-ext-pages');
+    const extPagesChanged = extPagesEl && extPagesEl.checked !== _initialExtPages;
     const fbInput = document.getElementById('set-file-browser');
     const fbChanged = fbInput && (fbInput.value.trim() !== _initialFileBrowser);
     const selTheme = document.getElementById('set-theme');
@@ -2328,18 +2490,18 @@ function show_settings() {
                        (selSaveEl && selSaveEl.checked !== _initialSelSave) ||
                        (selLangEl && selLangEl.value !== _initialSelLang);
 
-    const secSel = document.getElementById('set-security-level');
-    const secChanged = secSel && _initialSecurityLevel && secSel.value !== _initialSecurityLevel;
+    const secChanged = _managerSettingsChanged();
 
     const startupArgsEl = document.getElementById('set-startup-args');
     const startupArgsChanged = _initialStartupArgs !== null && startupArgsEl && startupArgsEl.value.trim() !== _initialStartupArgs;
 
     const pinnedChanged = _pinnedPendingChanged();
+    const mpChanged = _mpPendingChanged();
 
     const applyBtn = Array.from(document.querySelectorAll('#modal-btns .modal-btn')).find(b => b.textContent.trim() === 'Apply');
     if (applyBtn) {
-          const hasChanges = tipsChanged || fbChanged || themeChanged || launcherThemeChanged || comfyChanged || feChanged ||
-          cpChanged || conBgChanged || selChanged || secChanged || startupArgsChanged || pinnedChanged;
+          const hasChanges = tipsChanged || extPagesChanged || fbChanged || themeChanged || launcherThemeChanged || comfyChanged || feChanged ||
+          cpChanged || conBgChanged || selChanged || secChanged || startupArgsChanged || pinnedChanged || mpChanged;
       applyBtn.disabled = !hasChanges;
       if (hasChanges) {
         applyBtn.classList.add('primary');
@@ -2350,22 +2512,36 @@ function show_settings() {
   }
 
   function _applySettings() {
+    const jobs = [];
+    let restartNote = '';
     if (_pinnedPendingChanged()) {
-      const _pinJson = JSON.stringify(_pinnedPackages);
-      const _go = function() { _initialPinned = _pinJson; _applySettingsInner(true); };
-      try {
-        pywebview.api.set_pinned_packages(_pinJson).then(_go).catch(_go);
-      } catch(e) { _go(); }
-      return;
+      const pj = JSON.stringify(_pinnedPackages);
+      jobs.push(function() { _initialPinned = pj; return pywebview.api.set_pinned_packages(pj); });
+      restartNote = 'Pinned packages updated';
     }
-    _applySettingsInner(false);
+    if (_mpPendingChanged()) {
+      const mj = JSON.stringify(_mpRoots);
+      jobs.push(function() { _mpInitial = mj; return pywebview.api.set_model_roots(mj); });
+      restartNote = restartNote ? 'Pinned packages and models folders updated' : 'Models folders updated';
+    }
+    if (!jobs.length) { _applySettingsInner(''); return; }
+    const run = function(i) {
+      if (i >= jobs.length) { _applySettingsInner(restartNote); return; }
+      let p = null;
+      try { p = jobs[i](); } catch(e) {}
+      if (p && p.then) p.then(function() { run(i + 1); }).catch(function() { run(i + 1); });
+      else run(i + 1);
+    };
+    run(0);
   }
 
-  function _applySettingsInner(pinnedPending) {
+  function _applySettingsInner(restartNote) {
     const tipsChecked = document.getElementById('set-show-tooltips').checked;
     const tipsChanged = tipsChecked !== _initialShowTooltips;
     eziSettings.showTooltips = tipsChecked;
     if (tipsChanged) applyTooltips(tipsChecked);
+    const extPagesEl = document.getElementById('set-ext-pages');
+    if (extPagesEl) { eziSettings.extPagesInside = extPagesEl.checked; _initialExtPages = extPagesEl.checked; }
     const fbInput = document.getElementById('set-file-browser');
     const fbVal = fbInput ? fbInput.value.trim() : '';
     const fbChanged = fbVal !== _initialFileBrowser;
@@ -2457,12 +2633,10 @@ function show_settings() {
       if (_savePromise && _savePromise.then) _savePromise.then(_applyBg, _applyBg);
       else _applyBg();
     }
-    const secSel2 = document.getElementById('set-security-level');
-    const secChanged2 = secSel2 && _initialSecurityLevel && secSel2.value !== _initialSecurityLevel;
-    if (secChanged2) {
-      pywebview.api.set_security_level(secSel2.value);
+    if (_managerSettingsChanged()) {
+      pywebview.api.set_manager_settings(JSON.stringify(_collectManagerSettings()));
       document.getElementById('modal-overlay').classList.remove('active');
-      _showRestartNotice('⟳ Security level updated — ComfyUI is restarting...');
+      _showRestartNotice('⟳ ComfyUI-Manager settings updated — ComfyUI is restarting...');
       return;
     }
     const selComfy = document.getElementById('set-comfy-ver');
@@ -2478,15 +2652,15 @@ function show_settings() {
       pywebview.api.set_frontend_version(selFe.value);
     }
 
-    if (pinnedPending && !comfyChanged && !feChanged) {
+    if (restartNote && !comfyChanged && !feChanged) {
       document.getElementById('modal-overlay').classList.remove('active');
-      _showRestartNotice('⟳ Pinned packages updated — ComfyUI is restarting...');
+      _showRestartNotice('⟳ ' + restartNote + ' — ComfyUI is restarting...');
       pywebview.api.restart_ezi();
       return;
     }
 
         if (tipsChanged || fbChanged || themeChanged || launcherThemeChanged || comfyChanged || feChanged || cpChanged ||
-        conBgChanged || secChanged2 || startupArgsChanged2 || pinnedPending) {
+        conBgChanged || secChanged2 || startupArgsChanged2 || !!restartNote) {
       document.getElementById('modal-overlay').classList.remove('active');
     }
   }
@@ -2779,7 +2953,7 @@ function show_settings() {
   ['stab-addons','stab-torch','stab-tools'].forEach(function(tabId) {
     document.getElementById(tabId).addEventListener('click', function(e) {
       const row = e.target.closest('.bat-clickable');
-      if (!row || !row.dataset.bat) return;
+      if (!row || !row.dataset.bat || row.classList.contains('bat-missing')) return;
       document.getElementById('modal-overlay').classList.remove('active');
       pywebview.api.run_bat(row.dataset.bat);
     });
@@ -2788,6 +2962,8 @@ function show_settings() {
   setTimeout(() => {
     const tipsCheck = document.getElementById('set-show-tooltips');
     if (tipsCheck) tipsCheck.addEventListener('change', _checkChanges);
+    const extPagesCheck = document.getElementById('set-ext-pages');
+    if (extPagesCheck) extPagesCheck.addEventListener('change', _checkChanges);
     const themeSel = document.getElementById('set-theme');
     if (themeSel) themeSel.addEventListener('change', function() { applyTheme(this.value); _checkChanges(); });
     const launcherThemeSel = document.getElementById('set-launcher-theme');
@@ -2867,30 +3043,44 @@ function show_settings() {
     });
     if (_cpUseBase) _cpUpdatePreview();
 
-    const secSel3 = document.getElementById('set-security-level');
-    if (secSel3) {
-      pywebview.api.manager_config_exists().then(function(exists) {
-        if (!exists) {
-          const secSection = document.getElementById('sec-level-section');
-          if (secSection) secSection.style.display = 'none';
-          return;
+    const mgrUiSel = document.getElementById('set-manager-ui');
+    if (mgrUiSel) {
+      pywebview.api.get_manager_settings().then(function(raw) {
+        let s = {};
+        try { s = JSON.parse(raw) || {}; } catch (e) {}
+        const rows = document.getElementById('sec-level-rows');
+        if (rows && !s.configExists) rows.style.display = 'none';
+        mgrUiSel.value = s.ui || 'classic';
+        const classicOpt = mgrUiSel.querySelector('option[value="classic"]');
+        if (classicOpt && s.classicAvailable === false) {
+          classicOpt.disabled = true;
+          classicOpt.title = 'ComfyUI\\custom_nodes\\comfyui-manager not found';
         }
-        pywebview.api.get_security_level().then(function(level) {
-          if (!level) level = 'weak';
-          _initialSecurityLevel = level;
-          secSel3.value = level;
-          const loadingEl2 = document.getElementById('set-security-loading');
-          if (loadingEl2) loadingEl2.style.display = 'none';
-          _checkChanges();
-        }).catch(function() {
-          const loadingEl2 = document.getElementById('set-security-loading');
-          if (loadingEl2) loadingEl2.style.display = 'none';
-        });
+        const secSel3 = document.getElementById('set-security-level');
+        if (secSel3 && s.securityLevel) secSel3.value = s.securityLevel;
+        const gitEl = document.getElementById('set-allow-git-url');
+        const pipEl = document.getElementById('set-allow-pip');
+        if (gitEl) gitEl.checked = !!s.allowGitUrl;
+        if (pipEl) pipEl.checked = !!s.allowPip;
+        _initialSecurityLevel = s.securityLevel || '';
+        _initialManager = {
+          ui: mgrUiSel.value,
+          configExists: !!s.configExists,
+          securityLevel: secSel3 ? secSel3.value : null,
+          allowGitUrl: gitEl ? gitEl.checked : null,
+          allowPip: pipEl ? pipEl.checked : null
+        };
+        const loadingEl2 = document.getElementById('set-security-loading');
+        if (loadingEl2) loadingEl2.style.display = 'none';
+        _checkChanges();
       }).catch(function() {
-        const secSection = document.getElementById('sec-level-section');
-        if (secSection) secSection.style.display = 'none';
+        const rows = document.getElementById('sec-level-rows');
+        if (rows) rows.style.display = 'none';
       });
-      secSel3.addEventListener('change', _checkChanges);
+      ['set-manager-ui', 'set-security-level', 'set-allow-git-url', 'set-allow-pip'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', _checkChanges);
+      });
     }
 
     const startupArgsInput = document.getElementById('set-startup-args');
@@ -3047,6 +3237,110 @@ function show_settings() {
         }
       });
     }
+
+    function _mpEsc(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function _mpMsg(text, isError) {
+      const el = document.getElementById('mp-msg');
+      const inp = document.getElementById('mp-new-input');
+      if (!el) return;
+      if (!text) { el.style.display = 'none'; if (inp) inp.style.borderColor = 'var(--border2)'; return; }
+      el.textContent = text;
+      el.style.color = isError ? '#ff5555' : 'var(--text2)';
+      el.style.display = 'block';
+      if (inp) inp.style.borderColor = isError ? '#ff5555' : 'var(--border2)';
+    }
+
+    function _mpRender() {
+      const box = document.getElementById('mp-list');
+      if (!box) return;
+      if (!_mpRoots.length) {
+        box.innerHTML = '<span style="font-size:11px;color:var(--text2);font-style:italic">No extra models folders linked.</span>';
+        return;
+      }
+      box.innerHTML = _mpRoots.map(function(p, i) {
+        const inf = _mpInfo[p] || {};
+        const missing = inf.exists === false;
+        const isDef = i === 0;
+        const btnCss = 'flex-shrink:0;font-family:inherit;border-radius:4px;background:var(--btn-bg);cursor:pointer;line-height:1.4;transition:border-color .15s,color .15s;';
+        return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--border)">' +
+          '<button class="mp-def-btn" data-mp-idx="' + i + '" title="' + (isDef ? 'Default folder' : 'Make default') + '"' +
+            ' style="' + btnCss + 'padding:1px 6px;font-size:12px;border:1px solid ' + (isDef ? 'var(--accent)' : 'var(--border3)') +
+            ';color:' + (isDef ? 'var(--accent)' : 'var(--text2)') + '">' + (isDef ? '&#x2605;' : '&#x2606;') + '</button>' +
+          '<span title="' + _mpEsc(p) + '" style="flex:1;min-width:0;font-size:11px;white-space:nowrap;overflow:hidden;' +
+            'text-overflow:ellipsis;color:' + (missing ? '#ff9944' : 'var(--text)') + '">' + _mpEsc(p) + '</span>' +
+          '<span style="flex-shrink:0;font-size:10px;color:' + (missing ? '#ff9944' : 'var(--text2)') + '">' +
+            (missing ? 'not found' : (inf.count !== undefined ? inf.count + ' folders' : '')) + '</span>' +
+          '<button class="mp-rem-btn" data-mp-idx="' + i + '" title="Remove"' +
+            ' style="' + btnCss + 'padding:1px 7px;font-size:12px;font-weight:bold;border:1px solid var(--border3);color:var(--text2)"' +
+            ' onmouseover="this.style.borderColor=\'#ff5555\';this.style.color=\'#ff5555\';"' +
+            ' onmouseout="this.style.borderColor=\'var(--border3)\';this.style.color=\'var(--text2)\';">&#x2715;</button>' +
+        '</div>';
+      }).join('');
+      box.querySelectorAll('.mp-def-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          const idx = parseInt(this.dataset.mpIdx);
+          if (idx > 0) {
+            _mpRoots.unshift(_mpRoots.splice(idx, 1)[0]);
+            _mpRender();
+            _checkChanges();
+          }
+        });
+      });
+      box.querySelectorAll('.mp-rem-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          _mpRoots.splice(parseInt(this.dataset.mpIdx), 1);
+          _mpMsg('', false);
+          _mpRender();
+          _checkChanges();
+        });
+      });
+    }
+
+    function _mpAdd(path) {
+      const inp = document.getElementById('mp-new-input');
+      const val = (path !== undefined ? path : (inp ? inp.value : '')).trim();
+      if (!val) return;
+      pywebview.api.validate_model_root(val, JSON.stringify(_mpRoots)).then(function(json) {
+        let r;
+        try { r = JSON.parse(json); } catch(e) { return; }
+        if (!r.ok) { _mpMsg(r.error, true); return; }
+        _mpRoots.push(r.path);
+        _mpInfo[r.path] = { exists: true, count: r.count };
+        if (inp) inp.value = '';
+        _mpMsg(r.note || '', false);
+        _mpRender();
+        _checkChanges();
+      }).catch(function() {});
+    }
+
+    pywebview.api.get_model_roots().then(function(json) {
+      let d;
+      try { d = JSON.parse(json) || {}; } catch(e) { d = {}; }
+      const list = d.roots || [];
+      _mpRoots = list.map(function(r) { return r.path; });
+      _mpInfo = {};
+      list.forEach(function(r) { _mpInfo[r.path] = { exists: r.exists, count: r.count }; });
+      _mpInitial = JSON.stringify(_mpRoots);
+      _mpRender();
+      _checkChanges();
+    }).catch(function() { _mpRender(); });
+
+    const mpInp = document.getElementById('mp-new-input');
+    if (mpInp) {
+      mpInp.addEventListener('input', function() { _mpMsg('', false); });
+      mpInp.addEventListener('keydown', function(e) { if (e.key === 'Enter') _mpAdd(); });
+    }
+    const mpAddBtn = document.getElementById('mp-add-btn');
+    if (mpAddBtn) mpAddBtn.addEventListener('click', function() { _mpAdd(); });
+    const mpBrowseBtn = document.getElementById('mp-browse-btn');
+    if (mpBrowseBtn) mpBrowseBtn.addEventListener('click', function() {
+      pywebview.api.browse_for_folder().then(function(p) {
+        if (p) { if (mpInp) mpInp.value = p; _mpAdd(p); }
+      }).catch(function() {});
+    });
   }, 50);
 
   let _dots = 0;
@@ -3226,11 +3520,6 @@ function show_settings() {
       if (isCurrent) opt.selected = true;
       sel.appendChild(opt);
     });
-    sel.disabled = false;
-    sel.onchange = function() {
-      _updateVersionHints();
-      _checkChanges();
-    };
     _checkChanges();
     _updateVersionHints();
   }).catch(function() {
@@ -3272,6 +3561,24 @@ function set_dot_ready() {
   dot.classList.add('ready');
   statusEl.textContent = 'ComfyUI is starting';
   try { pywebview.api.set_title('Starting...'); } catch(e) {}
+}
+
+var _eziExtState = { active: false, title: '' };
+function _eziExtBarSync() {
+  var b = document.getElementById('ext-back-btn');
+  var t = document.getElementById('ext-title');
+  var on = _eziExtState.active && showingUI;
+  if (b) b.style.display = on ? 'inline-flex' : 'none';
+  if (t) {
+    t.textContent = _eziExtState.title || '';
+    t.title = _eziExtState.title || '';
+    t.style.display = on && _eziExtState.title ? '' : 'none';
+  }
+}
+function __eziExtViewState(active, title) {
+  _eziExtState.active = !!active;
+  _eziExtState.title = active ? (title || '') : '';
+  _eziExtBarSync();
 }
 
 function comfy_webview_ready() {
@@ -3322,6 +3629,7 @@ function toggle() {
   if (showingUI) {
     btn.textContent = '◀ CONSOLE'; statusEl.textContent = ''; dot.style.display = 'none';
     document.getElementById('reload-btn').style.display = 'inline-flex';
+    _eziExtBarSync();
 
     var _slideStarted = false, _slideDone = false;
     var _onSlideEnd, _finishSlideOut;
@@ -3379,6 +3687,7 @@ function toggle() {
     dot.style.display = '';
     statusEl.textContent = uiLoaded ? 'ComfyUI is running' : dot.classList.contains('ready') ? 'ComfyUI is starting' : 'Starting...';
     document.getElementById('reload-btn').style.display = 'none';
+    _eziExtBarSync();
     termPanel.addEventListener('transitionend', function _done() {
       termPanel.removeEventListener('transitionend', _done);
       _playIcoBgDissolve();
@@ -4528,6 +4837,7 @@ function doEziUpdate() {
 }
 
 function switchToConsole(statusMsg) {
+  if (_eziExtState.active) { try { pywebview.api.close_ext_view(); } catch(e) {} }
   document.body.classList.remove('ezi-overlay');
   _eziSetShellExpanded(true);
   panels.style.display = '';

@@ -1,4 +1,5 @@
 @echo off
+set "PSModulePath="
 setlocal
 title ComfyUI-Easy-Install-AMD - Toggle Bitsandbytes
 cd /d "%~dp0..\..\"

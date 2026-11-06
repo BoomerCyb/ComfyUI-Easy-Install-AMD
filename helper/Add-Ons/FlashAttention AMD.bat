@@ -1,4 +1,5 @@
 @echo off
+set "PSModulePath="
 cd /d "%~dp0..\"
 ".\python_embeded\python.exe" amd\maintenance.py flash
 if errorlevel 1 goto failed

@@ -1,4 +1,5 @@
 @echo off
+set "PSModulePath="
 cd /d "%~dp0..\"
 title ComfyUI-Easy-Install-AMD - WTiVo AMD
 rem BoomerCyb and MostAadTech WTiVo nodes plus the PixelArtistry workflows; up-to-date parts are skipped.

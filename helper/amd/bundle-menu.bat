@@ -1,4 +1,5 @@
 @echo off
+set "PSModulePath="
 setlocal
 title ComfyUI-Easy-Install-AMD - ROCm Bundle Manager
 cd /d "%~dp0.."
