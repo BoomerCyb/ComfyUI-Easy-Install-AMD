@@ -1,4 +1,4 @@
-APP_VERSION = "0.1.32-amd"
+APP_VERSION = "0.1.33-amd"
 
 import sys
 import os
@@ -1198,7 +1198,7 @@ EZI_RELEASES_REPO = "BoomerCyb/ComfyUI-Easy-Install-AMD"
 # Ivo's original ComfyUI-Easy-Install, and the release of it this AMD edition is built on
 # (tools/sync_upstream.py sets it). A newer one there is shown as a notice, not installed.
 UPSTREAM_REPO = "Tavris1/ComfyUI-Easy-Install"
-UPSTREAM_VERSION = "3.28.0"
+UPSTREAM_VERSION = "3.30.0"
 
 
 def _ezi_version_key(version):
@@ -1368,6 +1368,41 @@ def _ensure_attention_flags():
         except Exception:
             pass
 
+
+def _ezi_force_foreground(hwnd):
+    if not hwnd:
+        return
+    try:
+        vp = ctypes.c_void_p
+        u32 = ctypes.WinDLL('user32')
+        u32.GetForegroundWindow.restype = vp
+        u32.GetWindowThreadProcessId.argtypes = [vp, vp]
+        u32.GetWindowThreadProcessId.restype = ctypes.c_uint
+        u32.AttachThreadInput.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.c_int]
+        u32.SetWindowPos.argtypes = [vp, vp, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+        for fn in ('IsIconic', 'ShowWindow', 'BringWindowToTop', 'SetForegroundWindow'):
+            getattr(u32, fn).argtypes = [vp] if fn != 'ShowWindow' else [vp, ctypes.c_int]
+        h = vp(int(hwnd))
+        if u32.IsIconic(h):
+            u32.ShowWindow(h, 9)
+        fg = u32.GetForegroundWindow()
+        if fg and int(fg) == int(hwnd):
+            return
+        fg_tid = u32.GetWindowThreadProcessId(vp(fg), None) if fg else 0
+        win_tid = u32.GetWindowThreadProcessId(h, None)
+        attached = False
+        if fg_tid and win_tid and fg_tid != win_tid:
+            attached = bool(u32.AttachThreadInput(fg_tid, win_tid, 1))
+        try:
+            u32.SetWindowPos(h, vp(-1), 0, 0, 0, 0, 0x0043)
+            u32.SetWindowPos(h, vp(-2), 0, 0, 0, 0, 0x0043)
+            u32.BringWindowToTop(h)
+            u32.SetForegroundWindow(h)
+        finally:
+            if attached:
+                u32.AttachThreadInput(fg_tid, win_tid, 0)
+    except Exception:
+        pass
 
 def _get_hwnd(window):
     _vp = ctypes.c_void_p
@@ -8581,6 +8616,13 @@ if __name__ == '__main__':
             _log_error('_restore_on_shown')
 
     window.events.shown += _restore_on_shown
+
+    def _bring_main_to_front():
+        if ADV_CONSOLE:
+            return
+        threading.Timer(0.4, lambda: _ezi_force_foreground(_get_hwnd(window))).start()
+
+    window.events.shown += _bring_main_to_front
 
     try:
         try:
