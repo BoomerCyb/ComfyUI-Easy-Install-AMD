@@ -1,4 +1,4 @@
-VERSION = '0.1.32-amd'
+VERSION = '0.1.33-amd'
 
 import glob
 import os
@@ -610,7 +610,11 @@ def launch_ezi(adv=False):
     cmd = [pythonw, EZI_PY]
     if adv:
         cmd.append('--advanced-console')
-    subprocess.Popen(cmd, cwd=SCRIPT_DIR, creationflags=0x8)
+    proc = subprocess.Popen(cmd, cwd=SCRIPT_DIR, creationflags=0x8)
+    try:
+        ctypes.windll.user32.AllowSetForegroundWindow(int(proc.pid))
+    except Exception:
+        pass
     user32.PostMessageW(g_hwnd, WM_APP_CLOSE, 0, 0)
 
 
@@ -627,7 +631,11 @@ def launch_ezi_with_bat(bat_name, adv=False):
     cmd = [pythonw, EZI_PY, bat_name]
     if adv:
         cmd.append('--advanced-console')
-    subprocess.Popen(cmd, cwd=SCRIPT_DIR, creationflags=0x8)
+    proc = subprocess.Popen(cmd, cwd=SCRIPT_DIR, creationflags=0x8)
+    try:
+        ctypes.windll.user32.AllowSetForegroundWindow(int(proc.pid))
+    except Exception:
+        pass
     user32.PostMessageW(g_hwnd, WM_APP_CLOSE, 0, 0)
 
 
