@@ -176,6 +176,10 @@ The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
 
+### Integrated GPU hidden from ComfyUI - 2026-11-10
+
+On PCs with a Ryzen integrated GPU next to a Radeon card, ComfyUI now sees only the Radeon card. Comfy Kitchen turned its fast matrix-core paths off when any visible GPU lacked them, so the integrated GPU switched them off for the Radeon card too, and KitchenAttention could not start. If you set HIP_VISIBLE_DEVICES or --cuda-device yourself, your choice is kept.
+
 ### Installer window - 2026-11-10
 
 New installs now show the installer window from Ivo's Easy Install 3.30.0: the current step, progress bars, download speed, warnings, and Show log, Copy details and Start ComfyUI buttons. The full log is kept in `ComfyUI-Easy-Install-AMD.log`. If the window cannot start, the installer runs in the console as before.
