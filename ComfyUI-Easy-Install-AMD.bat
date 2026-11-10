@@ -228,7 +228,8 @@ set "CEI_GUI_FLAG=%TEMP%\CEI_AMD_gui_%RANDOM%%RANDOM%.flag"
 del "%CEI_GUI_FLAG%" "%CEI_GUI_FLAG%.cancel" "%CEI_GUI_FLAG%.fail" >nul 2>&1
 echo Starting the installer window...
 start "" /b powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File "%CEI_GUI%" -BatPath "%CEI_BAT%" -Flag "%CEI_GUI_FLAG%"
-for /l %%i in (1,1,10) do (
+rem 20 seconds, not upstream's 10: the first start after a while loads the window parts slowly (first test fell back).
+for /l %%i in (1,1,20) do (
     if exist "%CEI_GUI_FLAG%" goto start_gui_ok
     if exist "%CEI_GUI_FLAG%.fail" goto start_gui_fail
     timeout /t 1 /nobreak >nul

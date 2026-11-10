@@ -158,6 +158,7 @@ Enjoy the original project? Your support helps keep it going.
 Node add-on installers update existing clean Git checkouts before setup. ZIP-installed WTiVo nodes are backed up outside `custom_nodes` before replacement. Nunchaku downloads the current fork with a backup of the previous copy. Update Nodes also runs each node's install batch or Python installer after updating requirements; local source edits stop updates instead of being overwritten.
 
 Modified by **BoomerCyb** from **ivo/Tavris1’s ComfyUI-Easy-Install**, with ROCm integration adapted from **patientx**.
+Help from Claude AI with prompt generation, batch testing and GitHub work.
 
 - Added AMD GPU detection, ROCm bundle management, and AMD-compatible add-ons.
 - Retained EZi Desktop and the original installer layout.
@@ -175,6 +176,10 @@ Modified setup and launcher source is included inside `Helper-CEI.zip`.
 The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
+
+### Installer window - 2026-11-10
+
+New installs now show the installer window from Ivo's Easy Install 3.30.0: the current step, progress bars, download speed, warnings, and Show log, Copy details and Start ComfyUI buttons. The full log is kept in `ComfyUI-Easy-Install-AMD.log`. If the window cannot start, the installer runs in the console as before.
 
 ### EZi 3.30.0 - 2026-11-06
 
