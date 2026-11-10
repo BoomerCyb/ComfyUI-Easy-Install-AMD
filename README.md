@@ -176,6 +176,10 @@ The combined AMD installer is GPL-3.0; original Easy Install components retain
 their MIT terms. Both notices are preserved in `LICENSE`. Downloaded models
 retain their own licenses. This AMD edition is independent of the upstream authors.
 
+### Installer window - 2026-11-10
+
+New installs now show the installer window from Ivo's Easy Install 3.30.0: the current step, progress bars, download speed, warnings, and Show log, Copy details and Start ComfyUI buttons. The full log is kept in `ComfyUI-Easy-Install-AMD.log`. If the window cannot start, the installer runs in the console as before.
+
 ### EZi 3.30.0 - 2026-11-06
 
 The AMD edition now includes Ivo's ComfyUI-Easy-Install 3.28.0 to 3.30.0.

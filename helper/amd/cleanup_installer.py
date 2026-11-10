@@ -36,8 +36,8 @@ def cleanup(root):
             docs.rmdir()
         except OSError:
             print('Retaining docs: it contains additional or changed files.')
-    # Downloaded by the installer to set up portable Python and pip.
-    for name in ('python-bootstrap.zip','get-pip.py'):
+    # Downloaded by the installer to set up portable Python and pip, and the installer window.
+    for name in ('python-bootstrap.zip','get-pip.py','Helper-CEI.ps1'):
         path = root/name
         if path.is_file() and not path.is_symlink():
             path.unlink()

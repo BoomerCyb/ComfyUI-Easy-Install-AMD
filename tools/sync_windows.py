@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 # The release ZIP contents, plus .gitattributes so clones get CRLF batch files.
-USER_FILES = ("ComfyUI-Easy-Install-AMD.bat", "Helper-CEI.zip", "README.md", "LICENSE")
+USER_FILES = ("ComfyUI-Easy-Install-AMD.bat", "Helper-CEI.ps1", "Helper-CEI.zip", "README.md", "LICENSE")
 # Scheduled GitHub Actions run only from the default branch (Windows).
 WORKFLOWS = (".github/workflows/upstream-check.yml",)
 WINDOWS_ONLY = (".gitattributes", ".git", ".github")
