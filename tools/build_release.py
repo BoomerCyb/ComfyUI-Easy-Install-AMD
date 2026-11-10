@@ -28,7 +28,7 @@ RELEASE_ZIP = ROOT / "dist" / "ComfyUI-Easy-Install-AMD.zip"
 RELEASE_DIR = "ComfyUI-Easy-Install-AMD"
 # Generated into Helper-CEI.zip only (not kept in helper/): version and file hashes.
 MANIFEST = "amd/helper-manifest.json"
-RELEASE_FILES = ("ComfyUI-Easy-Install-AMD.bat", "Helper-CEI.zip", "README.md", "LICENSE")
+RELEASE_FILES = ("ComfyUI-Easy-Install-AMD.bat", "Helper-CEI.ps1", "Helper-CEI.zip", "README.md", "LICENSE")
 # Fixed timestamp so rebuilding unchanged sources gives an identical ZIP.
 TIMESTAMP = (2026, 1, 1, 0, 0, 0)
 

@@ -53,12 +53,26 @@ def stage(number, label):
     print(f'\n::::::::::::::: [{number}] {label} :::::::::::::::\n', flush=True)
 
 
+def mark(*parts):
+    """A line for the installer window (Helper-CEI.ps1); the console shows none of them."""
+    if os.environ.get('CEI_WORKER'):
+        print('##' + '|'.join(str(part) for part in parts), flush=True)
+
+
 def main():
     root = Path(__file__).resolve().parent.parent
     py = root / 'python_embeded/python.exe'
+    nodes = json.loads((root / 'amd/nodes.json').read_text(encoding='utf-8'))
+    mark('PLAN', 6, 3, len(nodes), 4)
     stage('1/7', 'Detecting AMD GPU and selecting the RDNA bundle')
+    mark('STEP', 1, 'AMD GPU detection')
     arch = architecture(root)
     print('Detected GPU architecture:', arch, flush=True)
+    mark('INFO', f'GPU architecture {arch}')
+    try:
+        mark('INFO', 'Easy Install ' + json.loads((root / 'amd/helper-manifest.json').read_text(encoding='utf-8'))['version'])
+    except (OSError, ValueError, KeyError):
+        pass
     lock = install_lock.load()
     if lock:
         print('Installing the versions tested with Easy Install', lock['tested']['easy_install'],
@@ -66,6 +80,7 @@ def main():
         if lock.get('pip'):
             pip(py, 'install', 'pip==' + lock['pip'], constrained=False)
     stage('2/7', 'Installing ComfyUI and Easy Install workflows')
+    mark('STEP', 1, 'ComfyUI')
     fresh = not (root / 'ComfyUI/.git').exists()
     clone('https://github.com/Comfy-Org/ComfyUI.git', root / 'ComfyUI')
     if fresh:
@@ -80,11 +95,13 @@ def main():
                 if not destination.exists():
                     shutil.copy2(source, destination)
     stage('3/7', 'Installing the matching PyTorch / ROCm bundle')
+    mark('STEP', 2, 'PyTorch / ROCm bundle')
     # A pinned, published bundle keeps new installations reproducible; the
     # newest nightly changes every day.
     versions = default_versions(arch)
     install_gpu(py, arch, versions)
     stage('4/7', 'Installing EZi Desktop and required Python packages')
+    mark('STEP', 2, 'EZi Desktop and Python packages')
     constraint = root / 'amd/amd-constraints.txt'
     constraints(py, constraint)
     # During setup, also hold every package to the tested version (when locked).
@@ -100,17 +117,18 @@ def main():
             'https://abetlen.github.io/llama-cpp-python/whl/cpu', 'llama-cpp-python')
     except subprocess.CalledProcessError:
         print('Optional CPU llama-cpp wheel unavailable. CUDA llama-cpp is not installed.')
+    mark('STEP', 2, 'ComfyUI requirements')
     pip(py, 'install', '-r', str(root / 'ComfyUI/requirements.txt'))
     manager_req = root / 'ComfyUI/manager_requirements.txt'
     if manager_req.exists():
         pip(py, 'install', '-r', str(manager_req))
     stage('5/7', 'Installing the Easy Install custom-node collection')
-    nodes = json.loads((root / 'amd/nodes.json').read_text(encoding='utf-8'))
     failures = []
     failures.append({'package': 'descript-audio-codec', 'status': 'skipped',
                      'error': 'Optional descript-audiotools requires protobuf<3.20, incompatible with the protected protobuf==4.25.8 stack.'})
     print('Skipping optional descript-audio-codec: its protobuf requirement conflicts with this bundle.', flush=True)
     for node in nodes:
+        mark('STEP', 3, node['name'])
         path = root / 'ComfyUI/custom_nodes' / node['name']
         try:
             fresh = not (path / '.git').exists()
@@ -128,10 +146,12 @@ def main():
             # is not a Git checkout) and continue with the remaining nodes.
             failures.append({'node': node['name'], 'error': str(error)})
             print('Node installation needs attention:', node['name'], '-', error, flush=True)
+            mark('ERR', node['name'])
     (root / 'amd/node-install-report.json').write_text(json.dumps(failures, indent=2), encoding='utf-8')
     from maintenance import patch_rgthree
     patch_rgthree(root / 'ComfyUI/custom_nodes')
     stage('6/7', 'Preparing optional audio tools')
+    mark('STEP', 4, 'Audio tools')
     if not shutil.which('sox'):
         try:
             sox_zip = root / 'amd/sox.zip'
@@ -143,16 +163,20 @@ def main():
                 archive.extractall(root / 'amd')
         except (OSError, ValueError, zipfile.BadZipFile) as error:
             print('Optional SoX installation failed:', error)
+            mark('WARN', 'SoX could not be installed - it can be installed manually later')
     stage('7/7', 'Checking the GPU bundle and creating EZi shortcuts')
+    mark('STEP', 4, 'GPU check')
     # Node installers can ignore constraints; validate the backend again at the end.
     data = receipt(py, arch, versions)
     (root / 'amd/active-bundle.json').write_text(json.dumps(data, indent=2), encoding='utf-8')
     constraints(py, constraint)
     setup_constraint.unlink(missing_ok=True)
     print('ROCm GPU check passed:', data['verified'])
+    mark('STEP', 4, 'Desktop shortcuts')
     shortcut_result = subprocess.run([str(py), str(root / 'amd/shortcuts.py')])
     if shortcut_result.returncode:
         print('Shortcut creation needs attention. Use ComfyUI-Easy-Install-AMD Launcher.bat in the installed folder.')
+        mark('WARN', 'Shortcuts could not be created - use ComfyUI-Easy-Install-AMD Launcher.bat')
     if any('node' in failure for failure in failures):
         print('Some nodes need attention. See amd/node-install-report.json.')
 
