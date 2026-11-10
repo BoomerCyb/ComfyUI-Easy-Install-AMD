@@ -1,6 +1,8 @@
 @echo off
 cd /d "%~dp0"
 setlocal
+set "CEI_WORKER="
+if /I "%~1"=="CEI_WORKER" set "CEI_WORKER=1"
 rem Fix from upstream 3.27.2: PowerShell 7 modules broke the checks below.
 set "PSModulePath="
 rem Checks from upstream 3.26.0: no Administrator rights, no network path, no system or read-only folder.
@@ -37,8 +39,28 @@ for %%I in ("%~dp0.") do set "CEI_FOLDER=%%~fI"
 for %%I in ("%CEI_FOLDER%") do set "CEI_FOLDER_NAME=%%~nxI"
 for %%I in ("%CEI_FOLDER%") do set "CEI_PARENT=%%~dpI"
 if /i "%CEI_FOLDER_NAME%"=="ComfyUI-Easy-Install-AMD-Windows" goto rename_download_folder
+rem The installer window (Helper-CEI.ps1, from upstream 3.30.0) runs this file again as CEI_WORKER and reads its log.
+rem amd\setup.py sends the same ##STEP lines and corrects the plan: steps per stage.
+set "CEI_BAT=%~f0"
+set "CEI_GUI=%~dp0Helper-CEI.ps1"
+set "CEI_STAGES=Preparing|PyTorch and packages|Custom nodes|Finishing"
+set "CEI_PLAN=6|3|60|4"
+if defined CEI_WORKER (
+    set "PYTHONUNBUFFERED=1"
+    set "PIP_PROGRESS_BAR=raw"
+    goto gui_done
+)
+if /I "%~1"=="CEI_CONSOLE" goto gui_done
+if not exist "%CEI_GUI%" goto gui_done
+call :start_gui
+if defined CEI_GUI_OK exit /b 0
+set "CEI_GUI_FAILED=1"
+start "" cmd.exe /d /c ""%CEI_BAT%" CEI_CONSOLE"
+exit /b 0
+:gui_done
 set "CEI_Title=ComfyUI-Easy-Install-AMD - EZi Desktop Edition"
 title %CEI_Title%
+if defined CEI_WORKER goto skip_banner
 color 0C
 call :show_logo
 echo    ComfyUI-Easy-Install - modified AMD / ROCm edition
@@ -49,6 +71,7 @@ echo    Automatic AMD GPU detection and RDNA bundle selection
 echo.
 echo    Install folder: "%~dp0"
 echo.
+:skip_banner
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$c=0; if($env:CEI_ROOT -cmatch '[^\x00-\x7F]'){$c+=1}; if($env:USERPROFILE -cmatch '[^\x00-\x7F]'){$c+=2}; exit $c"
 set "CEI_NA=%errorlevel%"
 if not "%CEI_NA%"=="0" (
@@ -58,7 +81,8 @@ if not "%CEI_NA%"=="0" (
     if "%CEI_NA%"=="3" echo WARNING: Your Windows user folder name contains non-English characters. Installation problems are possible.
     echo Recommended: a short English-only path, for example D:\AI\
     echo.
-    timeout /t 3 /nobreak >nul
+    if defined CEI_WORKER echo ##WARN^|The install path or user folder has non-English characters: problems are possible
+    if not defined CEI_WORKER timeout /t 3 /nobreak >nul
 )
 set "AMD_ROOT=%~dp0."
 if exist "%AMD_ROOT%\.amd-installed" goto installed
@@ -67,6 +91,7 @@ if not exist "%~dp0Helper-CEI.zip" (
     goto failed
 )
 echo ::::::::::::::: Preparing Git and Easy Install helpers :::::::::::::::
+call :step 1 "Git"
 where git.exe >nul 2>&1
 if errorlevel 1 (
     winget.exe install --id Git.Git -e --source winget --scope user --accept-package-agreements --accept-source-agreements
@@ -74,8 +99,10 @@ if errorlevel 1 (
 )
 set "PATH=%LOCALAPPDATA%\Programs\Git\cmd;%ProgramFiles%\Git\cmd;%PATH%"
 if not exist "%AMD_ROOT%\python_embeded" mkdir "%AMD_ROOT%\python_embeded"
+call :step 1 "Helper files"
 tar.exe -xf "%~dp0Helper-CEI.zip" -C "%AMD_ROOT%"
 if errorlevel 1 goto failed
+call :step 1 "Portable Python"
 if exist "%AMD_ROOT%\python_embeded\python.exe" goto python_ready
 echo.
 echo ::::::::::::::: Installing portable Python :::::::::::::::
@@ -115,6 +142,7 @@ if not exist "%AMD_ROOT%\python_embeded\python.exe" (
     echo ..
     echo import site
 )
+call :step 1 "pip"
 if exist "%AMD_ROOT%\python_embeded\Lib\site-packages\pip" goto pip_ready
 curl.exe --fail -L --retry 5 -o "%AMD_ROOT%\get-pip.py" "https://bootstrap.pypa.io/get-pip.py"
 if errorlevel 1 curl.exe --fail -L --retry 5 -o "%AMD_ROOT%\get-pip.py" "https://raw.githubusercontent.com/pypa/get-pip/main/public/get-pip.py"
@@ -135,6 +163,7 @@ echo ::::::::::::::: Setting up ComfyUI-Easy-Install-AMD :::::::::::::::
 if errorlevel 1 goto failed
 >"%AMD_ROOT%\.amd-installed" echo experimental AMD edition
 :installed
+if defined CEI_WORKER goto worker_finish
 echo.
 echo ================================================================
 echo    ComfyUI-Easy-Install-AMD is ready
@@ -153,9 +182,16 @@ if not errorlevel 2 start "" "%AMD_ROOT%\ComfyUI-Easy-Install-AMD Launcher.bat"
 if errorlevel 1 goto failed
 rem (goto) ends this batch first, so deleting it does not print "The batch file cannot be found".
 (goto) 2>nul & del /q "%~f0"
+:worker_finish
+call :step 4 "Cleaning up"
+"%AMD_ROOT%\python_embeded\python.exe" "%AMD_ROOT%\amd\cleanup_installer.py"
+if errorlevel 1 goto failed
+echo ##DONE
+(goto) 2>nul & del /q "%~f0"
 :download_failed
 echo.
 echo Download failed. Check your date and time, Windows updates and antivirus HTTPS scanning.
+if defined CEI_WORKER echo ##FATAL^|Download failed^|Check your date and time, Windows updates and antivirus HTTPS scanning.
 :failed
 echo Installation failed. See the error above; re-run to retry.
 pause
@@ -184,6 +220,35 @@ if exist "%TEMP%\CEI_AMD_deelevate.flag" (
 )
 (echo.>"%TEMP%\CEI_AMD_deelevate.flag") 2>nul
 "%SystemRoot%\explorer.exe" "%~f0"
+exit /b 0
+
+:start_gui
+set "CEI_GUI_OK="
+set "CEI_GUI_FLAG=%TEMP%\CEI_AMD_gui_%RANDOM%%RANDOM%.flag"
+del "%CEI_GUI_FLAG%" "%CEI_GUI_FLAG%.cancel" "%CEI_GUI_FLAG%.fail" >nul 2>&1
+echo Starting the installer window...
+start "" /b powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File "%CEI_GUI%" -BatPath "%CEI_BAT%" -Flag "%CEI_GUI_FLAG%"
+rem 20 seconds, not upstream's 10: the first start after a while loads the window parts slowly (first test fell back).
+for /l %%i in (1,1,20) do (
+    if exist "%CEI_GUI_FLAG%" goto start_gui_ok
+    if exist "%CEI_GUI_FLAG%.fail" goto start_gui_fail
+    timeout /t 1 /nobreak >nul
+)
+type nul > "%CEI_GUI_FLAG%.cancel"
+timeout /t 2 /nobreak >nul
+if exist "%CEI_GUI_FLAG%" goto start_gui_ok
+:start_gui_fail
+del "%CEI_GUI_FLAG%.fail" >nul 2>&1
+echo The installer window could not start. Continuing in the console...
+echo.
+exit /b 0
+:start_gui_ok
+del "%CEI_GUI_FLAG%" >nul 2>&1
+set "CEI_GUI_OK=1"
+exit /b 0
+
+:step
+if defined CEI_WORKER echo ##STEP^|%~1^|%~2
 exit /b 0
 
 :show_logo
