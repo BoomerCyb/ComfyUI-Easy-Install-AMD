@@ -1,4 +1,5 @@
 """ROCm environment shared by EZi Desktop and the command-line launcher."""
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -12,6 +13,35 @@ def architecture(root):
     if not arch.startswith('gfx') or not arch[3:].isalnum():
         raise RuntimeError('AMD GPU detection returned an invalid architecture')
     return arch
+
+
+def discrete_devices(sdk_root, env):
+    """HIP device indexes of the discrete GPUs when the system also has an integrated one, else None.
+
+    comfy-kitchen enables its matrix-core kernels only when every visible device has them, so a
+    Ryzen iGPU (gfx1036 has none) switches them off for the Radeon card as well. amdgpu-arch lists
+    the devices in HIP order without loading PyTorch.
+    """
+    tool = Path(sdk_root) / 'lib/llvm/bin/amdgpu-arch.exe'
+    if not tool.exists():
+        return None
+    try:
+        result = subprocess.run([str(tool)], capture_output=True, text=True, timeout=30, env=env)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    arches = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    integrated = set(_detect_gpu().INTEGRATED_GFX)
+    discrete = [i for i, arch in enumerate(arches) if arch not in integrated]
+    if result.returncode != 0 or not discrete or len(discrete) == len(arches):
+        return None
+    return discrete
+
+
+def _detect_gpu():
+    spec = importlib.util.spec_from_file_location('detect_gpu', Path(__file__).with_name('detect_gpu.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def configure(root, env=None):
@@ -28,6 +58,11 @@ def configure(root, env=None):
     subprocess.run(sdk + ['init'], env=env, check=True)
     sdk_root = subprocess.check_output(sdk + ['path', '--root'], env=env, text=True).strip()
     env['HIP_PATH'] = env['ROCM_PATH'] = sdk_root
+    # a device choice the user made (variable or --cuda-device) wins: main.py applies it after this
+    if not env.get('HIP_VISIBLE_DEVICES') and not env.get('CUDA_VISIBLE_DEVICES'):
+        discrete = discrete_devices(sdk_root, env)
+        if discrete:
+            env['HIP_VISIBLE_DEVICES'] = ','.join(map(str, discrete))
     arch = architecture(root)
     if arch.startswith(('gfx101', 'gfx103')):
         env.update(TORCH_BACKENDS_CUDA_FLASH_SDP_ENABLED='0',
@@ -69,6 +104,8 @@ if __name__ == '__main__':
     install_root = Path(__file__).resolve().parent.parent
     run_env, gpu_arch = configure(install_root)
     print('AMD GPU architecture:', gpu_arch, flush=True)
+    if 'HIP_VISIBLE_DEVICES' in run_env and 'HIP_VISIBLE_DEVICES' not in os.environ:
+        print('Integrated GPU hidden from ComfyUI: HIP_VISIBLE_DEVICES =', run_env['HIP_VISIBLE_DEVICES'], flush=True)
     raise SystemExit(subprocess.call([sys.executable, str(install_root / 'ComfyUI/main.py')]
                                     + startup_args(gpu_arch, sys.argv[1:]),
                                     cwd=install_root, env=run_env))
